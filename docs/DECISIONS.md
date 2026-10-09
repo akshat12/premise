@@ -239,3 +239,13 @@ All three spikes pass, locally (`wrangler dev`) and deployed. Code is in `spikes
 **Publishing.** `scripts/publish-demo-repo.sh <owner>/<name>` exports `demo-repo/` to a temp directory and publishes from there. This replaces the task's `cd demo-repo && git init`, which would have put a git repo inside this one. Re-running it later adds a commit with whatever changed.
 
 **Tests.** The "workers" vitest project now sets `ADMIN_TOKEN`, `REPO_STORE` and `LLM` through the plugin's `miniflare.bindings`, so admin routes can be tested and the results no longer depend on `.dev.vars`.
+
+## 2026-10-09: Google AI Studio free tier (looked at, not tested)
+
+A third LLM option, after the Anthropic key and the Workers AI fallback. Nothing is implemented and no key exists.
+
+- **There is a free tier** for the Flash and Flash-Lite models (`gemini-3.8-flash`, `gemini-3.5-flash-lite` and others) and for `gemini-2.5-pro`. `gemini-3.1-pro-preview` has none. Source: Google's pricing page, updated 2026-10-09.
+- **The daily request cap is the constraint, and I could not confirm it.** Google no longer publishes free-tier numbers in its docs; they are shown per project at `aistudio.google.com/rate-limit`, which needs a login. A post on Google's developer forum (2026-09-03) reports 20 requests per day for `gemini-3.8-flash` and 500 for Flash-Lite. An older article (May 2026) says about 15 per minute and 1,500 per day for Flash. Limits are per project and reset at midnight Pacific.
+- **What Premise needs:** one agent run is roughly 8 to 32 model requests, so a 12-agent demo run with re-derives is roughly 150 to 450 requests, with up to 12 agents calling at once.
+- **Integration:** it needs an API key (a `GEMINI_API_KEY` secret). It has an OpenAI-compatible endpoint (`https://generativelanguage.googleapis.com/v1beta/openai/`, `Authorization: Bearer <key>`) that accepts `tools`, so it could share the chat-completions adapter the Workers AI fallback would need. AI Gateway also proxies it. For Gemini 3 models the model's thought and function-call parts must be sent back unchanged on the next turn; whether the OpenAI-compatible endpoint handles that across tool results is not documented and was not tested.
+- **Data:** content sent on the free tier is used to improve Google's products. The demo repo is public, so that is acceptable here.
