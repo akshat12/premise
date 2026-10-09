@@ -143,3 +143,13 @@ All three spikes pass, locally (`wrangler dev`) and deployed. Code is in `spikes
 - **Deployed:** `https://premise.akshatdivekar.workers.dev`. `/api/health` returns `{"ok":true,"store":"artifacts","llm":"scripted"}`.
 - **`.dev.vars` exists locally** with only `REPO_STORE=memory` and `LLM=scripted`. `ADMIN_TOKEN` (H5) is still not set; T04's admin routes will need it.
 - `.claude/launch.json` holds the dev-server launch config for the Claude desktop preview.
+
+## 2026-10-09: T02 notes (shared types)
+
+- `src/shared/types.ts` and `src/shared/events.ts` are copied from the task file unchanged (extracted with a script, not retyped).
+- `src/shared/ids.ts` choices the spec left open:
+  - `moduleShard` returns `"."` for a file at the repo root (`"root.ts#x"`), and the top directory alone for a file one level down (`"tests/a.test.ts#t"` gives `"tests"`).
+  - `symbolId` throws if either part is empty or contains `#`, so every id it builds can be parsed back.
+  - `newIntentId` uses rejection sampling, so the 8 characters are uniform over base36.
+- The "workers" test project loads `.dev.vars` ("Using secrets defined in .dev.vars"). A local `.dev.vars` with `REPO_STORE=artifacts` would change what those tests see. Keep `.dev.vars` on `memory` and `scripted`, or set bindings explicitly in the test.
+- `src/ui/index.css` uses `../../node_modules/...` in its `@source` line, not the `../node_modules/...` shown in `CLAUDE.md`, because the path is relative to the CSS file and ours is two levels down.

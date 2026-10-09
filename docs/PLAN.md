@@ -33,7 +33,7 @@ Tracks:
 
 - [x] **T00** (B): Spikes. Prove Artifacts fork/read/push from a Worker, TypeScript-in-Worker, and the Dynamic Worker test runner. Depends on: H1–H5
 - [x] **T01** (B): Scaffold the app: Vite, React, Kumo, Worker, bindings, test setup. Depends on: T00
-- [ ] **T02** (B): Shared types and event schema. Depends on: T01
+- [x] **T02** (B): Shared types and event schema. Depends on: T01
 - [ ] **T03** (B): RepoStore port, with a memory implementation and an Artifacts implementation. Depends on: T02
 - [ ] **T04** (B/U): EventHub DO with a WebSocket, an event log and replay, plus the UI hook. Depends on: T02
 - [ ] **T05** (D): Demo target repo, 12 tasks, the planted behavioural scenario, publish and import. Depends on: T01
