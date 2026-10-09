@@ -1,0 +1,9 @@
+node_modules/
+dist/
+.wrangler/
+.dev.vars
+.env
+.env.*
+docs/vendor/
+spikes/node_modules/
+.DS_Store
