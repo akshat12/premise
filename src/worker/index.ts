@@ -1,11 +1,15 @@
 import { DurableObject, WorkflowEntrypoint, type WorkflowEvent, type WorkflowStep } from "cloudflare:workers";
 import { healthBody } from "./health";
+import { handleAdmin } from "./routes/admin";
 
 export default {
 	async fetch(request, env): Promise<Response> {
 		const url = new URL(request.url);
 		if (url.pathname === "/api/health") {
 			return Response.json(healthBody(env));
+		}
+		if (url.pathname.startsWith("/api/admin/")) {
+			return handleAdmin(request, env, url);
 		}
 		if (url.pathname.startsWith("/api/")) {
 			return Response.json({ error: "not found" }, { status: 404 });

@@ -13,3 +13,18 @@ describe("GET /api/health", () => {
 		expect(response.status).toBe(404);
 	});
 });
+
+describe("admin routes", () => {
+	it("reject requests without the admin token", async () => {
+		const response = await exports.default.fetch("http://premise.test/api/admin/smoke", { method: "POST" });
+		expect(response.status).toBe(401);
+	});
+
+	it("reject a wrong admin token", async () => {
+		const response = await exports.default.fetch("http://premise.test/api/admin/smoke", {
+			method: "POST",
+			headers: { "x-admin-token": "definitely-not-the-token" },
+		});
+		expect(response.status).toBe(401);
+	});
+});

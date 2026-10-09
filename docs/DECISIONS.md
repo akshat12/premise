@@ -153,3 +153,21 @@ All three spikes pass, locally (`wrangler dev`) and deployed. Code is in `spikes
   - `newIntentId` uses rejection sampling, so the 8 characters are uniform over base36.
 - The "workers" test project loads `.dev.vars` ("Using secrets defined in .dev.vars"). A local `.dev.vars` with `REPO_STORE=artifacts` would change what those tests see. Keep `.dev.vars` on `memory` and `scripted`, or set bindings explicitly in the test.
 - `src/ui/index.css` uses `../../node_modules/...` in its `@source` line, not the `../node_modules/...` shown in `CLAUDE.md`, because the path is relative to the CSS file and ours is two levels down.
+
+## 2026-10-09: T03 notes (RepoStore)
+
+**Status: code complete; one acceptance step is waiting on the human.** The contract passes 8 of 8 against `MemoryRepoStore` (unit tests) and 8 of 8 against real Artifacts through `npm run dev` (remote binding). The **deployed** `npm run smoke` has not run, because the Worker has no `ADMIN_TOKEN` secret yet (H5). The T03 box in `PLAN.md` stays unticked until it does.
+
+- **Empty repos: `ZERO_SHA`.** A repo with no commits has head `"0" * 40` (exported as `ZERO_SHA` from `ports/repo-store.ts`). Pass it as `expectedHead` to make the first commit, and as `from` in `changedPaths` to mean "everything". `readFile` at `ZERO_SHA` returns null.
+- **Interface additions** beyond the task file: `ZERO_SHA`, `MAX_SNAPSHOT_FILE_BYTES`, `DEFAULT_AUTHOR`, `isCommitSha`. The `RepoStore` method signatures are unchanged. `listFiles` and `changedPaths` return sorted paths.
+- **Bug class to avoid: `using` plus an un-awaited return.** `using repo = await env.ARTIFACTS.get(name)` releases the handle when the function returns. `return somePromise` (without `await`) then fails later with "RPC stub used after being disposed". Always `return await` inside a function that holds a `using` handle. Unit tests cannot catch this; only the real binding does.
+- **Artifacts errors have no `.code` through the remote binding in local dev.** `create()` on an existing repo threw a plain `Error` with message `"ArtifactsError: repo already exists: <name>"` and no `code`. `isArtifactsError` checks the code when there is one and falls back to the message. The message patterns for "fork/create/import in progress" are a guess; the codes are from the generated types.
+- **Writes.** `commit` mints a 600-second write token, shallow-clones (`depth: 1`, `singleBranch`), checks the cloned head against `expectedHead`, applies the changes, commits and pushes. The first commit on an empty repo uses `git.init` instead of a clone. Tokens are left to expire, not revoked. A failed push re-reads the head and throws `StaleHeadError` if it moved.
+- **Reads.** `readFile` and `head` use the binding directly. `listFiles`, `snapshot` and `changedPaths` walk trees with at most 16 reads in flight. `changedPaths` skips subtrees whose hash is unchanged. `snapshot` drops files over 1 MB and files that are not valid UTF-8.
+- **`fork` uses `defaultBranchOnly: true`.**
+- **Filesystem for isomorphic-git:** `ports/memory-fs.ts` (the docs helper, verbatim) plus `ports/git-fs.ts` (the adapter from T00), both copied from `spikes/`.
+- **`MemoryRepoStore`.** `getMemoryStore()` is a module-level singleton: its state is per isolate and is lost on reload. That is fine for `REPO_STORE=memory` local dev and never used when deployed. `resetMemoryStore(seed?)` exists for tests. Refs it understands: `main`, `HEAD`, `refs/heads/main`, or a commit sha.
+- **The contract** (`ports/repo-store.contract.ts`) has no vitest dependency, so the Worker can run it. `contractCases` is the list; `runContract(makeStore, { prefix, parallel, cases })` runs them and removes the repos it made.
+- **`POST /api/admin/smoke`** (header `x-admin-token`) runs the contract against `ArtifactsRepoStore` whatever `REPO_STORE` is, in parallel, then deletes any leftover `smoke-*` repos. It took 16 to 19 s locally. Admin routes fail closed: with no `ADMIN_TOKEN` configured, every request gets 401.
+- **`scripts/smoke.ts`** reads the token from the `ADMIN_TOKEN` environment variable, or from `.dev.vars` if that is unset, so it never has to be typed on a command line.
+- **Real-Artifacts timings seen in the contract run:** a case that creates one repo and makes two commits takes 6 to 8 s; the fork case takes 12 to 14 s.
