@@ -42,6 +42,7 @@ The full product spec is in `docs/SPEC.md`. If anything here conflicts with the 
    - Durable Objects and Workflows are thin shells that call pure logic.
 10. **Dependencies.** Only the ones listed under "Approved dependencies" in `docs/PLAN.md`. Adding another requires a note in `DECISIONS.md` explaining why.
 11. **No containers and no Docker.** We do not use Cloudflare Containers or the Sandbox SDK. Code execution uses Dynamic Workers (the Worker Loader). Typechecking uses the TypeScript compiler API inside the Worker.
+12. **UI work follows `docs/UI.md`.** Light mode only (forced). Intents are drawn as flight strips. There is one orchestrated animation, the premise break. Before you finish any UI task, take a screenshot and do the self-critique pass. If a UI task file and `docs/UI.md` disagree on visual details, `docs/UI.md` wins.
 
 ## Commands (after T01)
 

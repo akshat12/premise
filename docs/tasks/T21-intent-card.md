@@ -6,6 +6,7 @@ Make an intent readable in under 3 seconds:
 - **Drawer:** where each premise came from, and why the agent did what it did.
 
 ## Read first
+- **`docs/UI.md` (design brief: light mode, flight strips, motion, copy, self-critique). Read it first. It wins on visual details.**
 - `CLAUDE.md`: vocabulary rules
 - `docs/SPEC.md`: UI section
 - `src/ui/lib/reduce.ts`
@@ -51,6 +52,12 @@ Three columns.
 - Use exactly "changes" and "relies on".
 - Never use "PR" or "branch".
 - When an intent is stale, the card subtitle is: "A premise broke: re-deriving on new trunk".
+
+## Also in this task
+- **The premise-break moment** from `docs/UI.md`: the red-pen line drawn with an SVG stroke animation, the band crossfade and the annotation. Respect `prefers-reduced-motion`.
+- **Cross-highlight** on chip or ledger hover.
+- **Chip tooltips**: decl, plain-language source and short hash.
+- **Keyboard:** `j`/`k`/`Enter`/`Esc`.
 
 ## Acceptance
 ```

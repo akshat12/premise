@@ -4,6 +4,7 @@
 Build the main screen from `ViewState` (T04 reducer). It plays `src/ui/fixtures/sample-run.json` in replay mode, so the UI can be built and judged before the backend is finished. Add a toggle for live mode.
 
 ## Read first
+- **`docs/UI.md` (design brief: light mode, flight strips, motion, copy, self-critique). Read it first. It wins on visual details.**
 - `CLAUDE.md`: Kumo facts. **Flow has no onClick, no edge labels and no cross-lane edges.**
 - `docs/SPEC.md`: "UI" and "Video"
 - `src/ui/lib/reduce.ts`
@@ -30,21 +31,17 @@ Build the main screen from `ViewState` (T04 reducer). It plays `src/ui/fixtures/
   - `<Flow orientation="horizontal">` containing a Backlog node, then `<Flow.Parallel>` with one `<Flow.List>` per agent intent.
   - Each list's nodes are Intent → Check → Gate → trunk.
   - A node is `disabled` until the intent reaches that stage.
-  - Status colour on the Intent node:
-
-| Status | Colour |
-|---|---|
-| working | neutral |
-| waiting | amber |
-| stale | red |
-| rederiving | violet |
-| landed | green |
-| escalated | red with a 🔔 |
-
+  - **The Intent node is a flight strip**, styled per `docs/UI.md`. Status shows in the strip's left band, plus an icon and a word. Use the "Status → strip left band" table in `docs/UI.md`.
   - Workload intents collapse into one aggregate lane showing counts.
   - Clicking: put a `<button>` inside the element passed to `render`. Clicking it sets `selectedIntentId`.
 - **`LedgerRail`.** Built from `ViewState.ledger`. Sort contested symbols (writer plus readers from other intents) to the top. When a symbol is broken, highlight the reader rows red.
 - **Placeholders.** For the T21 (IntentCard, Drawer) and T22 pieces, render simple placeholders. Do not build them here.
+
+## Also in this task
+- Create `src/ui/theme.css` with the tokens from `docs/UI.md`.
+- Force light mode and record how in DECISIONS.md.
+- Self-host the two fonts with `@fontsource`.
+- Build the Live pill and the empty state.
 
 ## Acceptance
 ```

@@ -4,6 +4,7 @@
 The human's whole job is to dispatch work and settle the rare escalation. Make both one click.
 
 ## Read first
+- **`docs/UI.md` (design brief: light mode, flight strips, motion, copy, self-critique). Read it first. It wins on visual details.**
 - `CLAUDE.md`
 - `src/shared/events.ts`: `human.needed` and `human.resolved`
 - `src/worker/routes/*`: `POST /api/human/:id` and `POST /api/dispatch`
@@ -37,6 +38,10 @@ A left slide-over opened by a "Dispatch" button in the top bar.
   1. POST `/api/dispatch`.
   2. If the workload count is greater than 0, then POST `/api/admin/workload`.
 - **Admin token:** entered once and kept in `sessionStorage`, wrapped in try/catch. It is never in the URL and never logged.
+
+## Also in this task
+- **⌘K command palette** (Kumo `Command Palette`) with Dispatch tasks, Run workload, Jump to <callsign> and Reset demo.
+- **`?` shortcuts sheet.**
 
 ## Acceptance
 ```

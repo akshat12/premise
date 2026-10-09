@@ -100,6 +100,8 @@ Prompt for these reviews: "Review the commits since <last checkpoint> against do
   - `react-dom`
   - `@phosphor-icons/react`
   - `@cloudflare/kumo`
+  - `@fontsource/barlow-condensed`
+  - `@fontsource/ibm-plex-mono`
   - `isomorphic-git`
   - `node-diff3`
   - `typescript` (yes, at runtime, inside the Worker)

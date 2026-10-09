@@ -6,6 +6,7 @@ Make the video and the live stage demo **deterministic and safe**:
 - Show the scale view and the A/B results.
 
 ## Read first
+- **`docs/UI.md` (design brief: light mode, flight strips, motion, copy, self-critique). Read it first. It wins on visual details.**
 - `CLAUDE.md`
 - `docs/SPEC.md`: Video
 - `src/ui/lib/useEventStream.ts`
@@ -51,6 +52,10 @@ A tab that renders `docs/ab-results.json`:
 - A two-column table: baseline vs Premise.
 - The generated headline sentence.
 - The false-positive rate, shown honestly.
+
+## Also in this task
+- **Final polish pass** over the whole UI against the `docs/UI.md` self-critique list. Compare screenshots t20–t23 side by side and fix inconsistencies in spacing, type and colour.
+- **Hard-check light mode** with macOS set to Dark appearance.
 
 ## Acceptance
 ```
