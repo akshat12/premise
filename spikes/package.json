@@ -1,0 +1,24 @@
+{
+  "name": "spikes",
+  "version": "1.0.0",
+  "description": "",
+  "scripts": {
+    "gen": "node scripts/gen-libs.mjs",
+    "dev": "npm run gen && wrangler dev",
+    "deploy": "npm run gen && wrangler deploy",
+    "typecheck": "npm run gen && wrangler types && tsc --noEmit -p ."
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "isomorphic-git": "^1.43.2",
+    "typescript": "^5.9.3",
+    "wrangler": "^4.149.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20261009.1"
+  },
+  "private": true
+}

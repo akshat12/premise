@@ -1,0 +1,10 @@
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "premise-spikes",
+	"main": "src/index.ts",
+	"compatibility_date": "2026-10-01",
+	"compatibility_flags": ["nodejs_compat"],
+	"artifacts": [{ "binding": "ARTIFACTS", "namespace": "premise-spike" }],
+	"worker_loaders": [{ "binding": "LOADER" }],
+	"define": { "__filename": "\"/typescript.js\"", "__dirname": "\"/\"" }
+}
