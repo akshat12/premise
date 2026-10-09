@@ -1,9 +1,16 @@
 import { Button, Flow } from "@cloudflare/kumo";
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { reduceAll } from "./lib/reduce";
+import { type StreamSource, useEventStream } from "./lib/useEventStream";
 
-// T01 smoke render only: proves Kumo, Tailwind and the Worker API are wired up.
+// Smoke render only (T01, T04): proves Kumo, Tailwind, the Worker API and the live event stream are wired up.
+// T20 replaces this with the real shell.
+const LIVE: StreamSource = { kind: "live", url: "/api/events/ws" };
+
 export function App() {
 	const [health, setHealth] = useState<string>("not checked");
+	const { events, connected } = useEventStream(LIVE);
+	const view = useMemo(() => reduceAll(events), [events]);
 
 	async function checkHealth() {
 		const response = await fetch("/api/health");
@@ -19,6 +26,10 @@ export function App() {
 				</Button>
 				<code data-testid="health">{health}</code>
 			</div>
+			<p data-testid="stream">
+				Event stream: {connected ? "connected" : "disconnected"} · {events.length} events · {Object.keys(view.intents).length} Intents ·{" "}
+				{view.markers.at(-1) ?? "no markers"}
+			</p>
 			<Flow canvas={false}>
 				<Flow.Node>Intent</Flow.Node>
 				<Flow.Node>Gate</Flow.Node>

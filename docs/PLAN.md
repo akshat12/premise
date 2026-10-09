@@ -35,7 +35,7 @@ Tracks:
 - [x] **T01** (B): Scaffold the app: Vite, React, Kumo, Worker, bindings, test setup. Depends on: T00
 - [x] **T02** (B): Shared types and event schema. Depends on: T01
 - [ ] **T03** (B): RepoStore port, with a memory implementation and an Artifacts implementation. Depends on: T02
-- [ ] **T04** (B/U): EventHub DO with a WebSocket, an event log and replay, plus the UI hook. Depends on: T02
+- [x] **T04** (B/U): EventHub DO with a WebSocket, an event log and replay, plus the UI hook. Depends on: T02
 - [ ] **T05** (D): Demo target repo, 12 tasks, the planted behavioural scenario, publish and import. Depends on: T01
 
 ### Day 2 (Fri Oct 9 to Sat Oct 10): symbols, premises, ledger; UI starts

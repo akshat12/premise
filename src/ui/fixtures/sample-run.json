@@ -1,0 +1,1476 @@
+[
+	{
+		"t": "metrics",
+		"metrics": {
+			"agentsActive": 0,
+			"intentsLanded": 0,
+			"brokenBuildsOnTrunk": 0,
+			"behaviouralRegressionsOnTrunk": 0,
+			"humanMerges": 0,
+			"premisesBroken": 0,
+			"rederives": {
+				"started": 0,
+				"succeeded": 0,
+				"failed": 0
+			},
+			"forksCreated": 0,
+			"pushes": 0
+		},
+		"seq": 1,
+		"ts": 1791824400100
+	},
+	{
+		"t": "intent.created",
+		"intent": {
+			"id": "i01nullxp",
+			"kind": "agent",
+			"taskId": "t01-null-expired",
+			"goal": "Make verifySession return null for expired sessions instead of throwing",
+			"status": "planning",
+			"claims": [],
+			"premises": [],
+			"why": [],
+			"baseCommit": "b65e2bba1a52e9fa7a34d06846fc57154a9f4251",
+			"headCommit": null,
+			"rederiveAttempts": 0
+		},
+		"seq": 2,
+		"ts": 1791824400250
+	},
+	{
+		"t": "intent.created",
+		"intent": {
+			"id": "i02auditx",
+			"kind": "agent",
+			"taskId": "t02-audit-expired",
+			"goal": "Write an audit log entry when a login arrives with an expired session",
+			"status": "planning",
+			"claims": [],
+			"premises": [],
+			"why": [],
+			"baseCommit": "b65e2bba1a52e9fa7a34d06846fc57154a9f4251",
+			"headCommit": null,
+			"rederiveAttempts": 0
+		},
+		"seq": 3,
+		"ts": 1791824400400
+	},
+	{
+		"t": "intent.created",
+		"intent": {
+			"id": "i03metric",
+			"kind": "agent",
+			"taskId": "t03-expired-metrics",
+			"goal": "Increment metrics.sessionsExpired when a request hits an expired session",
+			"status": "planning",
+			"claims": [],
+			"premises": [],
+			"why": [],
+			"baseCommit": "b65e2bba1a52e9fa7a34d06846fc57154a9f4251",
+			"headCommit": null,
+			"rederiveAttempts": 0
+		},
+		"seq": 4,
+		"ts": 1791824400550
+	},
+	{
+		"t": "intent.created",
+		"intent": {
+			"id": "i04ttlhdr",
+			"kind": "agent",
+			"taskId": "t04-session-ttl-header",
+			"goal": "Add an X-Session-TTL header to authenticated responses",
+			"status": "planning",
+			"claims": [],
+			"premises": [],
+			"why": [],
+			"baseCommit": "b65e2bba1a52e9fa7a34d06846fc57154a9f4251",
+			"headCommit": null,
+			"rederiveAttempts": 0
+		},
+		"seq": 5,
+		"ts": 1791824400700
+	},
+	{
+		"t": "intent.created",
+		"intent": {
+			"id": "i05taxrnd",
+			"kind": "agent",
+			"taskId": "t05-tax-rounding",
+			"goal": "Round tax half-to-even per line item",
+			"status": "planning",
+			"claims": [],
+			"premises": [],
+			"why": [],
+			"baseCommit": "b65e2bba1a52e9fa7a34d06846fc57154a9f4251",
+			"headCommit": null,
+			"rederiveAttempts": 0
+		},
+		"seq": 6,
+		"ts": 1791824400850
+	},
+	{
+		"t": "intent.created",
+		"intent": {
+			"id": "i06discnt",
+			"kind": "agent",
+			"taskId": "t06-discount-stacking",
+			"goal": "Apply at most one percentage discount and one fixed discount per invoice",
+			"status": "planning",
+			"claims": [],
+			"premises": [],
+			"why": [],
+			"baseCommit": "b65e2bba1a52e9fa7a34d06846fc57154a9f4251",
+			"headCommit": null,
+			"rederiveAttempts": 0
+		},
+		"seq": 7,
+		"ts": 1791824401000
+	},
+	{
+		"t": "intent.created",
+		"intent": {
+			"id": "i07rolech",
+			"kind": "agent",
+			"taskId": "t07-role-check",
+			"goal": "Add a canAccess helper that checks a role against a resource",
+			"status": "planning",
+			"claims": [],
+			"premises": [],
+			"why": [],
+			"baseCommit": "b65e2bba1a52e9fa7a34d06846fc57154a9f4251",
+			"headCommit": null,
+			"rederiveAttempts": 0
+		},
+		"seq": 8,
+		"ts": 1791824401150
+	},
+	{
+		"t": "intent.created",
+		"intent": {
+			"id": "i08profil",
+			"kind": "agent",
+			"taskId": "t08-profile-validation",
+			"goal": "Reject display names longer than 64 characters",
+			"status": "planning",
+			"claims": [],
+			"premises": [],
+			"why": [],
+			"baseCommit": "b65e2bba1a52e9fa7a34d06846fc57154a9f4251",
+			"headCommit": null,
+			"rederiveAttempts": 0
+		},
+		"seq": 9,
+		"ts": 1791824401300
+	},
+	{
+		"t": "intent.created",
+		"intent": {
+			"id": "i09curfmt",
+			"kind": "agent",
+			"taskId": "t09-currency-format",
+			"goal": "Format zero-decimal currencies without a fraction",
+			"status": "planning",
+			"claims": [],
+			"premises": [],
+			"why": [],
+			"baseCommit": "b65e2bba1a52e9fa7a34d06846fc57154a9f4251",
+			"headCommit": null,
+			"rederiveAttempts": 0
+		},
+		"seq": 10,
+		"ts": 1791824401450
+	},
+	{
+		"t": "intent.created",
+		"intent": {
+			"id": "i10invnum",
+			"kind": "agent",
+			"taskId": "t10-invoice-numbering",
+			"goal": "Number invoices per calendar year",
+			"status": "planning",
+			"claims": [],
+			"premises": [],
+			"why": [],
+			"baseCommit": "b65e2bba1a52e9fa7a34d06846fc57154a9f4251",
+			"headCommit": null,
+			"rederiveAttempts": 0
+		},
+		"seq": 11,
+		"ts": 1791824401600
+	},
+	{
+		"t": "intent.created",
+		"intent": {
+			"id": "i11ratelm",
+			"kind": "agent",
+			"taskId": "t11-expired-rate-limit",
+			"goal": "Count requests with an expired session against the login rate limit",
+			"status": "planning",
+			"claims": [],
+			"premises": [],
+			"why": [],
+			"baseCommit": "b65e2bba1a52e9fa7a34d06846fc57154a9f4251",
+			"headCommit": null,
+			"rederiveAttempts": 0
+		},
+		"seq": 12,
+		"ts": 1791824401750
+	},
+	{
+		"t": "intent.created",
+		"intent": {
+			"id": "i12passwd",
+			"kind": "agent",
+			"taskId": "t12-password-policy",
+			"goal": "Require at least 12 characters and one digit in new passwords",
+			"status": "planning",
+			"claims": [],
+			"premises": [],
+			"why": [],
+			"baseCommit": "b65e2bba1a52e9fa7a34d06846fc57154a9f4251",
+			"headCommit": null,
+			"rederiveAttempts": 0
+		},
+		"seq": 13,
+		"ts": 1791824401900
+	},
+	{
+		"t": "artifacts",
+		"type": "repo.forked",
+		"repo": "i01nullxp",
+		"detail": {
+			"source": "trunk",
+			"forks": 12
+		},
+		"seq": 14,
+		"ts": 1791824402000
+	},
+	{
+		"t": "metrics",
+		"metrics": {
+			"agentsActive": 12,
+			"intentsLanded": 0,
+			"brokenBuildsOnTrunk": 0,
+			"behaviouralRegressionsOnTrunk": 0,
+			"humanMerges": 0,
+			"premisesBroken": 0,
+			"rederives": {
+				"started": 0,
+				"succeeded": 0,
+				"failed": 0
+			},
+			"forksCreated": 12,
+			"pushes": 0
+		},
+		"seq": 15,
+		"ts": 1791824402100
+	},
+	{
+		"t": "premise.recorded",
+		"id": "i01nullxp",
+		"premise": {
+			"symbol": "src/auth/session.ts#SessionExpiredError",
+			"source": "observed",
+			"surfaceHash": "5b3d539f7702c5b4",
+			"state": "holding"
+		},
+		"seq": 16,
+		"ts": 1791824402350
+	},
+	{
+		"t": "premise.recorded",
+		"id": "i02auditx",
+		"premise": {
+			"symbol": "src/auth/session.ts#verifySession",
+			"source": "observed",
+			"surfaceHash": "9d748c07dcbaf86c",
+			"state": "holding"
+		},
+		"seq": 17,
+		"ts": 1791824402600
+	},
+	{
+		"t": "premise.recorded",
+		"id": "i02auditx",
+		"premise": {
+			"symbol": "src/auth/session.ts#verifySession",
+			"source": "asserted",
+			"surfaceHash": null,
+			"assertion": {
+				"id": "a-session-throws",
+				"description": "verifySession throws SessionExpiredError on expired tokens",
+				"code": "const store = createMemorySessionStore([{ id: 's1', userId: 'u1', expiresAt: 0 }]); assert.throws(() => verifySession('s1', store, () => 10), SessionExpiredError);",
+				"imports": [
+					"src/auth/session.ts",
+					"src/store/memory-store.ts"
+				]
+			},
+			"state": "holding"
+		},
+		"seq": 18,
+		"ts": 1791824402850
+	},
+	{
+		"t": "premise.recorded",
+		"id": "i03metric",
+		"premise": {
+			"symbol": "src/auth/session.ts#verifySession",
+			"source": "observed",
+			"surfaceHash": "9d748c07dcbaf86c",
+			"state": "holding"
+		},
+		"seq": 19,
+		"ts": 1791824403100
+	},
+	{
+		"t": "premise.recorded",
+		"id": "i03metric",
+		"premise": {
+			"symbol": "src/auth/session.ts#verifySession",
+			"source": "asserted",
+			"surfaceHash": null,
+			"assertion": {
+				"id": "a-session-throws",
+				"description": "verifySession throws SessionExpiredError on expired tokens",
+				"code": "const store = createMemorySessionStore([{ id: 's1', userId: 'u1', expiresAt: 0 }]); assert.throws(() => verifySession('s1', store, () => 10), SessionExpiredError);",
+				"imports": [
+					"src/auth/session.ts",
+					"src/store/memory-store.ts"
+				]
+			},
+			"state": "holding"
+		},
+		"seq": 20,
+		"ts": 1791824403350
+	},
+	{
+		"t": "premise.recorded",
+		"id": "i11ratelm",
+		"premise": {
+			"symbol": "src/auth/session.ts#verifySession",
+			"source": "observed",
+			"surfaceHash": "9d748c07dcbaf86c",
+			"state": "holding"
+		},
+		"seq": 21,
+		"ts": 1791824403600
+	},
+	{
+		"t": "premise.recorded",
+		"id": "i11ratelm",
+		"premise": {
+			"symbol": "src/auth/session.ts#verifySession",
+			"source": "asserted",
+			"surfaceHash": null,
+			"assertion": {
+				"id": "a-session-throws",
+				"description": "verifySession throws SessionExpiredError on expired tokens",
+				"code": "const store = createMemorySessionStore([{ id: 's1', userId: 'u1', expiresAt: 0 }]); assert.throws(() => verifySession('s1', store, () => 10), SessionExpiredError);",
+				"imports": [
+					"src/auth/session.ts",
+					"src/store/memory-store.ts"
+				]
+			},
+			"state": "holding"
+		},
+		"seq": 22,
+		"ts": 1791824403850
+	},
+	{
+		"t": "premise.recorded",
+		"id": "i04ttlhdr",
+		"premise": {
+			"symbol": "src/auth/session.ts#verifySession",
+			"source": "observed",
+			"surfaceHash": "9d748c07dcbaf86c",
+			"state": "holding"
+		},
+		"seq": 23,
+		"ts": 1791824404100
+	},
+	{
+		"t": "premise.recorded",
+		"id": "i05taxrnd",
+		"premise": {
+			"symbol": "src/billing/invoice.ts#computeTotal",
+			"source": "observed",
+			"surfaceHash": "c13d3d65fb8cf250",
+			"state": "holding"
+		},
+		"seq": 24,
+		"ts": 1791824404350
+	},
+	{
+		"t": "premise.recorded",
+		"id": "i06discnt",
+		"premise": {
+			"symbol": "src/billing/invoice.ts#computeTotal",
+			"source": "observed",
+			"surfaceHash": "c13d3d65fb8cf250",
+			"state": "holding"
+		},
+		"seq": 25,
+		"ts": 1791824404600
+	},
+	{
+		"t": "claim.decision",
+		"id": "i01nullxp",
+		"decision": {
+			"kind": "granted"
+		},
+		"symbols": [
+			"src/auth/session.ts#verifySession"
+		],
+		"seq": 26,
+		"ts": 1791824404900
+	},
+	{
+		"t": "claim.decision",
+		"id": "i02auditx",
+		"decision": {
+			"kind": "granted"
+		},
+		"symbols": [
+			"src/auth/login.ts#handleLogin"
+		],
+		"seq": 27,
+		"ts": 1791824405200
+	},
+	{
+		"t": "claim.decision",
+		"id": "i03metric",
+		"decision": {
+			"kind": "granted"
+		},
+		"symbols": [
+			"src/api/handlers.ts#authenticate"
+		],
+		"seq": 28,
+		"ts": 1791824405500
+	},
+	{
+		"t": "claim.decision",
+		"id": "i04ttlhdr",
+		"decision": {
+			"kind": "granted"
+		},
+		"symbols": [
+			"src/api/responses.ts#withSessionHeaders"
+		],
+		"seq": 29,
+		"ts": 1791824405800
+	},
+	{
+		"t": "claim.decision",
+		"id": "i11ratelm",
+		"decision": {
+			"kind": "granted"
+		},
+		"symbols": [
+			"src/auth/rate-limit.ts#guardRequest"
+		],
+		"seq": 30,
+		"ts": 1791824406100
+	},
+	{
+		"t": "claim.decision",
+		"id": "i05taxrnd",
+		"decision": {
+			"kind": "granted"
+		},
+		"symbols": [
+			"src/billing/tax.ts#taxFor",
+			"src/billing/invoice.ts#computeTotal"
+		],
+		"seq": 31,
+		"ts": 1791824406400
+	},
+	{
+		"t": "intent.why",
+		"id": "i01nullxp",
+		"why": [
+			"Callers want one 'no session' path.",
+			"Return type is already Session | null.",
+			"No signature change."
+		],
+		"seq": 32,
+		"ts": 1791824406600
+	},
+	{
+		"t": "intent.why",
+		"id": "i02auditx",
+		"why": [
+			"verifySession throws on expiry.",
+			"Record the audit entry in the catch branch."
+		],
+		"seq": 33,
+		"ts": 1791824406800
+	},
+	{
+		"t": "claim.decision",
+		"id": "i06discnt",
+		"decision": {
+			"kind": "split",
+			"with": "i05taxrnd",
+			"proposal": {
+				"mine": [
+					"src/billing/discount.ts#applyDiscounts"
+				],
+				"theirs": [
+					"src/billing/invoice.ts#computeTotal"
+				]
+			}
+		},
+		"symbols": [
+			"src/billing/discount.ts#applyDiscounts",
+			"src/billing/invoice.ts#computeTotal"
+		],
+		"seq": 34,
+		"ts": 1791824407300
+	},
+	{
+		"t": "claim.decision",
+		"id": "i06discnt",
+		"decision": {
+			"kind": "granted"
+		},
+		"symbols": [
+			"src/billing/discount.ts#applyDiscounts"
+		],
+		"seq": 35,
+		"ts": 1791824407600
+	},
+	{
+		"t": "claim.decision",
+		"id": "i07rolech",
+		"decision": {
+			"kind": "granted"
+		},
+		"symbols": [
+			"src/users/roles.ts#canAccess"
+		],
+		"seq": 36,
+		"ts": 1791824407900
+	},
+	{
+		"t": "claim.decision",
+		"id": "i08profil",
+		"decision": {
+			"kind": "granted"
+		},
+		"symbols": [
+			"src/users/profile.ts#validateProfile"
+		],
+		"seq": 37,
+		"ts": 1791824408200
+	},
+	{
+		"t": "claim.decision",
+		"id": "i09curfmt",
+		"decision": {
+			"kind": "granted"
+		},
+		"symbols": [
+			"src/billing/currency.ts#formatMoney"
+		],
+		"seq": 38,
+		"ts": 1791824408500
+	},
+	{
+		"t": "claim.decision",
+		"id": "i12passwd",
+		"decision": {
+			"kind": "granted"
+		},
+		"symbols": [
+			"src/auth/password.ts#checkPasswordPolicy"
+		],
+		"seq": 39,
+		"ts": 1791824408800
+	},
+	{
+		"t": "claim.decision",
+		"id": "i10invnum",
+		"decision": {
+			"kind": "wait",
+			"on": "i05taxrnd",
+			"symbols": [
+				"src/billing/invoice.ts#computeTotal"
+			]
+		},
+		"symbols": [
+			"src/billing/invoice.ts#nextInvoiceNumber",
+			"src/billing/invoice.ts#computeTotal"
+		],
+		"seq": 40,
+		"ts": 1791824409200
+	},
+	{
+		"t": "intent.status",
+		"id": "i10invnum",
+		"status": "escalated",
+		"note": "Stalemate with t05-tax-rounding over src/billing/invoice.ts",
+		"seq": 41,
+		"ts": 1791824409500
+	},
+	{
+		"t": "human.needed",
+		"id": "i10invnum",
+		"kind": "stalemate",
+		"message": "t10-invoice-numbering and t05-tax-rounding both want computeTotal and neither has landed.",
+		"options": [
+			"Wait",
+			"Split",
+			"Depend"
+		],
+		"seq": 42,
+		"ts": 1791824409600
+	},
+	{
+		"t": "intent.status",
+		"id": "i01nullxp",
+		"status": "working",
+		"seq": 43,
+		"ts": 1791824409800
+	},
+	{
+		"t": "intent.status",
+		"id": "i02auditx",
+		"status": "working",
+		"seq": 44,
+		"ts": 1791824410000
+	},
+	{
+		"t": "intent.status",
+		"id": "i03metric",
+		"status": "working",
+		"seq": 45,
+		"ts": 1791824410200
+	},
+	{
+		"t": "intent.status",
+		"id": "i11ratelm",
+		"status": "working",
+		"seq": 46,
+		"ts": 1791824410400
+	},
+	{
+		"t": "intent.status",
+		"id": "i04ttlhdr",
+		"status": "working",
+		"seq": 47,
+		"ts": 1791824410600
+	},
+	{
+		"t": "intent.status",
+		"id": "i05taxrnd",
+		"status": "working",
+		"seq": 48,
+		"ts": 1791824410800
+	},
+	{
+		"t": "intent.status",
+		"id": "i06discnt",
+		"status": "working",
+		"seq": 49,
+		"ts": 1791824411000
+	},
+	{
+		"t": "intent.status",
+		"id": "i07rolech",
+		"status": "working",
+		"seq": 50,
+		"ts": 1791824411200
+	},
+	{
+		"t": "human.resolved",
+		"id": "i10invnum",
+		"choice": "Wait",
+		"seq": 51,
+		"ts": 1791824412700
+	},
+	{
+		"t": "intent.status",
+		"id": "i10invnum",
+		"status": "waiting",
+		"note": "Waiting on t05-tax-rounding",
+		"seq": 52,
+		"ts": 1791824412800
+	},
+	{
+		"t": "intent.status",
+		"id": "i01nullxp",
+		"status": "submitted",
+		"seq": 53,
+		"ts": 1791824415300
+	},
+	{
+		"t": "push.checked",
+		"id": "i01nullxp",
+		"commit": "4cc4cd4f0ce0cebc55f43f7ad115bada1bb9932c",
+		"touched": [
+			"src/auth/session.ts#verifySession"
+		],
+		"outOfClaim": [],
+		"seq": 54,
+		"ts": 1791824415800
+	},
+	{
+		"t": "intent.status",
+		"id": "i01nullxp",
+		"status": "queued",
+		"seq": 55,
+		"ts": 1791824416000
+	},
+	{
+		"t": "intent.status",
+		"id": "i01nullxp",
+		"status": "gating",
+		"seq": 56,
+		"ts": 1791824416600
+	},
+	{
+		"t": "gate.result",
+		"report": {
+			"intentId": "i01nullxp",
+			"path": "rebase",
+			"textConflict": false,
+			"typecheck": {
+				"ok": true,
+				"errors": []
+			},
+			"tests": {
+				"passed": [
+					"t01-null-expired-ac1"
+				],
+				"failed": []
+			},
+			"assertions": {
+				"passed": [],
+				"failed": []
+			},
+			"ok": true,
+			"landedCommit": "8f2872d16d72f1fe8054ebc24261bcc88dcef2ea",
+			"durationMs": 4200
+		},
+		"seq": 57,
+		"ts": 1791824417500
+	},
+	{
+		"t": "trunk.advanced",
+		"commit": "8f2872d16d72f1fe8054ebc24261bcc88dcef2ea",
+		"byIntent": "i01nullxp",
+		"changedSymbols": [
+			"src/auth/session.ts#verifySession"
+		],
+		"seq": 58,
+		"ts": 1791824417700
+	},
+	{
+		"t": "intent.status",
+		"id": "i01nullxp",
+		"status": "landed",
+		"seq": 59,
+		"ts": 1791824417850
+	},
+	{
+		"t": "metrics",
+		"metrics": {
+			"agentsActive": 11,
+			"intentsLanded": 1,
+			"brokenBuildsOnTrunk": 0,
+			"behaviouralRegressionsOnTrunk": 0,
+			"humanMerges": 0,
+			"premisesBroken": 0,
+			"rederives": {
+				"started": 0,
+				"succeeded": 0,
+				"failed": 0
+			},
+			"forksCreated": 12,
+			"pushes": 1
+		},
+		"seq": 60,
+		"ts": 1791824417950
+	},
+	{
+		"t": "premise.broken",
+		"id": "i02auditx",
+		"symbol": "src/auth/session.ts#verifySession",
+		"byIntent": "i01nullxp",
+		"commit": "8f2872d16d72f1fe8054ebc24261bcc88dcef2ea",
+		"reason": "verifySession no longer throws SessionExpiredError on expired tokens (assertion a-session-throws failed)",
+		"seq": 61,
+		"ts": 1791824418200
+	},
+	{
+		"t": "intent.status",
+		"id": "i02auditx",
+		"status": "stale",
+		"note": "A premise broke on trunk",
+		"seq": 62,
+		"ts": 1791824418300
+	},
+	{
+		"t": "premise.broken",
+		"id": "i03metric",
+		"symbol": "src/auth/session.ts#verifySession",
+		"byIntent": "i01nullxp",
+		"commit": "8f2872d16d72f1fe8054ebc24261bcc88dcef2ea",
+		"reason": "verifySession no longer throws SessionExpiredError on expired tokens (assertion a-session-throws failed)",
+		"seq": 63,
+		"ts": 1791824418550
+	},
+	{
+		"t": "intent.status",
+		"id": "i03metric",
+		"status": "stale",
+		"note": "A premise broke on trunk",
+		"seq": 64,
+		"ts": 1791824418650
+	},
+	{
+		"t": "premise.broken",
+		"id": "i11ratelm",
+		"symbol": "src/auth/session.ts#verifySession",
+		"byIntent": "i01nullxp",
+		"commit": "8f2872d16d72f1fe8054ebc24261bcc88dcef2ea",
+		"reason": "verifySession no longer throws SessionExpiredError on expired tokens (assertion a-session-throws failed)",
+		"seq": 65,
+		"ts": 1791824418900
+	},
+	{
+		"t": "intent.status",
+		"id": "i11ratelm",
+		"status": "stale",
+		"note": "A premise broke on trunk",
+		"seq": 66,
+		"ts": 1791824419000
+	},
+	{
+		"t": "metrics",
+		"metrics": {
+			"agentsActive": 11,
+			"intentsLanded": 1,
+			"brokenBuildsOnTrunk": 0,
+			"behaviouralRegressionsOnTrunk": 0,
+			"humanMerges": 0,
+			"premisesBroken": 3,
+			"rederives": {
+				"started": 0,
+				"succeeded": 0,
+				"failed": 0
+			},
+			"forksCreated": 12,
+			"pushes": 1
+		},
+		"seq": 67,
+		"ts": 1791824419100
+	},
+	{
+		"t": "intent.status",
+		"id": "i02auditx",
+		"status": "rederiving",
+		"seq": 68,
+		"ts": 1791824419400
+	},
+	{
+		"t": "rederive.race",
+		"id": "i02auditx",
+		"rebase": "pending",
+		"rederive": "pending",
+		"seq": 69,
+		"ts": 1791824419500
+	},
+	{
+		"t": "intent.status",
+		"id": "i03metric",
+		"status": "rederiving",
+		"seq": 70,
+		"ts": 1791824419800
+	},
+	{
+		"t": "rederive.race",
+		"id": "i03metric",
+		"rebase": "pending",
+		"rederive": "pending",
+		"seq": 71,
+		"ts": 1791824419900
+	},
+	{
+		"t": "intent.status",
+		"id": "i11ratelm",
+		"status": "rederiving",
+		"seq": 72,
+		"ts": 1791824420200
+	},
+	{
+		"t": "rederive.race",
+		"id": "i11ratelm",
+		"rebase": "pending",
+		"rederive": "pending",
+		"seq": 73,
+		"ts": 1791824420300
+	},
+	{
+		"t": "artifacts",
+		"type": "repo.forked",
+		"repo": "i02auditx-r1",
+		"detail": {
+			"source": "trunk",
+			"forks": 3
+		},
+		"seq": 74,
+		"ts": 1791824420400
+	},
+	{
+		"t": "metrics",
+		"metrics": {
+			"agentsActive": 11,
+			"intentsLanded": 1,
+			"brokenBuildsOnTrunk": 0,
+			"behaviouralRegressionsOnTrunk": 0,
+			"humanMerges": 0,
+			"premisesBroken": 3,
+			"rederives": {
+				"started": 3,
+				"succeeded": 0,
+				"failed": 0
+			},
+			"forksCreated": 15,
+			"pushes": 1
+		},
+		"seq": 75,
+		"ts": 1791824420500
+	},
+	{
+		"t": "rederive.race",
+		"id": "i02auditx",
+		"rebase": "fail",
+		"rederive": "pending",
+		"seq": 76,
+		"ts": 1791824422300
+	},
+	{
+		"t": "rederive.race",
+		"id": "i03metric",
+		"rebase": "fail",
+		"rederive": "pending",
+		"seq": 77,
+		"ts": 1791824424100
+	},
+	{
+		"t": "rederive.race",
+		"id": "i11ratelm",
+		"rebase": "fail",
+		"rederive": "pending",
+		"seq": 78,
+		"ts": 1791824425900
+	},
+	{
+		"t": "demo.marker",
+		"label": "⏩ 2 min compressed",
+		"seq": 79,
+		"ts": 1791824545900
+	},
+	{
+		"t": "rederive.race",
+		"id": "i02auditx",
+		"rebase": "fail",
+		"rederive": "pass",
+		"winner": "rederive",
+		"seq": 80,
+		"ts": 1791824547100
+	},
+	{
+		"t": "rederive.race",
+		"id": "i03metric",
+		"rebase": "fail",
+		"rederive": "pass",
+		"winner": "rederive",
+		"seq": 81,
+		"ts": 1791824548300
+	},
+	{
+		"t": "rederive.race",
+		"id": "i11ratelm",
+		"rebase": "fail",
+		"rederive": "pass",
+		"winner": "rederive",
+		"seq": 82,
+		"ts": 1791824549500
+	},
+	{
+		"t": "metrics",
+		"metrics": {
+			"agentsActive": 11,
+			"intentsLanded": 1,
+			"brokenBuildsOnTrunk": 0,
+			"behaviouralRegressionsOnTrunk": 0,
+			"humanMerges": 0,
+			"premisesBroken": 3,
+			"rederives": {
+				"started": 3,
+				"succeeded": 3,
+				"failed": 0
+			},
+			"forksCreated": 15,
+			"pushes": 1
+		},
+		"seq": 83,
+		"ts": 1791824549600
+	},
+	{
+		"t": "intent.status",
+		"id": "i02auditx",
+		"status": "gating",
+		"seq": 84,
+		"ts": 1791824550200
+	},
+	{
+		"t": "gate.result",
+		"report": {
+			"intentId": "i02auditx",
+			"path": "rederive",
+			"textConflict": false,
+			"typecheck": {
+				"ok": true,
+				"errors": []
+			},
+			"tests": {
+				"passed": [
+					"t02-audit-expired-ac1"
+				],
+				"failed": []
+			},
+			"assertions": {
+				"passed": [],
+				"failed": []
+			},
+			"ok": true,
+			"landedCommit": "b249d4b5b50e35a13e9230758261abe54da217a0",
+			"durationMs": 4200
+		},
+		"seq": 85,
+		"ts": 1791824551100
+	},
+	{
+		"t": "trunk.advanced",
+		"commit": "b249d4b5b50e35a13e9230758261abe54da217a0",
+		"byIntent": "i02auditx",
+		"changedSymbols": [
+			"src/auth/login.ts#handleLogin"
+		],
+		"seq": 86,
+		"ts": 1791824551300
+	},
+	{
+		"t": "intent.status",
+		"id": "i02auditx",
+		"status": "landed",
+		"seq": 87,
+		"ts": 1791824551450
+	},
+	{
+		"t": "metrics",
+		"metrics": {
+			"agentsActive": 10,
+			"intentsLanded": 2,
+			"brokenBuildsOnTrunk": 0,
+			"behaviouralRegressionsOnTrunk": 0,
+			"humanMerges": 0,
+			"premisesBroken": 3,
+			"rederives": {
+				"started": 3,
+				"succeeded": 3,
+				"failed": 0
+			},
+			"forksCreated": 15,
+			"pushes": 2
+		},
+		"seq": 88,
+		"ts": 1791824551550
+	},
+	{
+		"t": "intent.status",
+		"id": "i03metric",
+		"status": "gating",
+		"seq": 89,
+		"ts": 1791824552150
+	},
+	{
+		"t": "gate.result",
+		"report": {
+			"intentId": "i03metric",
+			"path": "rederive",
+			"textConflict": false,
+			"typecheck": {
+				"ok": true,
+				"errors": []
+			},
+			"tests": {
+				"passed": [
+					"t03-expired-metrics-ac1"
+				],
+				"failed": []
+			},
+			"assertions": {
+				"passed": [],
+				"failed": []
+			},
+			"ok": true,
+			"landedCommit": "56f6082f907e281b282a46edeaadd65e96b47370",
+			"durationMs": 4200
+		},
+		"seq": 90,
+		"ts": 1791824553050
+	},
+	{
+		"t": "trunk.advanced",
+		"commit": "56f6082f907e281b282a46edeaadd65e96b47370",
+		"byIntent": "i03metric",
+		"changedSymbols": [
+			"src/api/handlers.ts#authenticate"
+		],
+		"seq": 91,
+		"ts": 1791824553250
+	},
+	{
+		"t": "intent.status",
+		"id": "i03metric",
+		"status": "landed",
+		"seq": 92,
+		"ts": 1791824553400
+	},
+	{
+		"t": "metrics",
+		"metrics": {
+			"agentsActive": 9,
+			"intentsLanded": 3,
+			"brokenBuildsOnTrunk": 0,
+			"behaviouralRegressionsOnTrunk": 0,
+			"humanMerges": 0,
+			"premisesBroken": 3,
+			"rederives": {
+				"started": 3,
+				"succeeded": 3,
+				"failed": 0
+			},
+			"forksCreated": 15,
+			"pushes": 3
+		},
+		"seq": 93,
+		"ts": 1791824553500
+	},
+	{
+		"t": "intent.status",
+		"id": "i11ratelm",
+		"status": "gating",
+		"seq": 94,
+		"ts": 1791824554100
+	},
+	{
+		"t": "gate.result",
+		"report": {
+			"intentId": "i11ratelm",
+			"path": "rederive",
+			"textConflict": false,
+			"typecheck": {
+				"ok": true,
+				"errors": []
+			},
+			"tests": {
+				"passed": [
+					"t11-expired-rate-limit-ac1"
+				],
+				"failed": []
+			},
+			"assertions": {
+				"passed": [],
+				"failed": []
+			},
+			"ok": true,
+			"landedCommit": "a25917b135a2c68f7472f2a9070ccf5868b9ab02",
+			"durationMs": 4200
+		},
+		"seq": 95,
+		"ts": 1791824555000
+	},
+	{
+		"t": "trunk.advanced",
+		"commit": "a25917b135a2c68f7472f2a9070ccf5868b9ab02",
+		"byIntent": "i11ratelm",
+		"changedSymbols": [
+			"src/auth/rate-limit.ts#guardRequest"
+		],
+		"seq": 96,
+		"ts": 1791824555200
+	},
+	{
+		"t": "intent.status",
+		"id": "i11ratelm",
+		"status": "landed",
+		"seq": 97,
+		"ts": 1791824555350
+	},
+	{
+		"t": "metrics",
+		"metrics": {
+			"agentsActive": 8,
+			"intentsLanded": 4,
+			"brokenBuildsOnTrunk": 0,
+			"behaviouralRegressionsOnTrunk": 0,
+			"humanMerges": 0,
+			"premisesBroken": 3,
+			"rederives": {
+				"started": 3,
+				"succeeded": 3,
+				"failed": 0
+			},
+			"forksCreated": 15,
+			"pushes": 4
+		},
+		"seq": 98,
+		"ts": 1791824555450
+	},
+	{
+		"t": "intent.status",
+		"id": "i04ttlhdr",
+		"status": "submitted",
+		"seq": 99,
+		"ts": 1791824556250
+	},
+	{
+		"t": "push.checked",
+		"id": "i04ttlhdr",
+		"commit": "ff7476e0986d491240d1b95059b16f6fb4ec7e1f",
+		"touched": [
+			"src/api/responses.ts#withSessionHeaders"
+		],
+		"outOfClaim": [],
+		"seq": 100,
+		"ts": 1791824556650
+	},
+	{
+		"t": "intent.status",
+		"id": "i04ttlhdr",
+		"status": "queued",
+		"seq": 101,
+		"ts": 1791824556850
+	},
+	{
+		"t": "intent.status",
+		"id": "i04ttlhdr",
+		"status": "gating",
+		"seq": 102,
+		"ts": 1791824557450
+	},
+	{
+		"t": "gate.result",
+		"report": {
+			"intentId": "i04ttlhdr",
+			"path": "rebase",
+			"textConflict": false,
+			"typecheck": {
+				"ok": true,
+				"errors": []
+			},
+			"tests": {
+				"passed": [
+					"t04-session-ttl-header-ac1"
+				],
+				"failed": []
+			},
+			"assertions": {
+				"passed": [],
+				"failed": []
+			},
+			"ok": true,
+			"landedCommit": "95fcd9a729ce88b42e6a058ae99f9ad3f843df9c",
+			"durationMs": 4200
+		},
+		"seq": 103,
+		"ts": 1791824558350
+	},
+	{
+		"t": "trunk.advanced",
+		"commit": "95fcd9a729ce88b42e6a058ae99f9ad3f843df9c",
+		"byIntent": "i04ttlhdr",
+		"changedSymbols": [
+			"src/api/responses.ts#withSessionHeaders"
+		],
+		"seq": 104,
+		"ts": 1791824558550
+	},
+	{
+		"t": "intent.status",
+		"id": "i04ttlhdr",
+		"status": "landed",
+		"seq": 105,
+		"ts": 1791824558700
+	},
+	{
+		"t": "metrics",
+		"metrics": {
+			"agentsActive": 7,
+			"intentsLanded": 5,
+			"brokenBuildsOnTrunk": 0,
+			"behaviouralRegressionsOnTrunk": 0,
+			"humanMerges": 0,
+			"premisesBroken": 3,
+			"rederives": {
+				"started": 3,
+				"succeeded": 3,
+				"failed": 0
+			},
+			"forksCreated": 15,
+			"pushes": 5
+		},
+		"seq": 106,
+		"ts": 1791824558800
+	},
+	{
+		"t": "intent.status",
+		"id": "i05taxrnd",
+		"status": "gating",
+		"seq": 107,
+		"ts": 1791824559400
+	},
+	{
+		"t": "gate.result",
+		"report": {
+			"intentId": "i05taxrnd",
+			"path": "rebase",
+			"textConflict": false,
+			"typecheck": {
+				"ok": true,
+				"errors": []
+			},
+			"tests": {
+				"passed": [
+					"t05-tax-rounding-ac1"
+				],
+				"failed": []
+			},
+			"assertions": {
+				"passed": [],
+				"failed": []
+			},
+			"ok": true,
+			"landedCommit": "95602f890604077f855525ccb7d60bfea6422456",
+			"durationMs": 4200
+		},
+		"seq": 108,
+		"ts": 1791824560300
+	},
+	{
+		"t": "trunk.advanced",
+		"commit": "95602f890604077f855525ccb7d60bfea6422456",
+		"byIntent": "i05taxrnd",
+		"changedSymbols": [
+			"src/billing/tax.ts#taxFor",
+			"src/billing/invoice.ts#computeTotal"
+		],
+		"seq": 109,
+		"ts": 1791824560500
+	},
+	{
+		"t": "intent.status",
+		"id": "i05taxrnd",
+		"status": "landed",
+		"seq": 110,
+		"ts": 1791824560650
+	},
+	{
+		"t": "metrics",
+		"metrics": {
+			"agentsActive": 6,
+			"intentsLanded": 6,
+			"brokenBuildsOnTrunk": 0,
+			"behaviouralRegressionsOnTrunk": 0,
+			"humanMerges": 0,
+			"premisesBroken": 3,
+			"rederives": {
+				"started": 3,
+				"succeeded": 3,
+				"failed": 0
+			},
+			"forksCreated": 15,
+			"pushes": 6
+		},
+		"seq": 111,
+		"ts": 1791824560750
+	},
+	{
+		"t": "intent.status",
+		"id": "i07rolech",
+		"status": "gating",
+		"seq": 112,
+		"ts": 1791824561350
+	},
+	{
+		"t": "gate.result",
+		"report": {
+			"intentId": "i07rolech",
+			"path": "rebase",
+			"textConflict": false,
+			"typecheck": {
+				"ok": true,
+				"errors": []
+			},
+			"tests": {
+				"passed": [
+					"t07-role-check-ac1"
+				],
+				"failed": []
+			},
+			"assertions": {
+				"passed": [],
+				"failed": []
+			},
+			"ok": true,
+			"landedCommit": "56d22c1a575b006fcec239f1d0a4980bf0968961",
+			"durationMs": 4200
+		},
+		"seq": 113,
+		"ts": 1791824562250
+	},
+	{
+		"t": "trunk.advanced",
+		"commit": "56d22c1a575b006fcec239f1d0a4980bf0968961",
+		"byIntent": "i07rolech",
+		"changedSymbols": [
+			"src/users/roles.ts#canAccess"
+		],
+		"seq": 114,
+		"ts": 1791824562450
+	},
+	{
+		"t": "intent.status",
+		"id": "i07rolech",
+		"status": "landed",
+		"seq": 115,
+		"ts": 1791824562600
+	},
+	{
+		"t": "metrics",
+		"metrics": {
+			"agentsActive": 5,
+			"intentsLanded": 7,
+			"brokenBuildsOnTrunk": 0,
+			"behaviouralRegressionsOnTrunk": 0,
+			"humanMerges": 0,
+			"premisesBroken": 3,
+			"rederives": {
+				"started": 3,
+				"succeeded": 3,
+				"failed": 0
+			},
+			"forksCreated": 15,
+			"pushes": 7
+		},
+		"seq": 116,
+		"ts": 1791824562700
+	}
+]

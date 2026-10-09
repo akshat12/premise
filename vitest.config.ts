@@ -11,6 +11,7 @@ export default defineConfig({
 					environment: "node",
 					include: ["src/**/*.test.ts"],
 					exclude: ["src/**/*.workers.test.ts"],
+					sequence: { groupOrder: 0 },
 				},
 			},
 			{
@@ -23,6 +24,12 @@ export default defineConfig({
 				test: {
 					name: "workers",
 					include: ["src/**/*.workers.test.ts"],
+					// WebSockets to Durable Objects do not work with per-file storage isolation
+					// (a documented limit of the vitest plugin), so run these files in one shared worker.
+					maxWorkers: 1,
+					isolate: false,
+					// Projects with different maxWorkers must be in different groups.
+					sequence: { groupOrder: 1 },
 				},
 			},
 		],

@@ -1,6 +1,8 @@
 import { DurableObject, WorkflowEntrypoint, type WorkflowEvent, type WorkflowStep } from "cloudflare:workers";
+import { EventHub } from "./hub/event-hub";
 import { healthBody } from "./health";
 import { handleAdmin } from "./routes/admin";
+import { handleEvents } from "./routes/events";
 
 export default {
 	async fetch(request, env): Promise<Response> {
@@ -10,6 +12,9 @@ export default {
 		}
 		if (url.pathname.startsWith("/api/admin/")) {
 			return handleAdmin(request, env, url);
+		}
+		if (url.pathname === "/api/events" || url.pathname === "/api/events/ws") {
+			return handleEvents(request, env, url);
 		}
 		if (url.pathname.startsWith("/api/")) {
 			return Response.json({ error: "not found" }, { status: 404 });
@@ -28,10 +33,10 @@ export default {
 	},
 } satisfies ExportedHandler<Env>;
 
-// Stubs. Each class gets its logic in a later task; they exist now so bindings and migrations are stable.
+// Durable Objects and Workflows must be exported from the entry module.
+// The classes below are still stubs; each gets its logic in a later task.
 
-/** Event log, WebSocket broadcast and replay (T04). */
-export class EventHub extends DurableObject<Env> {}
+export { EventHub };
 
 /** One Intent: state machine and premise store (T10). */
 export class IntentDO extends DurableObject<Env> {}

@@ -1,4 +1,6 @@
+import { isEventBody } from "../../shared/wire";
 import { isAdminRequest } from "../admin-auth";
+import { hub, publish } from "../hub/publish";
 import { ArtifactsRepoStore } from "../ports/artifacts-repo-store";
 import { runContract } from "../ports/repo-store.contract";
 
@@ -34,8 +36,23 @@ export async function handleAdmin(request: Request, env: Env, url: URL): Promise
 	if (!isAdminRequest(request, env)) {
 		return Response.json({ error: "unauthorized" }, { status: 401 });
 	}
-	if (url.pathname === "/api/admin/smoke" && request.method === "POST") {
-		return smoke(env);
+	if (request.method !== "POST") {
+		return Response.json({ error: "method not allowed" }, { status: 405 });
+	}
+	switch (url.pathname) {
+		case "/api/admin/smoke":
+			return smoke(env);
+		case "/api/admin/events/reset":
+			await hub(env).reset();
+			return Response.json({ ok: true });
+		case "/api/admin/events/fake": {
+			// Publishes whatever event body is posted. For UI testing.
+			const body: unknown = await request.json().catch(() => null);
+			if (!isEventBody(body)) {
+				return Response.json({ error: "body must be a PremiseEventBody with a known `t`" }, { status: 400 });
+			}
+			return Response.json(await publish(env, body));
+		}
 	}
 	return Response.json({ error: "not found" }, { status: 404 });
 }
