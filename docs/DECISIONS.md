@@ -81,7 +81,7 @@ All three spikes pass, locally (`wrangler dev`) and deployed. Code is in `spikes
 
 **Left behind in the Cloudflare account:**
 
-- The Worker `premise-spikes` is still deployed at `https://premise-spikes.akshatdivekar.workers.dev`. Its routes have no auth, and `/artifacts` creates and deletes repos on each call. Remove it with `npx wrangler delete --name premise-spikes` (run in `spikes/`) once nobody needs it.
+- The Worker `premise-spikes` was deleted on 2026-10-08 after the spikes passed (`npx wrangler delete --name premise-spikes`). Its routes had no auth, so redeploy it only for a short test and delete it again.
 - The Artifacts namespace `premise-spike` exists and is empty (checked with `wrangler artifacts repos list`).
 
 **Human setup still open:** there is no `.dev.vars` yet, so H3 (`ANTHROPIC_API_KEY`) and H5 (`ADMIN_TOKEN`) are not done. T00 did not need them. H1, H2 and H4 are done.
