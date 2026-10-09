@@ -12,7 +12,9 @@
     "deploy": "npm run build && wrangler deploy",
     "typecheck": "tsc -b",
     "types": "wrangler types --strict-vars false",
-    "smoke": "tsx scripts/smoke.ts"
+    "smoke": "tsx scripts/smoke.ts",
+    "demo:reference": "tsx scripts/build-demo-reference.ts",
+    "demo:check": "tsx scripts/check-scenario.ts"
   },
   "license": "MIT",
   "type": "module",

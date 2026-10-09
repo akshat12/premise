@@ -197,3 +197,45 @@ All three spikes pass, locally (`wrangler dev`) and deployed. Code is in `spikes
   - `t04-session-ttl-header` (`src/api/responses.ts#withSessionHeaders`) relies on `verifySession` by type only and stays green.
   - The rest: `t05-tax-rounding`, `t06-discount-stacking`, `t07-role-check`, `t08-profile-validation`, `t09-currency-format`, `t10-invoice-numbering`, `t12-password-policy`. `t05` and `t06` both want `src/billing/invoice.ts#computeTotal`.
 - **Three red Intents, not two.** `SPEC.md`, the definition of done in `PLAN.md` and this task all say three premises break. `T05-demo-repo.md` plants only two (`t02`, `t03`). The fixture follows the spec, so T05 turns the "rate-limit window" task into `t11-expired-rate-limit`, a third task that relies on the throw.
+
+## 2026-10-09: T05 notes (demo repo)
+
+**Status: code complete; two acceptance steps are waiting on the human.** Everything local passes. Still to do: publish `demo-repo/` to a public GitHub repo (the user must confirm the name), then call `POST /api/admin/import-trunk` on the deployed Worker (needs `ADMIN_TOKEN`, H5), then create the two event subscriptions. The T05 box in `PLAN.md` stays unticked until then.
+
+**The repo.** `demo-repo/` is "acme-accounts": 35 source files, 317 exported symbols (the target was 200 to 300), 9 test files with 90 tests, no dependencies, no Node or DOM APIs, clocks and ids injected everywhere.
+
+- Imports use `.js` extensions (`from "./session.js"`), because the Dynamic Worker resolves module names literally (T00).
+- `tsconfig.json` has `lib: ["es2022"]` and `types: []`, so `console` and `process` do not exist for the compiler. `premise/run-tests.ts` declares the two it needs and loads `node:fs` through a variable specifier, so the whole repo typechecks without Node's types.
+- `premise/hidden-tests/` is excluded from `tsconfig.json`: those tests describe behaviour, and in one case an export (`canAccess`), that does not exist on trunk yet. **The gate's typecheck (T15) must leave that directory out too.**
+- `tests/support.ts` has shared builders (`makeUser`, `makeSession`, `makeInvoice`, `makeDeps`, `T0`, `now`). Acceptance tests may use it.
+
+**The planted scenario.**
+
+- `verifySession` (in `src/auth/session.ts`) throws `SessionExpiredError` on an expired session. Three callers catch it, each in a different file so the Intents do not collide:
+  - `src/auth/login.ts#handleLogin` (task `t02-audit-expired`)
+  - `src/api/handlers.ts#authenticate` (task `t03-expired-metrics`)
+  - `src/auth/rate-limit.ts#guardRequest` (task `t11-expired-rate-limit`)
+- `t01-null-expired` makes it return null instead. It touches only `session.ts`, so nothing conflicts textually and `tsc` stays green.
+- **The planted gap is deliberate: no test on trunk covers an expired session going through `verifySession` or any of the three callers.** If such a test is ever added, `t01` will fail the gate and the demo breaks. `sessionTtl` and `isExpired` are tested, which is fine.
+- After `t01`, callers can no longer tell "expired" from "never signed in" from the return value alone. The re-derived solutions look the token up in the store and use `isExpired`. Each of the three tasks has an acceptance check that anonymous and unknown tokens are *not* treated as expired, so a re-derive cannot pass by handling every null as expired.
+- `t04-session-ttl-header` is the control: it reads `session.ts` but uses only the `Session` type and `sessionTtl`, so it passes before and after `t01`.
+- **Three Intents go red, not two.** The task file plants two (`t02`, `t03`). `SPEC.md`, `PLAN.md` and T04 all say three, so the "rate-limit window" task became `t11-expired-rate-limit`. That leaves seven ordinary tasks instead of eight.
+- The collision pair: `t05-tax-rounding` needs `taxFor` and `computeTotal`; `t06-discount-stacking` needs only `applyDiscounts` but its hint points at `computeTotal`, which is what invites the Split.
+
+**Reference solutions and how they are built.**
+
+- `demo-solutions/solutions.ts` holds each solution as find-and-replace edits on trunk files; `demo-solutions/tests/` holds each task's acceptance tests. `npm run demo:reference` generates `demo-repo/premise/reference/<id>.patch.ts` (15 patches, each a `FileChanges` object as its default export, plus `meta`) and `demo-repo/premise/hidden-tests/<task>.test.ts` (12 files). Do not edit the generated files.
+- Patches exist for every task, plus `t02-rederived`, `t03-rederived` and `t11-rederived`, which are written against trunk after `t01`.
+- The generator fails if an edit's `find` text does not match exactly once, so the solutions cannot drift from the repo silently.
+
+**`npx tsx scripts/check-scenario.ts`** (also `npm run demo:check`) builds patched copies of the repo in a temp directory and checks 39 outcomes: the four the task asks for, for all three relying tasks; the `t04` control; the assertion `a-session-throws` holding on trunk and breaking after `t01`; and every ordinary task's solution passing without breaking any other test. For an expected failure it prints the reason, e.g. `expected {"error":"session_expired"}, got {"error":"unauthorized"}`.
+
+- It evaluates an assertion's `code` with `new Function`, spreading the imported modules into scope. That works in Node. **Dynamic Workers do not allow `new Function`, so T14 needs another way**, such as generating a module whose imports name each export (the symbol index from T06 has the names).
+
+**Memory mode.** `src/worker/ports/demo-seed.ts` bundles `demo-repo/**/*.{ts,json,md}` with `import.meta.glob(..., { query: "?raw", eager: true })`. This works in the Worker build, in `vite dev` and in both vitest projects. `getRepoStore(env)` seeds `env.TRUNK_REPO` from it the first time the memory store is created. `"vite/client"` was added to the Worker tsconfig's `types` for `import.meta.glob`.
+
+**`POST /api/admin/import-trunk`** imports `DEMO_REPO_URL` (a new var, currently `https://github.com/akshat12/acme-accounts.git`, a guess until the user confirms the name) into Artifacts as `TRUNK_REPO`, polls `list()` until the repo is `ready`, and returns its head and file count. Body options: `{ "url": "...", "replace": true }`. With an existing trunk and no `replace` it returns 409. In memory mode it just reports the bundled trunk.
+
+**Publishing.** `scripts/publish-demo-repo.sh <owner>/<name>` exports `demo-repo/` to a temp directory and publishes from there. This replaces the task's `cd demo-repo && git init`, which would have put a git repo inside this one. Re-running it later adds a commit with whatever changed.
+
+**Tests.** The "workers" vitest project now sets `ADMIN_TOKEN`, `REPO_STORE` and `LLM` through the plugin's `miniflare.bindings`, so admin routes can be tested and the results no longer depend on `.dev.vars`.

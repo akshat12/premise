@@ -1,0 +1,8 @@
+[
+	{
+		"id": "a-session-throws",
+		"description": "verifySession throws SessionExpiredError on expired tokens",
+		"imports": ["src/auth/session.ts", "src/store/memory-store.ts"],
+		"code": "const store = createMemorySessionStore([{ id: 's1', userId: 'u1', expiresAt: 0 }]); assert.throws(() => verifySession('s1', store, () => 10), SessionExpiredError);"
+	}
+]

@@ -1,0 +1,30 @@
+// Public surface of acme-accounts.
+export * as audit from "./auth/audit.js";
+export * as login from "./auth/login.js";
+export * as password from "./auth/password.js";
+export * as permissions from "./auth/permissions.js";
+export * as rateLimit from "./auth/rate-limit.js";
+export * as session from "./auth/session.js";
+export * as token from "./auth/token.js";
+export * as currency from "./billing/currency.js";
+export * as discount from "./billing/discount.js";
+export * as invoice from "./billing/invoice.js";
+export * as ledger from "./billing/ledger.js";
+export * as plan from "./billing/plan.js";
+export * as proration from "./billing/proration.js";
+export * as subscription from "./billing/subscription.js";
+export * as tax from "./billing/tax.js";
+export * as handlers from "./api/handlers.js";
+export * as metrics from "./api/metrics.js";
+export * as responses from "./api/responses.js";
+export * as routes from "./api/routes.js";
+export * as validate from "./api/validate.js";
+export * as memoryStore from "./store/memory-store.js";
+export * as repo from "./store/repo.js";
+export * as directory from "./users/directory.js";
+export * as invite from "./users/invite.js";
+export * as profile from "./users/profile.js";
+export * as roles from "./users/roles.js";
+export * as user from "./users/user.js";
+
+export const VERSION = "1.0.0";

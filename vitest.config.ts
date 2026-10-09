@@ -16,7 +16,13 @@ export default defineConfig({
 			},
 			{
 				// Durable Objects, Workflows and the Worker Loader. Runs inside workerd.
-				plugins: [cloudflareTest({ wrangler: { configPath: "./wrangler.test.jsonc" } })],
+				plugins: [
+					cloudflareTest({
+						wrangler: { configPath: "./wrangler.test.jsonc" },
+						// Fixed values, so the tests do not depend on what a developer has in .dev.vars.
+						miniflare: { bindings: { ADMIN_TOKEN: "test-admin-token", REPO_STORE: "memory", LLM: "scripted" } },
+					}),
+				],
 				define: {
 					__filename: JSON.stringify("/typescript.js"),
 					__dirname: JSON.stringify("/"),

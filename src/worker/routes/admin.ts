@@ -3,6 +3,7 @@ import { isAdminRequest } from "../admin-auth";
 import { hub, publish } from "../hub/publish";
 import { ArtifactsRepoStore } from "../ports/artifacts-repo-store";
 import { runContract } from "../ports/repo-store.contract";
+import { importTrunk } from "./import-trunk";
 
 const SMOKE_PREFIX = "smoke";
 
@@ -42,6 +43,8 @@ export async function handleAdmin(request: Request, env: Env, url: URL): Promise
 	switch (url.pathname) {
 		case "/api/admin/smoke":
 			return smoke(env);
+		case "/api/admin/import-trunk":
+			return importTrunk(request, env);
 		case "/api/admin/events/reset":
 			await hub(env).reset();
 			return Response.json({ ok: true });

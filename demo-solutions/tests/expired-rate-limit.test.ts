@@ -1,0 +1,37 @@
+import * as assert from "../premise/assert.js";
+import type { Tests } from "../premise/assert.js";
+import { createRateLimiter, guardRequest } from "../src/auth/rate-limit.js";
+import { createMemorySessionStore } from "../src/store/memory-store.js";
+import { MINUTE } from "../src/util/time.js";
+import { makeSession, now, T0 } from "./support.js";
+
+function deps() {
+	return {
+		sessions: createMemorySessionStore([makeSession(), makeSession({ id: "ses_000002", expiresAt: T0 - 1 })]),
+		limiter: createRateLimiter({ limit: 3, windowMs: 10 * MINUTE }),
+		now,
+	};
+}
+
+export const tests: Tests = {
+	"requests with an expired session count against the limit": () => {
+		const d = deps();
+		for (let i = 0; i < 3; i++) {
+			assert.deepEq(guardRequest("client-1", "ses_000002", d), { allowed: true, session: null });
+		}
+		assert.deepEq(guardRequest("client-1", "ses_000002", d), { allowed: false, retryAfterMs: 10 * MINUTE });
+	},
+	"valid sessions are not counted": () => {
+		const d = deps();
+		for (let i = 0; i < 10; i++) {
+			assert.eq(guardRequest("client-1", "ses_000001", d).allowed, true);
+		}
+	},
+	"anonymous and unknown tokens are not counted": () => {
+		const d = deps();
+		for (let i = 0; i < 10; i++) {
+			assert.eq(guardRequest("client-1", undefined, d).allowed, true);
+			assert.eq(guardRequest("client-1", "ses_424242", d).allowed, true);
+		}
+	},
+};

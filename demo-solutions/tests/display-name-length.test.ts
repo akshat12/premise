@@ -1,0 +1,18 @@
+import * as assert from "../premise/assert.js";
+import type { Tests } from "../premise/assert.js";
+import { validateProfile } from "../src/users/profile.js";
+
+export const tests: Tests = {
+	"a display name of 64 characters is accepted": () => {
+		assert.deepEq(validateProfile({ displayName: "a".repeat(64) }), []);
+	},
+	"a display name of 65 characters is rejected": () => {
+		const problems = validateProfile({ displayName: "a".repeat(65) });
+		assert.eq(problems.length, 1);
+		assert.eq(problems[0]?.field, "displayName");
+	},
+	"length is counted in visible characters": () => {
+		assert.deepEq(validateProfile({ displayName: "👍".repeat(64) }), []);
+		assert.eq(validateProfile({ displayName: "👍".repeat(65) }).length, 1);
+	},
+};

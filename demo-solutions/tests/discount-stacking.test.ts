@@ -1,0 +1,27 @@
+import * as assert from "../premise/assert.js";
+import type { Tests } from "../premise/assert.js";
+import { applyDiscounts, type Discount } from "../src/billing/discount.js";
+
+const ten: Discount = { kind: "percent", code: "TEN", percent: 10 };
+const twenty: Discount = { kind: "percent", code: "TWENTY", percent: 20 };
+const oneOff: Discount = { kind: "fixed", code: "ONE", amount: 100 };
+const threeOff: Discount = { kind: "fixed", code: "THREE", amount: 300 };
+
+export const tests: Tests = {
+	"only the largest percentage discount applies": () => {
+		assert.eq(applyDiscounts(1000, [ten, twenty]), 200);
+		assert.eq(applyDiscounts(1000, [twenty, ten]), 200);
+	},
+	"only the largest fixed discount applies": () => {
+		assert.eq(applyDiscounts(1000, [oneOff, threeOff]), 300);
+	},
+	"the percentage comes off first, whatever the order given": () => {
+		assert.eq(applyDiscounts(1000, [threeOff, ten]), 400);
+		assert.eq(applyDiscounts(1000, [ten, threeOff]), 400);
+		assert.eq(applyDiscounts(1000, [oneOff, ten, twenty, threeOff]), 500);
+	},
+	"the discount never exceeds the subtotal": () => {
+		assert.eq(applyDiscounts(200, [twenty, threeOff]), 200);
+		assert.eq(applyDiscounts(1000, []), 0);
+	},
+};

@@ -154,9 +154,10 @@ let singleton: MemoryRepoStore | undefined;
 /**
  * Process-wide store for `REPO_STORE=memory`. State lives in one isolate and is lost on reload,
  * which is fine for local dev and tests but is never used when deployed.
+ * `seed` is only called the first time, to fill the new store.
  */
-export function getMemoryStore(): MemoryRepoStore {
-	singleton ??= new MemoryRepoStore();
+export function getMemoryStore(seed?: () => Record<string, FileMap>): MemoryRepoStore {
+	singleton ??= new MemoryRepoStore(seed?.());
 	return singleton;
 }
 

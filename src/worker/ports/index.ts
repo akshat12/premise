@@ -1,4 +1,5 @@
 import { ArtifactsRepoStore } from "./artifacts-repo-store";
+import { DEMO_REPO_FILES } from "./demo-seed";
 import { getMemoryStore } from "./memory-repo-store";
 import type { RepoStore } from "./repo-store";
 
@@ -6,10 +7,11 @@ export type { FileChanges, FileMap, RepoStore } from "./repo-store";
 export { StaleHeadError, ZERO_SHA } from "./repo-store";
 
 /** The RepoStore this deployment is configured for (`REPO_STORE` = "artifacts" | "memory"). */
-export function getRepoStore(env: Pick<Env, "REPO_STORE" | "ARTIFACTS">): RepoStore {
+export function getRepoStore(env: Pick<Env, "REPO_STORE" | "ARTIFACTS" | "TRUNK_REPO">): RepoStore {
 	switch (env.REPO_STORE) {
 		case "memory":
-			return getMemoryStore();
+			// In memory mode trunk starts as a copy of demo-repo/, the same content Artifacts imports from GitHub.
+			return getMemoryStore(() => ({ [env.TRUNK_REPO]: DEMO_REPO_FILES }));
 		case "artifacts":
 			return new ArtifactsRepoStore(env);
 		default:

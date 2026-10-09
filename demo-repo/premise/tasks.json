@@ -1,0 +1,305 @@
+[
+	{
+		"id": "t01-null-expired",
+		"title": "verifySession returns null for expired sessions",
+		"goal": "Make `verifySession` in src/auth/session.ts return null for an expired session instead of throwing, so callers can treat 'no session' uniformly. Keep the signature unchanged.",
+		"acceptance": [
+			{
+				"id": "t01-ac1",
+				"description": "An expired token gives null, not an exception.",
+				"testFile": "tests/session-expiry.test.ts",
+				"testName": "verifySession returns null for an expired session"
+			},
+			{
+				"id": "t01-ac2",
+				"description": "A valid token still gives its session.",
+				"testFile": "tests/session-expiry.test.ts",
+				"testName": "verifySession still returns a session that has time left"
+			}
+		],
+		"hints": [
+			"Add the acceptance tests in tests/session-expiry.test.ts."
+		]
+	},
+	{
+		"id": "t02-audit-expired",
+		"title": "Audit expired-session logins",
+		"goal": "Write an audit log entry with event \"session.expired\" whenever a login request (`handleLogin` in src/auth/login.ts) arrives with an expired session. The response must still be the `expired` response.",
+		"acceptance": [
+			{
+				"id": "t02-ac1",
+				"description": "An expired session gives one session.expired audit entry and the expired response.",
+				"testFile": "tests/audit-expired.test.ts",
+				"testName": "an expired session writes an audit entry and returns expired"
+			},
+			{
+				"id": "t02-ac2",
+				"description": "No token, or an unknown token, is unauthorized and writes no session.expired entry.",
+				"testFile": "tests/audit-expired.test.ts",
+				"testName": "a missing or unknown session writes no expired entry"
+			},
+			{
+				"id": "t02-ac3",
+				"description": "A valid session writes no session.expired entry.",
+				"testFile": "tests/audit-expired.test.ts",
+				"testName": "a valid session writes no expired entry"
+			}
+		],
+		"hints": [
+			"Your plan depends on how verifySession reports an expired session. Assert it: adopt `a-session-throws`."
+		]
+	},
+	{
+		"id": "t03-expired-metrics",
+		"title": "Count expired sessions in metrics",
+		"goal": "Increment `metrics.sessionsExpired` whenever `authenticate` in src/api/handlers.ts sees a request with an expired session.",
+		"acceptance": [
+			{
+				"id": "t03-ac1",
+				"description": "Each request with an expired session adds one to metrics.sessionsExpired and authenticates as expired.",
+				"testFile": "tests/expired-metrics.test.ts",
+				"testName": "a request with an expired session is counted"
+			},
+			{
+				"id": "t03-ac2",
+				"description": "Valid, missing and unknown tokens leave the counter alone.",
+				"testFile": "tests/expired-metrics.test.ts",
+				"testName": "valid and anonymous requests are not counted as expired"
+			}
+		],
+		"hints": [
+			"Your plan depends on how verifySession reports an expired session. Assert it: adopt `a-session-throws`."
+		]
+	},
+	{
+		"id": "t04-session-ttl-header",
+		"title": "Add an X-Session-TTL header",
+		"goal": "Add an `x-session-ttl` header to authenticated responses (`withSessionHeaders` in src/api/responses.ts): the whole seconds left before the session expires.",
+		"acceptance": [
+			{
+				"id": "t04-ac1",
+				"description": "withSessionHeaders sets x-session-ttl to the whole seconds remaining.",
+				"testFile": "tests/session-ttl-header.test.ts",
+				"testName": "authenticated responses carry the seconds left in the session"
+			},
+			{
+				"id": "t04-ac2",
+				"description": "A routed, authenticated request carries the header.",
+				"testFile": "tests/session-ttl-header.test.ts",
+				"testName": "the header appears on API responses"
+			}
+		],
+		"hints": [
+			"`sessionTtl` in src/auth/session.ts already computes the time left."
+		]
+	},
+	{
+		"id": "t05-tax-rounding",
+		"title": "Round tax half to even",
+		"goal": "Invoices must round tax half to even. Make `taxFor` in src/billing/tax.ts round exact halves to the even minor unit, and make `computeTotal` in src/billing/invoice.ts use `taxFor` instead of rounding by itself.",
+		"acceptance": [
+			{
+				"id": "t05-ac1",
+				"description": "12.5 becomes 12, 17.5 becomes 18.",
+				"testFile": "tests/tax-rounding.test.ts",
+				"testName": "taxFor rounds exact halves to the even minor unit"
+			},
+			{
+				"id": "t05-ac2",
+				"description": "Amounts that are not exact halves round to nearest, as before.",
+				"testFile": "tests/tax-rounding.test.ts",
+				"testName": "taxFor rounds everything else to the nearest minor unit"
+			},
+			{
+				"id": "t05-ac3",
+				"description": "An invoice's tax matches taxFor.",
+				"testFile": "tests/tax-rounding.test.ts",
+				"testName": "computeTotal uses the same rounding"
+			}
+		]
+	},
+	{
+		"id": "t06-discount-stacking",
+		"title": "Stop discount stacking",
+		"goal": "Change `applyDiscounts` in src/billing/discount.ts so that at most one percentage discount (the largest) and one fixed discount (the largest) apply to an invoice. The percentage comes off first, then the fixed amount, and the total discount never exceeds the subtotal.",
+		"acceptance": [
+			{
+				"id": "t06-ac1",
+				"description": "Two percentage codes do not stack.",
+				"testFile": "tests/discount-stacking.test.ts",
+				"testName": "only the largest percentage discount applies"
+			},
+			{
+				"id": "t06-ac2",
+				"description": "Two fixed codes do not stack.",
+				"testFile": "tests/discount-stacking.test.ts",
+				"testName": "only the largest fixed discount applies"
+			},
+			{
+				"id": "t06-ac3",
+				"description": "The result does not depend on the order of the discounts.",
+				"testFile": "tests/discount-stacking.test.ts",
+				"testName": "the percentage comes off first, whatever the order given"
+			},
+			{
+				"id": "t06-ac4",
+				"description": "The discount is capped at the subtotal.",
+				"testFile": "tests/discount-stacking.test.ts",
+				"testName": "the discount never exceeds the subtotal"
+			}
+		],
+		"hints": [
+			"`computeTotal` in src/billing/invoice.ts is the main caller; check that invoice totals still add up."
+		]
+	},
+	{
+		"id": "t07-role-check",
+		"title": "Add a canAccess role check",
+		"goal": "Add `canAccess(roles, resource)` to src/users/roles.ts. It returns true when any of the user's roles is at least the minimum role for the resource. Resources and their minimum roles: \"profile\" needs viewer, \"invoices\" needs member, \"billing\" needs billing, \"members\" needs admin.",
+		"acceptance": [
+			{
+				"id": "t07-ac1",
+				"description": "Each resource opens at its minimum role and not below it.",
+				"testFile": "tests/can-access.test.ts",
+				"testName": "each resource has a minimum role"
+			},
+			{
+				"id": "t07-ac2",
+				"description": "An admin can open every resource.",
+				"testFile": "tests/can-access.test.ts",
+				"testName": "a higher role can open everything below it"
+			},
+			{
+				"id": "t07-ac3",
+				"description": "Multiple roles and the empty list behave sensibly.",
+				"testFile": "tests/can-access.test.ts",
+				"testName": "any one of several roles is enough, and no roles means no access"
+			}
+		]
+	},
+	{
+		"id": "t08-profile-validation",
+		"title": "Limit display name length",
+		"goal": "Make `validateProfile` in src/users/profile.ts reject a display name longer than 64 visible characters, reporting the problem on the `displayName` field.",
+		"acceptance": [
+			{
+				"id": "t08-ac1",
+				"description": "64 characters is fine.",
+				"testFile": "tests/display-name-length.test.ts",
+				"testName": "a display name of 64 characters is accepted"
+			},
+			{
+				"id": "t08-ac2",
+				"description": "65 characters gives one problem on displayName.",
+				"testFile": "tests/display-name-length.test.ts",
+				"testName": "a display name of 65 characters is rejected"
+			},
+			{
+				"id": "t08-ac3",
+				"description": "An emoji counts as one character.",
+				"testFile": "tests/display-name-length.test.ts",
+				"testName": "length is counted in visible characters"
+			}
+		],
+		"hints": [
+			"`visibleLength` in src/util/strings.ts counts visible characters."
+		]
+	},
+	{
+		"id": "t09-currency-format",
+		"title": "Format zero-decimal currencies",
+		"goal": "Make `formatMoney` in src/billing/currency.ts respect each currency's number of decimals: yen has none, so 1200 yen is \"¥1200\", not \"¥12.00\".",
+		"acceptance": [
+			{
+				"id": "t09-ac1",
+				"description": "JPY amounts have no decimal point.",
+				"testFile": "tests/currency-format.test.ts",
+				"testName": "yen is formatted with no fraction"
+			},
+			{
+				"id": "t09-ac2",
+				"description": "USD, EUR and GBP format as before.",
+				"testFile": "tests/currency-format.test.ts",
+				"testName": "two-decimal currencies are unchanged"
+			}
+		]
+	},
+	{
+		"id": "t10-invoice-numbering",
+		"title": "Restart invoice numbers each year",
+		"goal": "Make `nextInvoiceNumber` in src/billing/invoice.ts restart the sequence at 0001 when `issuedAt` falls in a later calendar year than the previous invoice number.",
+		"acceptance": [
+			{
+				"id": "t10-ac1",
+				"description": "INV-2026-0041 is followed by INV-2027-0001 in 2027.",
+				"testFile": "tests/invoice-numbering.test.ts",
+				"testName": "numbering restarts at 0001 in a new calendar year"
+			},
+			{
+				"id": "t10-ac2",
+				"description": "Within a year the sequence counts up.",
+				"testFile": "tests/invoice-numbering.test.ts",
+				"testName": "numbering continues within the same year"
+			},
+			{
+				"id": "t10-ac3",
+				"description": "No previous number gives 0001.",
+				"testFile": "tests/invoice-numbering.test.ts",
+				"testName": "the first invoice ever is 0001"
+			}
+		]
+	},
+	{
+		"id": "t11-expired-rate-limit",
+		"title": "Rate-limit expired-session requests",
+		"goal": "Count each request that arrives with an expired session against the client's rate limit (`guardRequest` in src/auth/rate-limit.ts), so a client replaying an expired token is eventually turned away. Valid sessions and requests without a session must not be counted.",
+		"acceptance": [
+			{
+				"id": "t11-ac1",
+				"description": "With a limit of 3, the fourth expired-session request is refused.",
+				"testFile": "tests/expired-rate-limit.test.ts",
+				"testName": "requests with an expired session count against the limit"
+			},
+			{
+				"id": "t11-ac2",
+				"description": "A signed-in client is never limited by this rule.",
+				"testFile": "tests/expired-rate-limit.test.ts",
+				"testName": "valid sessions are not counted"
+			},
+			{
+				"id": "t11-ac3",
+				"description": "Requests with no token or an unknown token are not counted.",
+				"testFile": "tests/expired-rate-limit.test.ts",
+				"testName": "anonymous and unknown tokens are not counted"
+			}
+		],
+		"hints": [
+			"Your plan depends on how verifySession reports an expired session. Assert it: adopt `a-session-throws`."
+		]
+	},
+	{
+		"id": "t12-password-policy",
+		"title": "Require a digit in passwords",
+		"goal": "Enforce the `requireDigit` rule in `checkPasswordPolicy` (src/auth/password.ts): when it is on, a password with no digit gets the \"needs_digit\" issue. Turn the rule on in `DEFAULT_PASSWORD_POLICY`.",
+		"acceptance": [
+			{
+				"id": "t12-ac1",
+				"description": "The default policy reports needs_digit.",
+				"testFile": "tests/password-digit.test.ts",
+				"testName": "a password with no digit is rejected by default"
+			},
+			{
+				"id": "t12-ac2",
+				"description": "A strong password with a digit has no issues.",
+				"testFile": "tests/password-digit.test.ts",
+				"testName": "a password with a digit is accepted"
+			},
+			{
+				"id": "t12-ac3",
+				"description": "With requireDigit false, no digit is needed.",
+				"testFile": "tests/password-digit.test.ts",
+				"testName": "the digit rule can be turned off"
+			}
+		]
+	}
+]
