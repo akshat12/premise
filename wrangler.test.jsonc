@@ -1,0 +1,37 @@
+{
+	// Test config for the vitest "workers" project. Same as wrangler.jsonc, minus the remote-only
+	// Artifacts binding (it needs Cloudflare auth and network) and the static assets block.
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "premise",
+	"main": "src/worker/index.ts",
+	"compatibility_date": "2026-10-01",
+	"compatibility_flags": ["nodejs_compat"],
+	"limits": { "cpu_ms": 300000 },
+	"observability": { "enabled": true },
+
+	"worker_loaders": [{ "binding": "LOADER" }],
+	"durable_objects": {
+		"bindings": [
+			{ "name": "HUB", "class_name": "EventHub" },
+			{ "name": "INTENT", "class_name": "IntentDO" },
+			{ "name": "LEDGER", "class_name": "LedgerShard" },
+			{ "name": "LANDING", "class_name": "Landing" }
+		]
+	},
+	"migrations": [{ "tag": "v1", "new_sqlite_classes": ["EventHub", "IntentDO", "LedgerShard", "Landing"] }],
+	"workflows": [{ "name": "premise-agent", "binding": "AGENT_WORKFLOW", "class_name": "AgentWorkflow" }],
+	"queues": {
+		"consumers": [{ "queue": "premise-events", "max_batch_size": 50, "max_batch_timeout": 1 }]
+	},
+
+	// Deployed defaults. `.dev.vars` overrides these locally (see .dev.vars.example).
+	"vars": {
+		"TRUNK_REPO": "trunk",
+		"ARTIFACTS_NAMESPACE": "premise",
+		"REPO_STORE": "memory",
+		"LLM": "scripted",
+		"LLM_MODEL": "claude-sonnet-5-5",
+		"MAX_CONCURRENT_REDERIVES": "3",
+		"CLOUDFLARE_ACCOUNT_ID": "53f519d000e2e5cbdae65ca50fe09a23"
+	}
+}

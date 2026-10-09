@@ -1,0 +1,44 @@
+{
+  "name": "premise",
+  "version": "0.1.0",
+  "description": "Git tracks what agents wrote. Premise tracks what they assumed.",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "dev": "vite",
+    "build": "vite build",
+    "deploy": "npm run build && wrangler deploy",
+    "typecheck": "tsc -b",
+    "types": "wrangler types --strict-vars false",
+    "smoke": "tsx scripts/smoke.ts"
+  },
+  "license": "MIT",
+  "type": "module",
+  "dependencies": {
+    "@cloudflare/kumo": "^2.14.0",
+    "@fontsource/barlow-condensed": "^5.3.0",
+    "@fontsource/ibm-plex-mono": "^5.3.0",
+    "@phosphor-icons/react": "^2.1.10",
+    "isomorphic-git": "^1.43.2",
+    "node-diff3": "^3.2.1",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "typescript": "^5.9.3"
+  },
+  "devDependencies": {
+    "@cloudflare/vite-plugin": "^1.63.1",
+    "@cloudflare/vitest-plugin": "^1.4.0",
+    "@tailwindcss/vite": "^4.3.3",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.2",
+    "tailwindcss": "^4.3.3",
+    "tsx": "^4.23.15",
+    "vite": "^8.3.4",
+    "vitest": "^5.0.3",
+    "wrangler": "^4.149.0"
+  },
+  "private": true
+}

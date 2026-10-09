@@ -1,0 +1,4 @@
+REPO_STORE=memory
+LLM=scripted
+ADMIN_TOKEN=change-me
+ANTHROPIC_API_KEY=

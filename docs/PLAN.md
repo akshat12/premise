@@ -32,7 +32,7 @@ Tracks:
 ### Day 1 (Thu Oct 8 to Fri Oct 9): foundations and de-risking
 
 - [x] **T00** (B): Spikes. Prove Artifacts fork/read/push from a Worker, TypeScript-in-Worker, and the Dynamic Worker test runner. Depends on: H1–H5
-- [ ] **T01** (B): Scaffold the app: Vite, React, Kumo, Worker, bindings, test setup. Depends on: T00
+- [x] **T01** (B): Scaffold the app: Vite, React, Kumo, Worker, bindings, test setup. Depends on: T00
 - [ ] **T02** (B): Shared types and event schema. Depends on: T01
 - [ ] **T03** (B): RepoStore port, with a memory implementation and an Artifacts implementation. Depends on: T02
 - [ ] **T04** (B/U): EventHub DO with a WebSocket, an event log and replay, plus the UI hook. Depends on: T02
@@ -113,7 +113,7 @@ Prompt for these reviews: "Review the commits since <last checkpoint> against do
   - `@tailwindcss/vite`
   - `wrangler`
   - `vitest`
-  - `@cloudflare/vitest-pool-workers`
+  - `@cloudflare/vitest-plugin` (replaces the deprecated `@cloudflare/vitest-pool-workers`; see DECISIONS, T01)
   - `@types/react`
   - `@types/react-dom`
   - `tsx` (for scripts)
