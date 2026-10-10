@@ -179,3 +179,26 @@ export async function resetDemo(env: Env): Promise<ResetResult> {
 	await publishMetrics(env);
 	return { trunk, head: await store.head(trunk), forksDeleted: forks.length, previousTrunk };
 }
+
+/**
+ * Memory mode only (local dev and tests). Repos held in memory are gone whenever the Worker's code
+ * is loaded again: a dev-server restart, or an edit to any Worker file. Durable Object storage is
+ * not, so the hub can still name the trunk copy the last reset made, and its log can still show
+ * Intents whose forks no longer exist. Reading trunk then fails ("repo not found").
+ *
+ * This notices that state and starts again from nothing, exactly as a reset does. Returns true
+ * when it had to. With real Artifacts there is nothing to recover, and it does nothing.
+ */
+export async function recoverMemoryStore(env: Env): Promise<boolean> {
+	if (env.REPO_STORE !== "memory") {
+		return false;
+	}
+	const [trunk, names, registry] = await Promise.all([currentTrunk(env), getRepoStore(env).list(), hub(env).registry()]);
+	const trunkGone = !names.includes(trunk);
+	const forksGone = registry.length > 0 && !names.some(isIntentRepo);
+	if (!trunkGone && !forksGone) {
+		return false;
+	}
+	await resetDemo(env);
+	return true;
+}

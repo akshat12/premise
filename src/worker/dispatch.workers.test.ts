@@ -3,7 +3,7 @@ import { env, exports } from "cloudflare:workers";
 import { describe, expect, it } from "vitest";
 import type { PremiseEvent } from "../shared/events";
 import type { Intent, Metrics, TaskDef } from "../shared/types";
-import { DispatchFailed, dispatchTasks, isIntentRepo, priorityFor } from "./dispatch";
+import { DispatchFailed, dispatchTasks, isIntentRepo, priorityFor, recoverMemoryStore, resetDemo } from "./dispatch";
 import type { LandingStatus } from "./gate/client";
 import { currentTrunk, hub } from "./hub/publish";
 import { intentStub } from "./intent/client";
@@ -304,3 +304,44 @@ describe("POST /api/admin/reset-demo", () => {
 		expect(await store.readFile(body.trunk, "main", "tests/password-digit.test.ts")).not.toBeNull();
 	}, 90_000);
 });
+
+describe("recoverMemoryStore: the in-memory repos were lost but Durable Object storage was not", () => {
+	it("leaves a consistent state alone", async () => {
+		await gateIdle();
+		await resetDemo(env);
+		expect(await recoverMemoryStore(env)).toBe(false);
+	});
+
+	it("starts again when the hub names a trunk that no longer exists", async () => {
+		await resetDemo(env);
+		// What a dev-server restart leaves behind: the name of a trunk copy from before it.
+		await hub(env).setTrunk("trunk-gone");
+		expect(await recoverMemoryStore(env)).toBe(true);
+
+		const trunk = await currentTrunk(env);
+		expect(trunk).not.toBe("trunk-gone");
+		expect(await getRepoStore(env).list()).toContain(trunk);
+		expect(await get<TaskDef[]>("/api/tasks")).toHaveLength(12);
+		expect(await recoverMemoryStore(env)).toBe(false);
+	});
+
+	it("starts again when the log shows Intents but none of their forks exist", async () => {
+		await resetDemo(env);
+		await hub(env).publish({
+			t: "intent.created",
+			intent: { id: "i0000lost", kind: "agent", taskId: "t12-password-policy", goal: "g", status: "working", claims: [], premises: [], why: [], baseCommit: "c0", headCommit: null, rederiveAttempts: 0 },
+		});
+		expect(await get<RegistryRow[]>("/api/intents")).toHaveLength(1);
+		expect(await recoverMemoryStore(env)).toBe(true);
+		expect(await get<RegistryRow[]>("/api/intents")).toEqual([]);
+	});
+
+	it("does nothing with real Artifacts", async () => {
+		await hub(env).setTrunk("trunk-gone");
+		expect(await recoverMemoryStore({ ...env, REPO_STORE: "artifacts" })).toBe(false);
+		expect(await currentTrunk(env)).toBe("trunk-gone");
+		// Put it right for whatever runs next.
+		expect(await recoverMemoryStore(env)).toBe(true);
+	});
+});
+

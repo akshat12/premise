@@ -4,17 +4,29 @@ import { consumeBatch } from "./events/consumer";
 import { EventHub } from "./hub/event-hub";
 import { IntentDO } from "./intent/intent-do";
 import { LedgerShard } from "./ledger/ledger-shard";
+import { recoverMemoryStore } from "./dispatch";
 import { healthBody } from "./health";
 import { handleAdmin } from "./routes/admin";
 import { handleApi } from "./routes/api";
 import { handleDispatch } from "./routes/dispatch";
 import { handleEvents } from "./routes/events";
 
+// Memory mode: checked once each time this code is loaded, before the first request is answered.
+// See recoverMemoryStore for what it is checking.
+let memoryChecked: Promise<unknown> | undefined;
+
 export default {
 	async fetch(request, env): Promise<Response> {
 		const url = new URL(request.url);
 		if (url.pathname === "/api/health") {
 			return Response.json(healthBody(env));
+		}
+		if (env.REPO_STORE === "memory" && url.pathname.startsWith("/api/")) {
+			await (memoryChecked ??= recoverMemoryStore(env).catch((error: unknown) => {
+				// Could not tell, or could not recover: let this request go on, and look again on the next.
+				memoryChecked = undefined;
+				console.error("memory store check failed", error);
+			}));
 		}
 		if (url.pathname.startsWith("/api/admin/")) {
 			return handleAdmin(request, env, url);
