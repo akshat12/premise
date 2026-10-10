@@ -70,7 +70,7 @@ Tracks:
 
 ### Day 6 (Tue Oct 13 to Wed Oct 14): ship
 
-- [ ] **T24** (D): README, LICENSE (MIT), run instructions, architecture diagram, `npm run demo`. Depends on: T23
+- [x] **T24** (D): README, LICENSE (MIT), run instructions, architecture diagram, `npm run demo`. Depends on: T23
 - [ ] **T25** (D): Video script, dry-run checklist, submission checklist. Depends on: T24
 
 **If you fall behind,** cut in this order:

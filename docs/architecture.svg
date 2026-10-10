@@ -1,0 +1,133 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1060 610" width="1060" height="610" role="img" aria-labelledby="title desc" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif">
+  <title id="title">Premise architecture</title>
+  <desc id="desc">A browser UI talks to one Cloudflare Worker. The Worker holds the fetch router, an agent Workflow, the push checker, the TypeScript compiler and a Dynamic Worker runner. Four kinds of Durable Object hold state: the event hub, one object per Intent, the sharded ledger and the gate. Repos live in Cloudflare Artifacts: trunk, and one fork per Intent. Artifacts events reach the Worker through a Queue.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#5A6675"/>
+    </marker>
+    <style>
+      .bg { fill: #ffffff; }
+      .group { fill: #EDF0F3; stroke: #C9D0D8; stroke-width: 1; }
+      .box { fill: #ffffff; stroke: #C9D0D8; stroke-width: 1; }
+      .strip { fill: #FFFDF4; stroke: #C9D0D8; stroke-width: 1; }
+      .gate { fill: #ffffff; stroke: #23775A; stroke-width: 1.5; }
+      .label { font-size: 13px; font-weight: 600; fill: #17202B; }
+      .name { font-size: 14px; font-weight: 600; fill: #17202B; }
+      .note { font-size: 11.5px; fill: #5A6675; }
+      .flow { font-size: 11px; fill: #17202B; }
+      .line { fill: none; stroke: #5A6675; stroke-width: 1.25; }
+    </style>
+  </defs>
+  <rect class="bg" width="1060" height="610"/>
+
+  <!-- Browser -->
+  <rect class="box" x="40" y="24" width="980" height="56" rx="3"/>
+  <text class="name" x="56" y="48">Browser: Kumo UI (React)</text>
+  <text class="note" x="56" y="66">Strip board, ledger rail, premise drawer, human cards, scale view. Live over a WebSocket, or a replay of a recorded run.</text>
+
+  <!-- Artifacts -->
+  <rect class="group" x="40" y="130" width="230" height="252" rx="3"/>
+  <text class="label" x="56" y="154">Cloudflare Artifacts</text>
+  <rect class="strip" x="60" y="170" width="190" height="60" rx="3"/>
+  <text class="name" x="74" y="194">Intent forks</text>
+  <text class="note" x="74" y="212">One per Intent, one per re-derive</text>
+  <rect class="gate" x="60" y="250" width="190" height="60" rx="3"/>
+  <text class="name" x="74" y="274">trunk</text>
+  <text class="note" x="74" y="292">The repo everything lands on</text>
+  <text class="note" x="60" y="336">Git over HTTPS for writes,</text>
+  <text class="note" x="60" y="352">the binding for forks and reads</text>
+
+  <!-- Queue -->
+  <rect class="box" x="40" y="430" width="230" height="64" rx="3"/>
+  <text class="name" x="56" y="456">Queues</text>
+  <text class="note" x="56" y="474">premise-events (event subscriptions)</text>
+
+  <!-- Worker -->
+  <rect class="group" x="330" y="130" width="320" height="456" rx="3"/>
+  <text class="label" x="346" y="154">Worker (one deployment)</text>
+
+  <rect class="box" x="346" y="170" width="288" height="50" rx="3"/>
+  <text class="name" x="360" y="191">Fetch router</text>
+  <text class="note" x="360" y="208">/api/*, and the UI's static files</text>
+
+  <rect class="strip" x="346" y="234" width="288" height="68" rx="3"/>
+  <text class="name" x="360" y="255">AgentWorkflow</text>
+  <text class="note" x="360" y="272">A durable run per Intent: plan, claim, edit, push</text>
+  <text class="note" x="360" y="288">Model behind a port: any provider, or scripted</text>
+
+  <rect class="box" x="346" y="316" width="288" height="50" rx="3"/>
+  <text class="name" x="360" y="337">Push checker and invalidation</text>
+  <text class="note" x="360" y="354">Diff to symbols; break premises that no longer hold</text>
+
+  <rect class="box" x="346" y="380" width="288" height="50" rx="3"/>
+  <text class="name" x="360" y="401">TypeScript compiler, inside the Worker</text>
+  <text class="note" x="360" y="418">Typecheck and type-surface hashes</text>
+
+  <rect class="box" x="346" y="444" width="288" height="50" rx="3"/>
+  <text class="name" x="360" y="465">Dynamic Worker runner (Worker Loader)</text>
+  <text class="note" x="360" y="482">Tests and premise assertions, each run isolated</text>
+
+  <rect class="box" x="346" y="522" width="288" height="50" rx="3"/>
+  <text class="name" x="360" y="543">Queue consumer</text>
+  <text class="note" x="360" y="560">Pushes to trunk that did not come through the gate</text>
+
+  <!-- Durable Objects -->
+  <rect class="group" x="770" y="130" width="250" height="456" rx="3"/>
+  <text class="label" x="786" y="154">Durable Objects (SQLite)</text>
+
+  <rect class="box" x="786" y="170" width="218" height="66" rx="3"/>
+  <text class="name" x="800" y="192">EventHub</text>
+  <text class="note" x="800" y="209">The one event log; WebSocket</text>
+  <text class="note" x="800" y="224">fan-out; replay from any point</text>
+
+  <rect class="strip" x="786" y="250" width="218" height="66" rx="3"/>
+  <text class="name" x="800" y="272">IntentDO, one per Intent</text>
+  <text class="note" x="800" y="289">Goal, changes, relies on,</text>
+  <text class="note" x="800" y="304">acceptance checks, state machine</text>
+
+  <rect class="box" x="786" y="330" width="218" height="66" rx="3"/>
+  <text class="name" x="800" y="352">LedgerShard, one per module</text>
+  <text class="note" x="800" y="369">Who changes each symbol, who</text>
+  <text class="note" x="800" y="384">relies on it: Wait / Split / Depend</text>
+
+  <rect class="gate" x="786" y="410" width="218" height="98" rx="3"/>
+  <text class="name" x="800" y="432">Landing: the gate</text>
+  <text class="note" x="800" y="449">Rebase, typecheck, tests, premise</text>
+  <text class="note" x="800" y="464">assertions, checks of landed work.</text>
+  <text class="note" x="800" y="479">Runs the re-derive race for stale</text>
+  <text class="note" x="800" y="494">Intents; calls a person after two.</text>
+
+  <!-- Flows -->
+  <!-- UI to router -->
+  <path class="line" d="M580,80 V170" marker-end="url(#arrow)"/>
+  <text class="flow" x="588" y="110">dispatch tasks, answer cards</text>
+  <!-- EventHub to UI -->
+  <path class="line" d="M975,170 V80" marker-end="url(#arrow)"/>
+  <text class="flow" x="967" y="110" text-anchor="end">events (WebSocket)</text>
+
+  <!-- Workflow and forks -->
+  <path class="line" d="M346,252 H290 V200 H250" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
+  <text class="flow" x="296" y="216">fork, read,</text>
+  <text class="flow" x="296" y="230">push</text>
+
+  <!-- Gate lands on trunk -->
+  <path class="line" d="M800,508 V514 H312 V290 H250" marker-end="url(#arrow)"/>
+  <text class="flow" x="262" y="284">land</text>
+
+  <!-- Artifacts events to queue to consumer -->
+  <path class="line" d="M155,382 V430" marker-end="url(#arrow)"/>
+  <text class="flow" x="163" y="410">pushed, forked</text>
+  <path class="line" d="M270,462 H290 V547 H346" marker-end="url(#arrow)"/>
+
+  <!-- Worker to Durable Objects -->
+  <path class="line" d="M634,195 H786" marker-end="url(#arrow)"/>
+  <text class="flow" x="660" y="189">publish every event</text>
+  <path class="line" d="M634,268 H786" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
+  <text class="flow" x="660" y="262">state</text>
+  <path class="line" d="M634,290 H710 V363 H786" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
+  <text class="flow" x="718" y="357">claims</text>
+  <path class="line" d="M786,420 H634" marker-end="url(#arrow)"/>
+  <text class="flow" x="660" y="414">typecheck</text>
+  <path class="line" d="M786,469 H634" marker-end="url(#arrow)"/>
+  <text class="flow" x="660" y="463">run checks</text>
+</svg>

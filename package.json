@@ -8,6 +8,7 @@
   "scripts": {
     "test": "vitest run",
     "dev": "vite",
+    "dev:local": "vite --mode offline",
     "build": "vite build",
     "deploy": "npm run build && wrangler deploy",
     "typecheck": "tsc -b",
@@ -17,7 +18,8 @@
     "demo:check": "tsx scripts/check-scenario.ts",
     "agent:scripts": "tsx scripts/build-agent-scripts.ts",
     "demo:record": "tsx scripts/record-run.ts",
-    "demo:compress": "tsx scripts/compress-run.ts"
+    "demo:compress": "tsx scripts/compress-run.ts",
+    "demo": "tsx scripts/demo.ts"
   },
   "license": "MIT",
   "type": "module",

@@ -24,7 +24,7 @@
 		"consumers": [{ "queue": "premise-events", "max_batch_size": 50, "max_batch_timeout": 1 }]
 	},
 
-	// Deployed defaults. `.dev.vars` overrides these locally (see .dev.vars.example).
+	// Deployed defaults. `.dev.vars` overrides these locally (see local.vars.example).
 	"vars": {
 		"TRUNK_REPO": "trunk",
 		"ARTIFACTS_NAMESPACE": "premise",

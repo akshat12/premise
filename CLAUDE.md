@@ -48,6 +48,8 @@ The full product spec is in `docs/SPEC.md`. If anything here conflicts with the 
 
 ```
 npm run dev         # vite + wrangler dev (local)
+npm run dev:local   # the same with no Cloudflare login: wrangler.local.jsonc, memory repos, scripted agents
+npm run demo        # resets, dispatches the 12 tasks plus a workload, opens the live board (--replay plays /?demo=main)
 npm test            # vitest (unit + workers pool)
 npm run typecheck   # tsc --noEmit for worker + ui
 npm run deploy      # build + wrangler deploy

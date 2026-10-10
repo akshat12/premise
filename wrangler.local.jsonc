@@ -1,0 +1,46 @@
+{
+	// Local-only config, used by `npm run dev:local`. It is wrangler.jsonc without the Artifacts
+	// binding, which is remote even in dev and so needs a Cloudflare login. Repos are held in
+	// memory instead (REPO_STORE=memory) and agents replay recorded turns (LLM=scripted), so this
+	// runs with no account and no keys. Keep the rest in step with wrangler.jsonc.
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "premise",
+	"main": "src/worker/index.ts",
+	"compatibility_date": "2026-10-01",
+	"compatibility_flags": ["nodejs_compat"],
+	"assets": {
+		"not_found_handling": "single-page-application",
+		// Without this, a browser navigating to /api/* gets index.html instead of the Worker.
+		"run_worker_first": ["/api/*"]
+	},
+	"limits": { "cpu_ms": 300000 },
+	"observability": { "enabled": true },
+
+	"worker_loaders": [{ "binding": "LOADER" }],
+	"durable_objects": {
+		"bindings": [
+			{ "name": "HUB", "class_name": "EventHub" },
+			{ "name": "INTENT", "class_name": "IntentDO" },
+			{ "name": "LEDGER", "class_name": "LedgerShard" },
+			{ "name": "LANDING", "class_name": "Landing" }
+		]
+	},
+	"migrations": [{ "tag": "v1", "new_sqlite_classes": ["EventHub", "IntentDO", "LedgerShard", "Landing"] }],
+	"workflows": [{ "name": "premise-agent", "binding": "AGENT_WORKFLOW", "class_name": "AgentWorkflow" }],
+	"queues": {
+		"consumers": [{ "queue": "premise-events", "max_batch_size": 50, "max_batch_timeout": 1 }]
+	},
+
+	// `.dev.vars` (copied from local.vars.example) adds the local admin token.
+	"vars": {
+		"TRUNK_REPO": "trunk",
+		"ARTIFACTS_NAMESPACE": "premise",
+		"REPO_STORE": "memory",
+		"LLM": "scripted",
+		"LLM_MODEL": "claude-sonnet-5-5",
+		"MAX_CONCURRENT_REDERIVES": "3",
+		"CLOUDFLARE_ACCOUNT_ID": "53f519d000e2e5cbdae65ca50fe09a23",
+		// The public copy of demo-repo/ that Artifacts imports as trunk (POST /api/admin/import-trunk).
+		"DEMO_REPO_URL": "https://github.com/akshat12/acme-accounts.git"
+	}
+}

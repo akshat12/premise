@@ -1,4 +1,4 @@
-# Copy to .dev.vars (git-ignored). These override the vars in wrangler.jsonc for local dev.
+# Copy to .dev.vars (git-ignored): `cp local.vars.example .dev.vars`. These override the vars in wrangler.jsonc for local dev.
 REPO_STORE=memory
 # The admin token for LOCAL dev only. The deployed Worker has its own (a wrangler secret);
 # scripts that call the deployed Worker read that one from ADMIN_TOKEN in the environment or
