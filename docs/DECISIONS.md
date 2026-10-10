@@ -631,3 +631,16 @@ The user approved the fix proposed under T16. It is not in `SPEC.md` or any task
   - **Overwriting shared test files:** `write_file` now refuses a path under `tests/` that already exists in the repo unless it is one of the Intent's own acceptance test files. The models had replaced `tests/support.ts`, `tests/users.test.ts` and `tests/billing.test.ts` in three runs, and nothing would have noticed.
 - **Not yet tested with a live model:** landing, invalidation and re-derive (the harness stops at the gate's queue), and real Workflows and Artifacts. A 12-agent live run needs a limiter for 15 requests a minute to be smooth; today it gets through on retries.
 - The key is in `.dev.vars` only. It was pasted into the chat, so it should be rotated once the competition is over.
+
+## 2026-10-09: T12 closed: a real model, end to end, on the deployed Worker
+
+- **Choosing the model at run time.** `POST /api/admin/llm { provider, model? }` stores the choice in the hub (`hub.llm()`); every agent run reads it in its first Workflow step (`withChosenLlm`). `{ provider: null }` goes back to the Worker's own `LLM` var (scripted). It refuses a provider whose key is not set. It survives a reset, like the trunk name. The Gemini key is a Worker secret (`GEMINI_API_KEY`).
+- **T12's live check** (the task says `LLM=anthropic`; this used `google` / `gemini-3.1-flash-lite`, the only key there is): `t07-role-check` dispatched on the deployed Worker went planning → working → quarantined (it added `Resource` and `RESOURCE_MIN_ROLE` without declaring them; the claim upgrade was granted by itself) → gate (3 acceptance tests passed) → landed, in 93 s.
+- **The premise-break scenario with a real model**, dispatching `t01`, `t02`, `t04` with `landFirst: ["t01-null-expired"]`:
+  - 44 s: `t01` landed.
+  - 44 s: `t02`, which had adopted `a-session-throws` while planning, got `premise.broken` and went `stale`. It had pushed nothing yet, so there was no rebase to try.
+  - 45 to 211 s: the re-derive. The model read the new trunk and wrote its reasoning ("verifySession now returns null for expired sessions instead of throwing an error. I will modify handleLogin to detect expired sessions by checking store/now instead of catching an error."). The result passed the gate and landed; `rederive.race` ended `fail / pass`, winner `rederive`.
+  - 329 s: `t04`, the control, landed on its first attempt.
+  - `behaviouralRegressionsOnTrunk` 0 (the hidden reference tests of all three passed on trunk), `premisesBroken` 1, `rederives` 1/1/0.
+  - It is slow because three agents share 15 requests a minute; most of the time is waiting out 429s.
+- Afterwards the live Worker was put back to recorded agents (`provider: null`) and reset.
