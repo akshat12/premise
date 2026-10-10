@@ -42,7 +42,7 @@ Tracks:
 
 - [x] **T06** (B): Symbol index, and mapping a diff to symbols. Depends on: T02
 - [x] **T07** (B): Type-surface hashing and surface diff, using the TS program in the Worker. Depends on: T06
-- [ ] **T08** (B): LedgerShard DO and the Wait/Split/Depend decision logic. Depends on: T06
+- [x] **T08** (B): LedgerShard DO and the Wait/Split/Depend decision logic. Depends on: T06
 - [ ] **T20** (U): App shell, counters, and Kumo Flow lanes driven by a replay fixture. Depends on: T04
 
 ### Day 3 (Sat Oct 10 to Sun Oct 11): agents, gate, invalidation

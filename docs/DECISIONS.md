@@ -293,3 +293,15 @@ A third LLM option, after the Anthropic key and the Workers AI fallback. Nothing
 - **The planted scenario holds at the type level:** applying `t01` gives an empty `diffSurface`, and `t01` plus `t02` still typechecks.
 - `src/worker/testing/demo.ts` gives tests `demoFiles()`, `referencePatch(id)` and `demoWith(...ids)`.
 - Timing: `analyze` on the demo repo takes about 0.6 s in Node and in local workerd. In a deployed Worker `ms` reads 0, as found in T00.
+
+## 2026-10-09: T08 notes (ledger)
+
+- **`ClaimRequest` has one extra optional field, `elsewhere`:** the number of symbols the same request claims in other shards. A shard sees only its own symbols, and the Split rule needs to know whether the requester wants anything besides the contested ones. `requestClaimsAcrossShards` fills it in.
+- **The shard does not filter by shard.** The client sends each shard only that shard's claims. (A Durable Object cannot reliably read its own name, so it cannot check.)
+- **Depend** applies when *every* contested symbol is held as `interface` and wanted as `body`, or when the requester already lists the other Intent in `dependsOn`. A mixed overlap falls through to Split or Wait.
+- **Split when the requester has higher priority moves the contested symbols**: the shard deletes the holder's rows for them and gives them to the requester. With equal priority the holder keeps them, because the requester's `since` is "now". In the demo all agent Intents should have equal priority unless T12 decides otherwise, so the holder keeps `computeTotal`.
+- **Split is the one non-granted decision that leaves claims behind**: the requester keeps its `mine` part, in this shard and in shards that already granted. Wait and Depend release everything.
+- **Stalemate** is tracked per shard in a `history` table (non-granted decisions, and landings). `release(intentId, landed)` takes a second argument so a landing resets the count. `isStalemateAcrossShards(env, a, b, shards)` is the call for T11.
+- **Expiry:** claims last 10 minutes (`CLAIM_TTL_MS`). Expired rows are dropped at the start of every request and snapshot as well as by the alarm, so correctness does not depend on the alarm firing. The alarm publishes nothing.
+- **Extra client functions:** `subscribeAcrossShards`, `renewEverywhere`, `isStalemateAcrossShards`, `groupByShard`, `shardsOf`, `ledgerShard`. Like the hub, the shard is used through a hand-written `LedgerApi` interface.
+- Workers tests use a unique fake directory per test (`t<time>x<n>/billing/...`), because storage is shared across the workers test run.
