@@ -9,7 +9,8 @@ import { LedgerRail } from "./components/LedgerRail";
 import { type LiveState, TopBar } from "./components/TopBar";
 import { type StreamSource, useEventStream } from "./lib/useEventStream";
 import { useViewState } from "./lib/useViewState";
-import { callsign, lanesOf, ledgerRows } from "./lib/view";
+import { sharedSymbols } from "./lib/chips";
+import { callsign, lanesOf, ledgerRows, OUTSIDE } from "./lib/view";
 
 const LIVE_URL = "/api/events/ws";
 const SPEEDS = [1, 2, 4, 8];
@@ -36,7 +37,8 @@ export function App() {
 		return () => window.removeEventListener("resize", onResize);
 	}, []);
 	// The board is what is left of the window after the ledger rail (320) and the board's own padding (32).
-	const boardWidth = Math.max(1280, windowWidth) - 320 - 32;
+	// 16 more for a scrollbar, which appears when the drawer is open.
+	const boardWidth = Math.max(1280, windowWidth) - 320 - 32 - 16;
 
 	// The recording is a real run of the deployed system. It is loaded on demand, not bundled into the first paint.
 	useEffect(() => {
@@ -61,11 +63,18 @@ export function App() {
 	const view = useViewState(events);
 	const lanes = useMemo(() => lanesOf(view), [view]);
 	const rows = useMemo(() => ledgerRows(view), [view]);
+	const shared = useMemo(() => sharedSymbols(view), [view]);
 	const callsignOf = useCallback(
 		(id: IntentId) => {
 			const intent = view.intents[id];
-			return intent ? callsign(intent) : id;
+			return intent ? callsign(intent) : id === OUTSIDE ? "a push to trunk" : id;
 		},
+		[view.intents],
+	);
+
+	// Messages from the backend name Intents by id. On screen they go by callsign.
+	const named = useCallback(
+		(text: string) => text.replace(/\bi[0-9a-z]{8}\b/g, (id) => (view.intents[id] ? callsign(view.intents[id] as (typeof view.intents)[string]) : id)).replace(/\bintent (T\d+ )/g, "$1"),
 		[view.intents],
 	);
 
@@ -163,12 +172,12 @@ export function App() {
 							}
 						/>
 					) : (
-						<Lanes lanes={lanes} width={boardWidth} selected={selected} hoverSymbol={hoverSymbol} onSelect={(id) => setSelected((current) => (current === id ? null : id))} onHoverSymbol={setHoverSymbol} />
+						<Lanes lanes={lanes} width={boardWidth} shared={shared} selected={selected} hoverSymbol={hoverSymbol} onSelect={(id) => setSelected((current) => (current === id ? null : id))} onHoverSymbol={setHoverSymbol} />
 					)}
 				</main>
 				<LedgerRail rows={rows} quiet={!empty && !loading} callsignOf={callsignOf} hoverSymbol={hoverSymbol} onHoverSymbol={setHoverSymbol} />
 			</div>
-			{selectedIntent ? <Drawer intent={selectedIntent} onClose={() => setSelected(null)} /> : null}
+			{selectedIntent ? <Drawer intent={selectedIntent} events={events} callsignOf={callsignOf} named={named} onSelect={setSelected} onClose={() => setSelected(null)} /> : null}
 		</div>
 	);
 }

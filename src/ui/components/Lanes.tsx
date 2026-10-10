@@ -80,6 +80,7 @@ interface LanesProps {
 	width: number;
 	selected: IntentId | null;
 	hoverSymbol: SymbolId | null;
+	shared: ReadonlySet<SymbolId>;
 	onSelect: (id: IntentId) => void;
 	onHoverSymbol: (symbol: SymbolId | null) => void;
 }
@@ -89,7 +90,7 @@ interface LanesProps {
  * one lane for the whole scripted workload. Kumo's Flow draws the connectors; a bay the Intent
  * has not reached is disabled.
  */
-export function Lanes({ lanes, width, selected, hoverSymbol, onSelect, onHoverSymbol }: LanesProps) {
+export function Lanes({ lanes, width, selected, hoverSymbol, shared, onSelect, onHoverSymbol }: LanesProps) {
 	const STRIP_WIDTH = stripWidthFor(width);
 	const byId = new Map(lanes.agents.map((intent) => [intent.id, intent]));
 	const callsignOf = (id: IntentId) => {
@@ -114,7 +115,7 @@ export function Lanes({ lanes, width, selected, hoverSymbol, onSelect, onHoverSy
 								id={`strip-${intent.id}`}
 								render={
 									<div style={{ width: STRIP_WIDTH }}>
-										<Strip intent={intent} selected={selected === intent.id} dimmed={hoverSymbol !== null && !touches(intent, hoverSymbol)} callsignOf={callsignOf} onSelect={onSelect} onHoverSymbol={onHoverSymbol} />
+										<Strip intent={intent} shared={shared} selected={selected === intent.id} dimmed={hoverSymbol !== null && !touches(intent, hoverSymbol)} callsignOf={callsignOf} onSelect={onSelect} onHoverSymbol={onHoverSymbol} />
 									</div>
 								}
 							/>

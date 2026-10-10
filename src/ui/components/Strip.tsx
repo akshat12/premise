@@ -1,5 +1,6 @@
 import { Tooltip } from "@cloudflare/kumo";
-import { ArrowsClockwise, Bell, CheckCircle, Eye, HourglassMedium, LinkBreak, ListChecks, MagnifyingGlass, PencilSimple, ShieldCheck, Warning, XCircle } from "@phosphor-icons/react";
+import { ArrowsClockwise, Bell, Check, CheckCircle, Eye, Flag, HourglassMedium, LinkBreak, ListChecks, MagnifyingGlass, PencilSimple, ShieldCheck, Warning, X, XCircle } from "@phosphor-icons/react";
+import { type RaceMark, raceRows } from "../lib/chips";
 import type { IntentId, SymbolId } from "../../shared/types";
 import type { IntentView } from "../lib/reduce";
 import { annotation, type Band, callsign, type Chip, chipsFor, STATUS_LOOK, type StatusIcon, symbolFile, symbolName } from "../lib/view";
@@ -52,15 +53,18 @@ function chipTip(chip: Chip) {
 }
 
 /** A symbol the Intent changes (pencil) or relies on (eye). A broken one is struck through in red pen. */
-export function SymbolChip({ chip, onHover }: { chip: Chip; onHover: (symbol: SymbolId | null) => void }) {
-	const Icon = chip.kind === "changes" ? PencilSimple : Eye;
-	const label = `${chip.kind === "changes" ? "changes" : "relies on"} ${symbolName(chip.symbol)}${chip.broken ? ", broken" : ""}`;
+export function SymbolChip({ chip, shared = false, onHover }: { chip: Chip; shared?: boolean; onHover: (symbol: SymbolId | null) => void }) {
+	// Pencil: it changes this. Eye: it relies on this. Flag: it relies on how this behaves, and asserted so.
+	const Icon = chip.kind === "changes" ? PencilSimple : chip.detail === "asserted" ? Flag : Eye;
+	const label = `${chip.kind === "changes" ? "changes" : "relies on"} ${symbolName(chip.symbol)}${chip.detail === "interface" ? ", its interface" : ""}${chip.detail === "asserted" ? ", asserted" : ""}${chip.broken ? ", broken" : ""}${shared ? ", shared with another Intent" : ""}`;
+	const iconColor = chip.broken ? "var(--redpen)" : chip.kind === "relies" ? "var(--holds)" : "var(--ink)";
 	return (
 		<span className="chip-wrap" onMouseEnter={() => onHover(chip.symbol)} onMouseLeave={() => onHover(null)} onFocus={() => onHover(chip.symbol)} onBlur={() => onHover(null)}>
 		<Tooltip content={chipTip(chip)}>
-			<span className="chip" data-broken={chip.broken} aria-label={label}>
-				<Icon size={12} weight={chip.detail === "asserted" || chip.detail === "interface" ? "fill" : "regular"} aria-hidden="true" />
+			<span className="chip" data-broken={chip.broken} data-shared={shared} aria-label={label}>
+				<Icon size={12} weight={chip.detail === "asserted" ? "fill" : "regular"} color={iconColor} aria-hidden="true" />
 				<span className="symbol">{symbolName(chip.symbol)}</span>
+				{chip.detail === "interface" ? <span style={{ fontSize: 10, color: "var(--ink-soft)" }}>if</span> : null}
 				{chip.broken ? (
 					<svg className="redpen-line" viewBox="0 0 100 22" preserveAspectRatio="none" aria-hidden="true">
 						<path d="M 2 13 C 22 8, 44 16, 62 10 S 90 9, 98 12" pathLength={100} />
@@ -72,8 +76,37 @@ export function SymbolChip({ chip, onHover }: { chip: Chip; onHover: (symbol: Sy
 	);
 }
 
+const RACE_ICON: Record<RaceMark, typeof Bell> = { pending: HourglassMedium, pass: Check, fail: X };
+const RACE_COLOR: Record<RaceMark, string> = { pending: "var(--ink-soft)", pass: "var(--holds)", fail: "var(--redpen)" };
+
+/** The race, in two rows: the plain rebase against the re-derive. The winner is in bold. */
+export function RaceIndicator({ intent }: { intent: Pick<IntentView, "race"> }) {
+	const race = raceRows(intent);
+	if (race === null) {
+		return null;
+	}
+	const row = (name: "rebase" | "rederive", label: string) => {
+		const mark = race[name];
+		const Icon = RACE_ICON[mark];
+		return (
+			<span className="flex items-center gap-1" style={{ color: RACE_COLOR[mark], fontWeight: race.winner === name ? 700 : 400 }}>
+				<Icon size={11} weight="bold" aria-hidden="true" />
+				{label}
+			</span>
+		);
+	};
+	return (
+		<span className="flex flex-col justify-center" style={{ fontSize: 11, lineHeight: "13px", flex: "none", whiteSpace: "nowrap" }} role="img" aria-label={`Race: rebase ${race.rebase}, re-derive ${race.rederive}${race.winner ? `, won by the ${race.winner === "rebase" ? "rebase" : "re-derive"}` : ""}`}>
+			{row("rebase", "rebase")}
+			{row("rederive", "re-derive")}
+		</span>
+	);
+}
+
 interface StripProps {
 	intent: IntentView;
+	/** Symbols one Intent changes while another relies on them. */
+	shared: ReadonlySet<SymbolId>;
 	selected: boolean;
 	dimmed: boolean;
 	callsignOf: (id: IntentId) => string;
@@ -84,10 +117,11 @@ interface StripProps {
 const MAX_CHIPS = 3;
 
 /** One Intent as a flight strip: holder band, callsign, what it changes and relies on, and any red-pen note. */
-export function Strip({ intent, selected, dimmed, callsignOf, onSelect, onHoverSymbol }: StripProps) {
+export function Strip({ intent, shared, selected, dimmed, callsignOf, onSelect, onHoverSymbol }: StripProps) {
 	const look = STATUS_LOOK[intent.status];
 	const chips = chipsFor(intent);
-	const note = annotation(intent, callsignOf);
+	// The status word already says "re-deriving", and the race rows take room: keep the note to what changed.
+	const note = annotation(intent, callsignOf)?.replace(intent.race ? /: re-deriving$/ : /$^/, "");
 	// With a red-pen note, the struck-through chip and the note are what matter: they go first and
 	// the rest gives way. Otherwise what it changes leads, then what it relies on.
 	const broken = chips.filter((chip) => chip.broken);
@@ -109,10 +143,10 @@ export function Strip({ intent, selected, dimmed, callsignOf, onSelect, onHoverS
 				</span>
 				<StatusMark status={intent.status} />
 			</button>
-			<div className="flex items-center gap-2 overflow-hidden" style={{ paddingRight: 10 }}>
+			<div className="flex items-center gap-2 overflow-hidden" style={{ paddingRight: intent.race ? 84 : 10 }}>
 				{shown.map((chip, index) => (
 					<span key={`${chip.kind}:${chip.symbol}`} className="inline-flex items-center gap-2" style={{ minWidth: 0, flex: "none" }}>
-						<SymbolChip chip={chip} onHover={onHoverSymbol} />
+						<SymbolChip chip={chip} shared={shared.has(chip.symbol)} onHover={onHoverSymbol} />
 						{index === 0 && note && chip.broken ? <span className="annotation">{note}</span> : null}
 					</span>
 				))}
@@ -123,6 +157,11 @@ export function Strip({ intent, selected, dimmed, callsignOf, onSelect, onHoverS
 				) : null}
 				{chips.length > shown.length ? <span style={{ fontSize: 12, color: "var(--ink-soft)", whiteSpace: "nowrap" }}>+{chips.length - shown.length}</span> : null}
 			</div>
+			{intent.race ? (
+				<div className="flex items-center" style={{ position: "absolute", right: 0, top: 0, bottom: 0, padding: "0 8px", background: "var(--strip)", borderLeft: "1px solid var(--rule)", borderRadius: "0 2px 2px 0" }}>
+					<RaceIndicator intent={intent} />
+				</div>
+			) : null}
 		</div>
 	);
 }

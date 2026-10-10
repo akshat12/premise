@@ -51,7 +51,7 @@ Tracks:
 - [x] **T10** (B): IntentDO state machine and premise store. Depends on: T03, T08
 - [x] **T11** (B): Agent tools and AgentWorkflow (plan, claim, work, submit). Depends on: T09, T10, T07
 - [x] **T12** (B): Dispatch API: fork, token, `.intent/`, starting workflows. Depends on: T11, T05
-- [ ] **T21** (U): Intent card, changes/relies-on chips, drawer, ledger rail. Depends on: T20
+- [x] **T21** (U): Intent card, changes/relies-on chips, drawer, ledger rail. Depends on: T20
 
 ### Day 4 (Sun Oct 11 to Mon Oct 12): gate, invalidation, re-derive
 

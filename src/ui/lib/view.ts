@@ -2,6 +2,9 @@
 import type { Claim, IntentId, IntentStatus, Premise, SymbolId } from "../../shared/types";
 import type { IntentView, ViewState } from "./reduce";
 
+/** What `premise.broken` names as the cause when trunk was pushed to from outside the gate. Not an Intent id. */
+export const OUTSIDE = "outside-the-gate";
+
 /** The name part of a symbol id: "src/auth/session.ts#verifySession" -> "verifySession". */
 export const symbolName = (symbol: SymbolId) => symbol.slice(symbol.lastIndexOf("#") + 1);
 /** The file part: "src/auth/session.ts#verifySession" -> "session.ts". */
@@ -89,7 +92,9 @@ export interface Chip {
 	description?: string;
 }
 
-const SOURCE_RANK: Record<Premise["source"], number> = { asserted: 0, derived: 1, observed: 2 };
+// Asserted first (what it said it depends on), then anything else that broke, then what it calls, then what it read.
+const SOURCE_RANK: Record<Premise["source"], number> = { asserted: 0, derived: 2, observed: 3 };
+const rankOf = (premise: Premise) => (premise.source === "asserted" ? 0 : premise.state === "broken" ? 1 : SOURCE_RANK[premise.source]);
 
 /**
  * The chips on a strip. Every symbol it changes, then what it relies on: broken ones first, then
@@ -101,7 +106,7 @@ export function chipsFor(intent: Pick<IntentView, "claims" | "premises"> & { sta
 	const bySymbol = new Map<SymbolId, Chip>();
 	// Once it has landed, a premise that broke on the way is history: the work on trunk no longer relies on it.
 	const current = intent.status === "landed" ? intent.premises.filter((premise) => premise.state !== "broken") : intent.premises;
-	const ordered = [...current].sort((a, b) => Number(b.state === "broken") - Number(a.state === "broken") || SOURCE_RANK[a.source] - SOURCE_RANK[b.source]);
+	const ordered = [...current].sort((a, b) => rankOf(a) - rankOf(b) || Number(b.state === "broken") - Number(a.state === "broken"));
 	for (const premise of ordered) {
 		if (claimed.has(premise.symbol) || bySymbol.has(premise.symbol)) {
 			continue;

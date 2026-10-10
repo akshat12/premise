@@ -74,16 +74,16 @@ describe("annotation", () => {
 });
 
 describe("chipsFor", () => {
-	it("lists what it changes, then what it relies on: broken first, then asserted, called, read", () => {
+	it("lists what it changes, then what it relies on: asserted first, then broken, called, read", () => {
 		const chips = chipsFor(intent({ claims: [{ symbol: LOGIN, mode: "body" }], premises: [premise("a#read", "observed"), premise("a#called", "derived"), premise("a#said", "asserted"), premise("a#gone", "observed", "broken")] }));
 		expect(chips.map((chip) => [chip.kind, symbolName(chip.symbol), chip.detail, chip.broken])).toEqual([
 			["changes", "handleLogin", "body", false],
-			["relies", "gone", "observed", true],
 			["relies", "said", "asserted", false],
+			["relies", "gone", "observed", true],
 			["relies", "called", "derived", false],
 			["relies", "read", "observed", false],
 		]);
-		expect(chips[1]).toMatchObject({ reason: "it changed", hash: "abcdef0123456789" });
+		expect(chips[2]).toMatchObject({ reason: "it changed", hash: "abcdef0123456789" });
 	});
 
 	it("shows a symbol once: not as relied on if it is being changed, and under its strongest source", () => {
