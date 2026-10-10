@@ -1,4 +1,6 @@
 import type { PremiseEvent, PremiseEventBody } from "../../shared/events";
+import type { Metrics } from "../../shared/types";
+import type { RegistryRow } from "../metrics";
 
 type HubEnv = Pick<Env, "HUB">;
 
@@ -12,6 +14,14 @@ export interface HubApi {
 	publishMany(bodies: PremiseEventBody[]): Promise<PremiseEvent[]>;
 	since(seq: number, limit?: number): Promise<PremiseEvent[]>;
 	reset(): Promise<void>;
+	registry(): Promise<RegistryRow[]>;
+	shards(): Promise<string[]>;
+	metrics(): Promise<Metrics>;
+	bump(counter: "brokenBuildsOnTrunk" | "behaviouralRegressionsOnTrunk" | "humanMerges", by?: number): Promise<void>;
+	trunk(): Promise<string | null>;
+	setTrunk(name: string): Promise<void>;
+	addWaiter(instanceId: string, topic: string): Promise<void>;
+	takeWaiters(topic: string): Promise<string[]>;
 	fetch(input: Request | string, init?: RequestInit): Promise<Response>;
 }
 
@@ -29,3 +39,25 @@ export async function publish(env: HubEnv, body: PremiseEventBody): Promise<Prem
 export async function publishMany(env: HubEnv, bodies: PremiseEventBody[]): Promise<PremiseEvent[]> {
 	return bodies.length === 0 ? [] : hub(env).publishMany(bodies);
 }
+
+/** Publishes the current metrics as a `metrics` event. Call after anything that changes a counter the UI shows. */
+export async function publishMetrics(env: HubEnv): Promise<PremiseEvent> {
+	const target = hub(env);
+	return target.publish({ t: "metrics", metrics: await target.metrics() });
+}
+
+/**
+ * The repo acting as trunk. It starts as TRUNK_REPO and changes when the demo is reset, which
+ * imports a fresh copy under a new name. Read the name through here, never from `env` directly.
+ */
+export async function currentTrunk(env: HubEnv & Pick<Env, "TRUNK_REPO">): Promise<string> {
+	return (await hub(env).trunk()) ?? env.TRUNK_REPO;
+}
+
+/** Topic names for paused Workflow instances. */
+export const waitTopic = {
+	/** Waiting for this Intent to land or fail, so its claims are released. */
+	ledger: (intentId: string) => `ledger:${intentId}`,
+	/** Waiting for a person to choose what happens to this Intent. */
+	human: (intentId: string) => `human:${intentId}`,
+};

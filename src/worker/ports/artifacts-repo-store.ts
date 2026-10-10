@@ -223,4 +223,15 @@ export class ArtifactsRepoStore implements RepoStore {
 	async remove(repo: string): Promise<void> {
 		await this.artifacts.delete(repo);
 	}
+
+	async list(): Promise<string[]> {
+		const names: string[] = [];
+		let cursor: string | undefined;
+		do {
+			const page = await this.artifacts.list({ limit: 100, cursor });
+			names.push(...page.repos.map((repo) => repo.name));
+			cursor = page.cursor;
+		} while (cursor);
+		return names.sort();
+	}
 }

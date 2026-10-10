@@ -1,13 +1,14 @@
 // Drives one agent through plan, claim, work and submit. This is the whole of the agent's
 // control flow; the Workflow class in workflow.ts only supplies durable steps.
 import type { Assertion, Claim, CommitSha, Intent, IntentId, LedgerDecision, TaskDef } from "../../shared/types";
-import { publish } from "../hub/publish";
+import { hub, publish, waitTopic } from "../hub/publish";
 import type { IntentApi } from "../intent/client";
 import { IllegalTransition, type IntentAction } from "../intent/machine";
 import { isStalemateAcrossShards, requestClaimsAcrossShards, shardsOf } from "../ledger/client";
 import { assistantMessage, type LlmClient, type LlmMessage, toolCalls, type ToolResultBlock } from "../ports/llm";
 import type { RepoStore } from "../ports/repo-store";
 import { briefing, NUDGE, SYSTEM_PROMPT, WORK_PHASE_NOTE } from "./prompts";
+import { HUMAN_CHOICE, LEDGER_FREE } from "./wake";
 import { type AgentEnv, callTool, commitChanges, createToolContext, type Phase, TOOLS, type ToolContext } from "./tools";
 
 export interface AgentParams {
@@ -35,6 +36,8 @@ export interface AgentDeps {
 	llm(intent: Intent, messages: readonly LlmMessage[]): LlmClient;
 	/** What happens after the push: the post-push checker and the gate queue. */
 	handOff(intent: Intent, commit: CommitSha): Promise<void>;
+	/** This run's Workflow instance id, so it can be woken while it waits. Absent in tests that drive the run directly. */
+	instanceId?: string;
 }
 
 export type AgentOutcome =
@@ -43,10 +46,15 @@ export type AgentOutcome =
 
 export const PLAN_TURNS = 12;
 export const WORK_TURNS = 20;
-export const MAX_CLAIM_ROUNDS = 6;
+/** How many times an agent asks the ledger before giving up. With the wait below, about 20 minutes. */
+export const MAX_CLAIM_ROUNDS = 40;
+/**
+ * How long a waiting agent sleeps before asking the ledger again anyway. It is normally woken
+ * sooner, when the Intent it waits on lands or fails; the short timeout covers a missed wake-up.
+ */
+export const LEDGER_WAIT = "30 seconds";
 export const DEFAULT_PRIORITY = 5;
-export const LEDGER_FREE = "ledger-free";
-export const HUMAN_CHOICE = "human-choice";
+export { HUMAN_CHOICE, LEDGER_FREE } from "./wake";
 
 /** Statuses in which the agent that owns this run should keep going. Anything else means someone else took over. */
 const RUNNABLE: Record<AgentParams["mode"], readonly Intent["status"][]> = {
@@ -151,6 +159,14 @@ export async function runAgent(deps: AgentDeps, params: AgentParams, steps: Step
 			throw error;
 		}
 	};
+	/** Pauses until `type` arrives, having first noted in the hub what would wake this run. */
+	const pause = async <T>(name: string, topic: string, type: string, timeout: string): Promise<T | null> => {
+		const instanceId = deps.instanceId;
+		if (instanceId !== undefined) {
+			await steps.do(`note-${name}`, async () => void (await hub(env).addWaiter(instanceId, topic)));
+		}
+		return steps.waitForEvent<T>(name, type, timeout);
+	};
 	const fail = async (reason: string): Promise<AgentOutcome> => {
 		await api.act({ a: "fail" }, reason).catch(() => undefined);
 		return { result: "failed", reason, turns, usage };
@@ -226,7 +242,7 @@ export async function runAgent(deps: AgentDeps, params: AgentParams, steps: Step
 				await steps.do(`ask-human-${round}`, async () =>
 					void (await publish(env, { t: "human.needed", id: params.intentId, kind: "stalemate", message: `${describeDecision(decision, claims)} The two Intents have split the same symbols twice.`, options: ["Wait", "Split", "Depend"] })),
 				);
-				const chosen = await steps.waitForEvent<{ choice?: string }>(`human-choice-${round}`, HUMAN_CHOICE, "24 hours");
+				const chosen = await pause<{ choice?: string }>(`human-choice-${round}`, waitTopic.human(params.intentId), HUMAN_CHOICE, "24 hours");
 				const choice = chosen?.choice ?? "Wait";
 				await act({ a: "human", choice });
 				if (choice === "Split") {
@@ -238,13 +254,13 @@ export async function runAgent(deps: AgentDeps, params: AgentParams, steps: Step
 						await steps.do(`depend-${round}`, async () => void (await api.setDependsOn([...(await api.get()).dependsOn, decision.with])));
 					}
 					await act({ a: "wait" }, `Waiting on Intent ${decision.with}`);
-					await steps.waitForEvent(`wait-ledger-${round}`, LEDGER_FREE, "30 minutes");
+					await pause(`wait-ledger-${round}`, waitTopic.ledger(decision.with), LEDGER_FREE, LEDGER_WAIT);
 					await act({ a: "resume" });
 				}
 			} else {
 				await act({ a: "wait" }, describeDecision(decision, claims));
-				// Woken when another Intent lands or fails. If nothing arrives, ask again anyway.
-				await steps.waitForEvent(`wait-ledger-${round}`, LEDGER_FREE, "30 minutes");
+				// Woken when the other Intent lands or fails. If nothing arrives, ask again anyway.
+				await pause(`wait-ledger-${round}`, waitTopic.ledger(decision.on), LEDGER_FREE, LEDGER_WAIT);
 				await act({ a: "resume" });
 			}
 		}

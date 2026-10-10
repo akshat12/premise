@@ -1,6 +1,7 @@
 import { DurableObject } from "cloudflare:workers";
 import type { IntentSummary } from "../../shared/events";
 import type { Claim, CommitSha, Intent, Premise, SymbolId } from "../../shared/types";
+import { wakeLedgerWaiters } from "../agent/wake";
 import { publish } from "../hub/publish";
 import { releaseEverywhere, shardsOf, subscribeAcrossShards } from "../ledger/client";
 import type { FileChanges } from "../ports/repo-store";
@@ -90,6 +91,8 @@ export class IntentDO extends DurableObject<Env> {
 		await publish(this.env, note === undefined ? { t: "intent.status", id: saved.id, status } : { t: "intent.status", id: saved.id, status, note });
 		if (status === "landed" || status === "failed") {
 			await releaseEverywhere(this.env, saved.id, shardsFor(saved), status === "landed");
+			// Agents that were told to wait for this Intent can ask the ledger again.
+			await wakeLedgerWaiters(this.env, saved.id);
 		}
 		return saved;
 	}

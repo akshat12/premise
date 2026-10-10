@@ -16,6 +16,7 @@ export interface LedgerApi {
 	readersOf(symbols: SymbolId[]): Promise<Reader[]>;
 	stalemate(a: IntentId, b: IntentId): Promise<boolean>;
 	snapshot(): Promise<LedgerSnapshot>;
+	clear(): Promise<void>;
 }
 
 export function ledgerShard(env: LedgerEnv, shard: string): LedgerApi {
@@ -84,4 +85,10 @@ export async function releaseEverywhere(env: LedgerEnv, intentId: IntentId, shar
 export async function isStalemateAcrossShards(env: LedgerEnv, a: IntentId, b: IntentId, shards: readonly string[]): Promise<boolean> {
 	const results = await Promise.all(shards.map((shard) => ledgerShard(env, shard).stalemate(a, b)));
 	return results.some(Boolean);
+}
+
+/** Everything every named shard holds, merged. For the UI's ledger rail. */
+export async function snapshotAcrossShards(env: LedgerEnv, shards: readonly string[]): Promise<LedgerSnapshot> {
+	const all = await Promise.all(shards.map((shard) => ledgerShard(env, shard).snapshot()));
+	return { claims: all.flatMap((snapshot) => snapshot.claims), readers: all.flatMap((snapshot) => snapshot.readers) };
 }

@@ -22,6 +22,8 @@ export interface RepoStore {
   changedPaths(repo: string, from: CommitSha, to: CommitSha): Promise<string[]>;
   /** Delete repo (cleanup). */
   remove(repo: string): Promise<void>;
+  /** Names of every repo, sorted. Used to find Intent forks when the demo is reset. */
+  list(): Promise<string[]>;
 }
 
 export class StaleHeadError extends Error { constructor(public actual: CommitSha) { super(`stale head; actual ${actual}`); } }

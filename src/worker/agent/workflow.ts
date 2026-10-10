@@ -52,6 +52,7 @@ export class AgentWorkflow extends WorkflowEntrypoint<Env, AgentParams> {
 				intent: intentStub(env, params.intentId),
 				llm: llmFor(env, params),
 				handOff: (intent, commit) => handOff(env, intent, commit),
+				instanceId: event.instanceId,
 			},
 			params,
 			workflowSteps(step),

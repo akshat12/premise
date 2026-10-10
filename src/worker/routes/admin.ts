@@ -1,6 +1,7 @@
 import { isEventBody } from "../../shared/wire";
 import { isAdminRequest } from "../admin-auth";
-import { hub, publish } from "../hub/publish";
+import { resetDemo } from "../dispatch";
+import { currentTrunk, hub, publish } from "../hub/publish";
 import { getRepoStore } from "../ports";
 import { ArtifactsRepoStore } from "../ports/artifacts-repo-store";
 import { runContract } from "../ports/repo-store.contract";
@@ -50,7 +51,7 @@ export async function handleAdmin(request: Request, env: Env, url: URL): Promise
 		case "/api/admin/analyze": {
 			// A health check of the two things that run repo code inside this Worker: the TypeScript
 			// compiler (typecheck and symbol surfaces) and the Dynamic Worker runner (tests and assertions).
-			const files = await getRepoStore(env).snapshot(env.TRUNK_REPO, "main");
+			const files = await getRepoStore(env).snapshot(await currentTrunk(env), "main");
 			const result = analyze(files);
 			const assertions = JSON.parse(files["premise/assertions.json"] ?? "[]") as Assertion[];
 			const testFile = "tests/session.test.ts";
@@ -73,6 +74,8 @@ export async function handleAdmin(request: Request, env: Env, url: URL): Promise
 		}
 		case "/api/admin/import-trunk":
 			return importTrunk(request, env);
+		case "/api/admin/reset-demo":
+			return Response.json({ ok: true, ...(await resetDemo(env)) });
 		case "/api/admin/events/reset":
 			await hub(env).reset();
 			return Response.json({ ok: true });

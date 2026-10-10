@@ -160,6 +160,20 @@ export const contractCases: ContractCase[] = [
 		},
 	},
 	{
+		name: "list names the repos that exist",
+		async run(store, repo) {
+			const one = repo("list-a");
+			const two = repo("list-b");
+			await store.ensureRepo(one);
+			await store.ensureRepo(two);
+			const names = await store.list();
+			ok(names.includes(one) && names.includes(two), `list() should include ${one} and ${two}, got ${names.length} names`);
+			equal([...names].sort(), names, "list() is sorted");
+			await store.remove(one);
+			ok(!(await store.list()).includes(one), "a removed repo is not listed");
+		},
+	},
+	{
 		name: "remove deletes a repo",
 		async run(store, repo) {
 			const name = repo("remove");

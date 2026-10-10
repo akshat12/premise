@@ -164,6 +164,14 @@ export class LedgerShard extends DurableObject<Env> {
 		};
 	}
 
+	/** Forgets everything. Used when the demo is reset. */
+	async clear(): Promise<void> {
+		this.sql.exec("DELETE FROM claims");
+		this.sql.exec("DELETE FROM readers");
+		this.sql.exec("DELETE FROM history");
+		await this.ctx.storage.deleteAlarm();
+	}
+
 	async alarm(): Promise<void> {
 		this.dropExpired(Date.now());
 		await this.scheduleExpiry();

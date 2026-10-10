@@ -407,3 +407,24 @@ The user asked that the architecture make it easy to switch to another model pro
   - In a scripted run the client is rebuilt each turn from the number of assistant messages so far, so a restarted Workflow replays from the right place.
 - `agent/handoff.ts` is the seam for what follows a push. For now it moves a submitted Intent to `checking` then `queued`; T13 and T15 extend it.
 - Tests that use real symbol names end by failing their Intent, because the ledger is shared across the test run.
+
+## 2026-10-09: T12 notes (dispatch)
+
+**Status: code complete; the live check with a real model is waiting on a model key.** `npm test -- dispatch` and typecheck pass. The task's last acceptance step is a deployed dispatch with `LLM=anthropic`, and there is no key yet. In its place I ran the same dispatch on the deployed Worker with `LLM=scripted`: real Artifacts forks, real Workflows, recorded agents. Both Intents (`t04`, `t05`) went `planning` to `queued` in about 20 seconds, with 2 forks and 2 pushes counted. **The T12 box stays unticked until the dispatch has been run with a real model.** Later tasks build on T12's code regardless, at the user's request to keep going until a key is needed.
+
+- **Real Workflows run in the workers test pool.** `introspectWorkflow(env.AGENT_WORKFLOW)` from `cloudflare:test` gives the instances a route created; `waitForStatus("complete")` and `getOutput()` work. Only one introspection session per Workflow binding can be open at a time. The test run prints "RPC result was not disposed" and "Worker's code had hung" lines from finished instances; they do not fail anything.
+- **The EventHub now also holds** (all filled in as events pass through `publish`):
+  - `registry`: every Intent with its latest status (`GET /api/intents`).
+  - `shards`: the ledger shards that hold claims or readers (`GET /api/ledger` merges their snapshots).
+  - the counters behind the metrics.
+  - the name of the repo acting as trunk.
+  - `waiters`: paused Workflow instances and what each waits for.
+- **Read the trunk name with `currentTrunk(env)`, never `env.TRUNK_REPO`.** A demo reset makes a fresh copy under a new name (`trunk-<time>`) and points the hub at it. `import-trunk` points it back at `TRUNK_REPO`.
+- **Metrics** (`src/worker/metrics.ts`): `countEvent` is a pure reducer over events (forks and pushes from `artifacts` events of type `forked` and `pushed`, broken premises, re-derives, and one `humanMerges` per `human.needed`); `agentsActive` and `intentsLanded` come from the registry. `publishMetrics(env)` publishes the current numbers; dispatch and reset call it. `hub.bump(counter)` exists for the A/B harness. Also `GET /api/metrics` and `GET /api/trunk`.
+  - **Dispatch publishes its own `artifacts` event of type `forked`**, because the queue subscriptions are not set up and memory mode has no platform events. T16's queue consumer must use a different type for the platform's own fork events, or forks will be counted twice.
+- **Waking waiting agents.** Before pausing, a run records `ledger:<intent it waits on>` or `human:<its own id>` in the hub. `IntentDO.act` wakes the ledger waiters of an Intent when it lands or fails (`agent/wake.ts`); `POST /api/human/:id` wakes the human waiter with the choice and publishes `human.resolved`. Because a wake-up can be missed if the other Intent finishes first, a waiting agent also re-asks the ledger every 30 seconds (`LEDGER_WAIT`), up to 40 rounds (`MAX_CLAIM_ROUNDS`), instead of the task's single 30-minute wait.
+- **Priority.** `priorityOrder` in the dispatch body gives the first task priority 1, the next 2, and so on; tasks it does not mention come after. With no order, every task has priority 5, so the holder keeps contested symbols.
+- **`RepoStore` gained `list()`** (names of all repos, sorted), with a contract case. Reset uses it to find Intent forks (`i` plus 8 base36 characters, optionally `-r<n>`).
+- **`POST /api/admin/reset-demo`** deletes the Intent forks, imports (or in memory mode, seeds) a fresh trunk under a new name, clears the ledger shards, then clears the event log, registry, counters and waiters. On the deployed Worker it took 5.3 s and left `trunk` (the original import) alongside `trunk-<time>`; earlier reset copies are deleted, the original `trunk` is not. Workflows still running for deleted forks are not terminated; they fail on their own.
+- `POST /api/dispatch` and `POST /api/human/:id` both require the admin token. There is no separate `run-one` route: dispatching one task does the same thing.
+- The smoke test now has 9 contract cases and passes on the deployed Worker.

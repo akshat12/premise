@@ -1,3 +1,4 @@
+import { hub } from "../hub/publish";
 import { getRepoStore } from "../ports";
 import { isArtifactsError } from "../ports/artifacts-repo-store";
 
@@ -75,6 +76,8 @@ export async function importTrunk(request: Request, env: Env): Promise<Response>
 	if (polled.status !== "ready") {
 		return Response.json({ ok: false, repo: name, status: polled.status, url, ms: Date.now() - start }, { status: 504 });
 	}
+	// A reset may have pointed trunk at a copy; an explicit import makes this repo trunk again.
+	await hub(env).setTrunk(name);
 	return Response.json({
 		ok: true,
 		store: "artifacts",

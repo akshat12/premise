@@ -147,6 +147,11 @@ export class MemoryRepoStore implements RepoStore {
 		await this.seeding;
 		this.repos.delete(repo);
 	}
+
+	async list(): Promise<string[]> {
+		await this.seeding;
+		return [...this.repos.keys()].sort();
+	}
 }
 
 let singleton: MemoryRepoStore | undefined;

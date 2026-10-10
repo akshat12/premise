@@ -9,7 +9,7 @@ import { demoTask, memorySteps, replay, scriptFor, seededStore, startIntent } fr
 import { demoWith } from "../testing/demo";
 import { handOff } from "./handoff";
 import { briefing, rederiveBlock, SYSTEM_PROMPT } from "./prompts";
-import { type AgentDeps, type AgentParams, PLAN_TURNS, runAgent, type Steps, WORK_TURNS } from "./run";
+import { type AgentDeps, type AgentParams, MAX_CLAIM_ROUNDS, PLAN_TURNS, runAgent, type Steps, WORK_TURNS } from "./run";
 import { AGENT_SCRIPTS, scriptKey } from "./scripts";
 
 // These tests use the demo repo's real symbol names, and the ledger is shared by the whole test
@@ -235,7 +235,7 @@ describe("runAgent: the ledger's answers", () => {
 		const second = await startIntent(env, store, "t08-profile-validation");
 		await run(store, first, scriptFor("t08-profile-validation"));
 		const { outcome, intent } = await run(store, second, scriptFor("t08-profile-validation"));
-		expect(outcome).toMatchObject({ result: "failed", reason: "the ledger did not grant the claims after 6 rounds" });
+		expect(outcome).toMatchObject({ result: "failed", reason: `the ledger did not grant the claims after ${MAX_CLAIM_ROUNDS} rounds` });
 		expect(intent.status).toBe("failed");
 		await first.api.act({ a: "fail" }, "test cleanup");
 	}, 60_000);
