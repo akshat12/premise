@@ -141,6 +141,7 @@ Other commands:
 | `npx tsx scripts/ab.ts --url <your worker>` | Runs the A/B comparison and rewrites `docs/ab-results.md` |
 | `npm run demo:record -- --url <your worker> --out demo/runs/mine.json` | Records a run; play it at `/?demo=mine` |
 | `npm run demo:compress -- demo/runs/mine.json` | Cuts idle time out of a recording and marks each cut |
+| `npm run demo:offline` | Builds, then serves the UI as plain files with no backend: the recorded run at `http://localhost:4173/?demo=main` |
 
 ### Using a real model
 
