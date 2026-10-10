@@ -58,7 +58,7 @@ Tracks:
 - [x] **T13** (B): Post-push checker (out-of-claim edits, derived premises). Depends on: T12
 - [x] **T14** (B): Behavioural runner (repo tests and assertions in a Dynamic Worker). Depends on: T05, T03
 - [x] **T15** (B): Landing DO, the gate (diff3 rebase, typecheck, tests, assertions, push to trunk). Depends on: T13, T14, T07
-- [ ] **T16** (B): Premise invalidation, plus the trunk `pushed` event consumer. Depends on: T15
+- [x] **T16** (B): Premise invalidation, plus the trunk `pushed` event consumer. Depends on: T15
 - [ ] **T17** (B): Re-derive race, with caps and escalation. Depends on: T16
 - [ ] **T22** (U): Human cards (stalemate, fallback), dispatch panel. Depends on: T21, T12
 

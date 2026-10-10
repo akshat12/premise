@@ -2,7 +2,7 @@
 import type { TaskId } from "../../shared/types";
 import { isAdminRequest } from "../admin-auth";
 import { wakeHumanWaiters } from "../agent/wake";
-import { dispatchTasks, UnknownTasks } from "../dispatch";
+import { DispatchFailed, dispatchTasks, UnknownTasks } from "../dispatch";
 import { settleQuarantine } from "../gate/checker";
 import { gateEnqueue } from "../gate/client";
 import { intentStub } from "../intent/client";
@@ -36,6 +36,9 @@ export async function handleDispatch(request: Request, env: Env, url: URL): Prom
 		} catch (error) {
 			if (error instanceof UnknownTasks) {
 				return Response.json({ error: error.message }, { status: 400 });
+			}
+			if (error instanceof DispatchFailed) {
+				return Response.json({ error: error.message, intents: error.started, failed: error.failed }, { status: 502 });
 			}
 			throw error;
 		}

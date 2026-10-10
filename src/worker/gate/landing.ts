@@ -135,6 +135,8 @@ export async function landIntent(env: LandEnv, intentId: IntentId, path: QueuePa
 		await settle(api, { a: "land", commit });
 		// An Intent whose work was already on trunk lands without moving it, so there is nothing to announce.
 		if (commit !== trunkBefore) {
+			// Our own code is what pushed, so it reports the push; the platform's event is only relayed (see events/consumer.ts).
+			await publish(env, { t: "artifacts", type: "pushed", repo: deps.gate.trunk ?? "trunk", detail: { commit, intent: intentId } });
 			await publish(env, { t: "trunk.advanced", commit, byIntent: intentId, changedSymbols });
 			await (deps.invalidate ?? invalidate)(env, { commit, byIntent: intentId, changedSymbols, newTrunkFiles });
 		}

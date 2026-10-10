@@ -15,6 +15,9 @@ export interface HubApi {
 	since(seq: number, limit?: number): Promise<PremiseEvent[]>;
 	reset(): Promise<void>;
 	registry(): Promise<RegistryRow[]>;
+	asserters(): Promise<string[]>;
+	claimCommit(commit: string): Promise<boolean>;
+	isProcessed(commit: string): Promise<boolean>;
 	shards(): Promise<string[]>;
 	metrics(): Promise<Metrics>;
 	bump(counter: "brokenBuildsOnTrunk" | "behaviouralRegressionsOnTrunk" | "humanMerges", by?: number): Promise<void>;

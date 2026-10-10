@@ -95,7 +95,11 @@ describe("landIntent", () => {
 		expect(await requestClaimsAcrossShards(env, { intentId: intent.id, claims: [{ symbol: VERIFY, mode: "body" }], priority: 5, dependsOn: [] })).toEqual({ kind: "granted" });
 		await intent.api.setClaims([{ symbol: VERIFY, mode: "body" }]);
 
-		const outcome = await landIntent(env, intent.id, "rebase", { gate: gateDeps(env, store, "trunk", cache), cache, invalidate: async (_env, landed) => void invalidated.push(landed) });
+		const outcome = await landIntent(env, intent.id, "rebase", { gate: gateDeps(env, store, "trunk", cache), cache, invalidate: async (_env, landed) => {
+				invalidated.push(landed);
+				return { skipped: false, broken: [], intents: [] };
+			},
+		});
 		const head = await store.head("trunk");
 		expect(outcome).toMatchObject({ kind: "landed", commit: head, changedSymbols: [] });
 

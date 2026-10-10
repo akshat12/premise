@@ -23,6 +23,17 @@ export class UnknownTasks extends Error {
 	}
 }
 
+/** Some tasks could not be started. The ones in `started` are running. */
+export class DispatchFailed extends Error {
+	constructor(
+		readonly started: IntentId[],
+		readonly failed: { taskId: TaskId; error: string }[],
+	) {
+		super(`could not start ${failed.length} of ${started.length + failed.length} task${started.length + failed.length === 1 ? "" : "s"}: ${failed.map((item) => `${item.taskId} (${item.error})`).join("; ")}`);
+		this.name = "DispatchFailed";
+	}
+}
+
 /** The task list, read from trunk. */
 export async function loadTasks(env: Env, store: RepoStore = getRepoStore(env)): Promise<TaskDef[]> {
 	const text = await store.readFile(await currentTrunk(env), "main", "premise/tasks.json");
@@ -37,10 +48,10 @@ export function priorityFor(taskId: TaskId, priorityOrder: readonly TaskId[] | u
 
 /**
  * For each task: fork trunk, create the Intent with its acceptance checks frozen, and start its
- * agent. Returns the new Intent ids in the order the tasks were given.
+ * agent. Returns the new Intent ids in the order the tasks were given. If some tasks cannot be
+ * started, the rest still are, and DispatchFailed says which.
  */
-export async function dispatchTasks(env: Env, taskIds: readonly TaskId[], priorityOrder?: readonly TaskId[]): Promise<IntentId[]> {
-	const store = getRepoStore(env);
+export async function dispatchTasks(env: Env, taskIds: readonly TaskId[], priorityOrder?: readonly TaskId[], store: RepoStore = getRepoStore(env)): Promise<IntentId[]> {
 	const trunk = await currentTrunk(env);
 	const tasks = await loadTasks(env, store);
 	const unknown = taskIds.filter((id) => !tasks.some((task) => task.id === id));
@@ -48,7 +59,24 @@ export async function dispatchTasks(env: Env, taskIds: readonly TaskId[], priori
 		throw new UnknownTasks(unknown);
 	}
 
-	const ids = await mapLimit(taskIds, DISPATCH_CONCURRENCY, async (taskId) => {
+	const failed: DispatchFailed["failed"] = [];
+	const started = await mapLimit(taskIds, DISPATCH_CONCURRENCY, async (taskId) => {
+		try {
+			return await dispatchOne(taskId);
+		} catch (error) {
+			// One task failing to start must not stop the others, or leave the caller not knowing which did.
+			failed.push({ taskId, error: error instanceof Error ? error.message : String(error) });
+			return null;
+		}
+	});
+	const ids = started.filter((id) => id !== null);
+	await publishMetrics(env);
+	if (failed.length > 0) {
+		throw new DispatchFailed(ids, failed);
+	}
+	return ids;
+
+	async function dispatchOne(taskId: TaskId): Promise<IntentId> {
 		const task = tasks.find((candidate) => candidate.id === taskId) as TaskDef;
 		const id = newIntentId();
 		const { head } = await store.fork(trunk, id);
@@ -58,9 +86,7 @@ export async function dispatchTasks(env: Env, taskIds: readonly TaskId[], priori
 		await intentStub(env, id).init(newIntent({ id, kind: "agent", taskId: task.id, goal: task.goal, acceptance, baseCommit: head, repo: id }));
 		await env.AGENT_WORKFLOW.create({ id: workflowInstanceId(id, 0), params: { intentId: id, mode: "fresh", priority: priorityFor(taskId, priorityOrder) } });
 		return id;
-	});
-	await publishMetrics(env);
-	return ids;
+	}
 }
 
 /** Imports a git repo into Artifacts under `name` and waits until it is ready. */
@@ -127,6 +153,12 @@ export async function resetDemo(env: Env): Promise<ResetResult> {
 		if (status !== "ready") {
 			throw new Error(`the fresh trunk "${trunk}" is ${status}, not ready; the old trunk is still in use`);
 		}
+		// A repo that was imported a moment ago can refuse its first forks ("internal error") when
+		// several arrive together, which is exactly what the first dispatch after a reset does. So
+		// make one fork here, on its own, and only call the trunk ready once that has worked.
+		const probe = newIntentId();
+		await store.fork(trunk, probe);
+		await store.remove(probe).catch(() => undefined);
 	}
 
 	const shards = await hub(env).shards();

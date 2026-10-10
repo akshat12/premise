@@ -33,6 +33,10 @@ export class EventHub extends DurableObject<Env> {
 			sql.exec("CREATE TABLE IF NOT EXISTS meta(key TEXT PRIMARY KEY, value TEXT)");
 			// Workflow instances that are paused until something happens: `topic` says what they wait for.
 			sql.exec("CREATE TABLE IF NOT EXISTS waiters(instance_id TEXT, topic TEXT, PRIMARY KEY (instance_id, topic))");
+			// Trunk commits whose effect on in-flight Intents has been worked out. A commit can be reported twice.
+			sql.exec("CREATE TABLE IF NOT EXISTS processed_commits(commit_sha TEXT PRIMARY KEY, ts INTEGER)");
+			// Intents that have recorded at least one asserted premise: the only ones invalidation has to open.
+			sql.exec("CREATE TABLE IF NOT EXISTS asserters(id TEXT PRIMARY KEY)");
 		});
 		// Answers keep-alive pings without waking a hibernated object.
 		ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair(PING, PONG));
@@ -55,6 +59,9 @@ export class EventHub extends DurableObject<Env> {
 			sql.exec("INSERT INTO registry (id, kind, task_id, status, updated_at) VALUES (?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET status = excluded.status, updated_at = excluded.updated_at", id, kind, taskId, status, ts);
 		} else if (body.t === "intent.status") {
 			sql.exec("UPDATE registry SET status = ?, updated_at = ? WHERE id = ?", body.status, ts, body.id);
+		}
+		if (body.t === "premise.recorded" && body.premise.source === "asserted") {
+			sql.exec("INSERT OR IGNORE INTO asserters (id) VALUES (?)", body.id);
 		}
 		const symbols = body.t === "claim.decision" ? body.symbols : body.t === "premise.recorded" ? [body.premise.symbol] : [];
 		for (const shard of new Set(symbols.map(moduleShard))) {
@@ -118,6 +125,8 @@ export class EventHub extends DurableObject<Env> {
 		sql.exec("DELETE FROM registry");
 		sql.exec("DELETE FROM shards");
 		sql.exec("DELETE FROM waiters");
+		sql.exec("DELETE FROM processed_commits");
+		sql.exec("DELETE FROM asserters");
 		sql.exec("DELETE FROM meta WHERE key != 'trunk'");
 		this.broadcast(JSON.stringify({ reset: true }));
 	}
@@ -128,6 +137,23 @@ export class EventHub extends DurableObject<Env> {
 			.exec<{ id: string; kind: string; task_id: string; status: string; updated_at: number }>("SELECT id, kind, task_id, status, updated_at FROM registry ORDER BY rowid")
 			.toArray()
 			.map((row) => ({ id: row.id, kind: row.kind as IntentKind, taskId: row.task_id, status: row.status as IntentStatus, updatedAt: row.updated_at }));
+	}
+
+	/** Ids of Intents that have asserted a premise, in the order they first did. */
+	async asserters(): Promise<string[]> {
+		return this.ctx.storage.sql.exec<{ id: string }>("SELECT id FROM asserters ORDER BY rowid").toArray().map((row) => row.id);
+	}
+
+	/**
+	 * Marks a trunk commit as dealt with. Returns true the first time and false after that, so
+	 * whoever gets true does the work and nobody does it twice.
+	 */
+	async claimCommit(commit: string): Promise<boolean> {
+		return this.ctx.storage.sql.exec("INSERT OR IGNORE INTO processed_commits (commit_sha, ts) VALUES (?, ?)", commit, Date.now()).rowsWritten > 0;
+	}
+
+	async isProcessed(commit: string): Promise<boolean> {
+		return this.ctx.storage.sql.exec("SELECT 1 FROM processed_commits WHERE commit_sha = ?", commit).toArray().length > 0;
 	}
 
 	/** Names of the ledger shards that hold, or have held, claims or readers. */

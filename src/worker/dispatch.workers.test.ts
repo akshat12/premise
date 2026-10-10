@@ -3,7 +3,7 @@ import { env, exports } from "cloudflare:workers";
 import { describe, expect, it } from "vitest";
 import type { PremiseEvent } from "../shared/events";
 import type { Intent, Metrics, TaskDef } from "../shared/types";
-import { isIntentRepo, priorityFor } from "./dispatch";
+import { DispatchFailed, dispatchTasks, isIntentRepo, priorityFor } from "./dispatch";
 import type { LandingStatus } from "./gate/client";
 import { currentTrunk, hub } from "./hub/publish";
 import { intentStub } from "./intent/client";
@@ -183,6 +183,46 @@ describe("POST /api/dispatch", () => {
 		await Promise.all(instances.map((instance) => instance.waitForStatus("complete")));
 		await gateIdle();
 	}, 90_000);
+});
+
+describe("dispatchTasks when a fork cannot be made", () => {
+	it("starts the tasks it can, and says which it could not", async () => {
+		await using introspector = await introspectWorkflow(env.AGENT_WORKFLOW);
+		const real = getRepoStore(env);
+		let forks = 0;
+		// The second fork fails, as Artifacts sometimes does under load even after retries.
+		const flaky = new Proxy(real, {
+			get(target, property, receiver) {
+				if (property === "fork") {
+					return async (source: string, name: string) => {
+						if (++forks === 2) {
+							throw new Error("An internal error occurred.");
+						}
+						return target.fork(source, name);
+					};
+				}
+				const value = Reflect.get(target, property, receiver);
+				return typeof value === "function" ? value.bind(target) : value;
+			},
+		});
+
+		const error = await dispatchTasks(env, ["t10-invoice-numbering", "t06-discount-stacking"], undefined, flaky).then(
+			() => null,
+			(thrown: unknown) => thrown,
+		);
+		expect(error).toBeInstanceOf(DispatchFailed);
+		const failure = error as DispatchFailed;
+		expect(failure.started).toHaveLength(1);
+		expect(failure.failed).toHaveLength(1);
+		expect(failure.failed[0]?.error).toBe("An internal error occurred.");
+		expect(failure.message).toMatch(/^could not start 1 of 2 tasks: t\d\d-[a-z-]+ \(An internal error occurred\.\)$/);
+		// The one that started is a real Intent and runs to the end.
+		const done = await waitForStatus(failure.started[0] ?? "", ["landed", "failed", "stale"]);
+		expect(done.status).toBe("landed");
+		expect([done.taskId, failure.failed[0]?.taskId].sort()).toEqual(["t06-discount-stacking", "t10-invoice-numbering"]);
+		await Promise.all((await introspector.get()).map((instance) => instance.waitForStatus("complete")));
+		await gateIdle();
+	}, 60_000);
 });
 
 describe("POST /api/human/:id", () => {

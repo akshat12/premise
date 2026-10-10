@@ -23,6 +23,7 @@ const WORKDIR = "/repo";
 // dev, the same failure arrives as a plain Error whose message starts with "ArtifactsError: ..."
 // and has no code, so match on either.
 const ALREADY_EXISTS = { codes: ["ALREADY_EXISTS"], message: /already exists/i };
+const NOT_FOUND = { codes: ["NOT_FOUND"], message: /not found/i };
 const NOT_READY = {
 	codes: ["FORK_IN_PROGRESS", "CREATE_IN_PROGRESS", "IMPORT_IN_PROGRESS"],
 	message: /in progress|not ready|still (forking|importing|creating)/i,
@@ -41,26 +42,42 @@ function authFor(token: string) {
 	const password = token.split("?expires=")[0] ?? token;
 	return () => ({ username: "x", password });
 }
+// Seen when several forks of a repo that was imported moments ago are requested at once: the call
+// fails with "An internal error occurred." and works when asked again.
+const TRANSIENT = { codes: ["INTERNAL_ERROR", "UPSTREAM_UNAVAILABLE"], message: /internal error|temporar|timed? ?out|try again/i };
+export const FORK_ATTEMPTS = 4;
+const FORK_RETRY_MS = 400;
+
+export function isTransientArtifactsError(error: unknown): boolean {
+	return isArtifactsError(error, TRANSIENT);
+}
 
 /** RepoStore on real Artifacts: reads through the binding, writes through isomorphic-git. */
 export class ArtifactsRepoStore implements RepoStore {
 	private artifacts: Artifacts;
 
-	constructor(env: Pick<Env, "ARTIFACTS">) {
+	/** `retryMs` is the first pause before asking again after a transient failure; it doubles each time. */
+	constructor(
+		env: Pick<Env, "ARTIFACTS">,
+		private readonly retryMs: number = FORK_RETRY_MS,
+	) {
 		this.artifacts = env.ARTIFACTS;
 	}
 
-	/** `get()` throws while a repo is still forking or being created, so retry briefly. */
-	private async open(name: string): Promise<ArtifactsRepo> {
+	/**
+	 * `get()` throws while a repo is still forking or being created, so retry briefly.
+	 * `justMade` is for a repo we were told a moment ago exists: until it shows up, "not found" means "not yet".
+	 */
+	private async open(name: string, justMade = false): Promise<ArtifactsRepo> {
 		for (let attempt = 0; ; attempt++) {
 			try {
 				return await this.artifacts.get(name);
 			} catch (error) {
-				const pending = isArtifactsError(error, NOT_READY);
+				const pending = isArtifactsError(error, NOT_READY) || (justMade && isArtifactsError(error, NOT_FOUND));
 				if (!pending || attempt >= 40) {
 					throw error;
 				}
-				await new Promise((resolve) => setTimeout(resolve, 250));
+				await new Promise((resolve) => setTimeout(resolve, Math.min(250, this.retryMs)));
 			}
 		}
 	}
@@ -101,11 +118,23 @@ export class ArtifactsRepoStore implements RepoStore {
 	}
 
 	async fork(source: string, target: string): Promise<{ head: CommitSha }> {
-		{
-			using from = await this.open(source);
-			await from.fork(target, { defaultBranchOnly: true });
+		for (let attempt = 1; ; attempt++) {
+			try {
+				using from = await this.open(source);
+				await from.fork(target, { defaultBranchOnly: true });
+				break;
+			} catch (error) {
+				// An attempt that reported a failure may still have made the fork.
+				if (attempt > 1 && isArtifactsError(error, ALREADY_EXISTS)) {
+					break;
+				}
+				if (attempt >= FORK_ATTEMPTS || !isTransientArtifactsError(error)) {
+					throw error;
+				}
+				await new Promise((resolve) => setTimeout(resolve, this.retryMs * 2 ** (attempt - 1)));
+			}
 		}
-		using fork = await this.open(target);
+		using fork = await this.open(target, true);
 		return { head: await ArtifactsRepoStore.headOf(fork) };
 	}
 

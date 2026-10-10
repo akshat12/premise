@@ -1,5 +1,6 @@
 import { AgentWorkflow } from "./agent/workflow";
 import { Landing } from "./gate/landing";
+import { consumeBatch } from "./events/consumer";
 import { EventHub } from "./hub/event-hub";
 import { IntentDO } from "./intent/intent-do";
 import { LedgerShard } from "./ledger/ledger-shard";
@@ -29,12 +30,9 @@ export default {
 		return new Response("Not found", { status: 404 });
 	},
 
-	// Stub: Artifacts event subscriptions arrive here. T16 gives this real logic.
-	async queue(batch): Promise<void> {
-		for (const message of batch.messages) {
-			console.log("queue message", batch.queue, message.id);
-			message.ack();
-		}
+	// Artifacts event subscriptions deliver here (see events/consumer.ts).
+	async queue(batch, env): Promise<void> {
+		await consumeBatch(batch, env);
 	},
 } satisfies ExportedHandler<Env>;
 
