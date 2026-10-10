@@ -56,6 +56,18 @@ function TrunkBay({ intent }: { intent: IntentView }) {
 	);
 }
 
+/** A short rule between two bays, where the wide board has Flow's connector. */
+const Link = () => <span className="bay-link" aria-hidden="true" />;
+
+function WorkloadTrunk({ landed }: { landed: number }) {
+	return (
+		<div className="bay" data-reached={landed > 0} style={{ minWidth: BAY.trunk, ...(landed > 0 ? { color: "var(--holds)", borderColor: "var(--holds)" } : {}) }}>
+			<GitCommit size={14} aria-hidden="true" />
+			{landed > 0 ? `${landed} on trunk` : "Trunk"}
+		</div>
+	);
+}
+
 /** The whole scripted workload as one strip, laid out like an agent's: callsign, a word under it, then what is happening. */
 function WorkloadStrip({ workload }: { workload: NonNullable<LaneData["workload"]> }) {
 	const parts = [`${workload.landed} landed`, workload.moving > 0 ? `${workload.moving} in flight` : null, workload.stale > 0 ? `${workload.stale} stale` : null, workload.failed > 0 ? `${workload.failed} gave up` : null].filter(Boolean);
@@ -163,10 +175,7 @@ export function Lanes({ lanes, width, selected, hoverSymbol, shared, onSelect, o
 							disabled={lanes.workload.landed === 0}
 							render={
 								<div>
-									<div className="bay" data-reached={lanes.workload.landed > 0} style={{ minWidth: BAY.trunk, ...(lanes.workload.landed > 0 ? { color: "var(--holds)", borderColor: "var(--holds)" } : {}) }}>
-										<GitCommit size={14} aria-hidden="true" />
-										{lanes.workload.landed > 0 ? `${lanes.workload.landed} on trunk` : "Trunk"}
-									</div>
+									<WorkloadTrunk landed={lanes.workload.landed} />
 								</div>
 							}
 						/>
@@ -174,5 +183,48 @@ export function Lanes({ lanes, width, selected, hoverSymbol, shared, onSelect, o
 				) : null}
 			</Flow.Parallel>
 		</Flow>
+	);
+}
+
+interface CompactLanesProps extends Omit<LanesProps, "width"> {
+	/** Phone width: each strip takes two lines and its bays go under it. Otherwise the bays sit to its right. */
+	stacked: boolean;
+}
+
+/**
+ * The strip board for a window too narrow for Flow, which spaces its nodes 64px apart and clips
+ * what does not fit. The same strips and the same bays, one lane to a row, in a plain list.
+ */
+export function CompactLanes({ lanes, stacked, selected, hoverSymbol, shared, onSelect, onHoverSymbol }: CompactLanesProps) {
+	const byId = new Map(lanes.agents.map((intent) => [intent.id, intent]));
+	const callsignOf = (id: IntentId) => {
+		const intent = byId.get(id);
+		return intent ? callsign(intent) : id;
+	};
+	return (
+		<ol className="lane-list" data-stacked={stacked}>
+			{lanes.agents.map((intent) => (
+				<li key={intent.id} className="lane" data-node-id={`strip-${intent.id}`}>
+					<Strip intent={intent} stacked={stacked} shared={shared} selected={selected === intent.id} dimmed={hoverSymbol !== null && !touches(intent, hoverSymbol)} callsignOf={callsignOf} onSelect={onSelect} onHoverSymbol={onHoverSymbol} />
+					<div className="lane-bays" aria-label={`${callsign(intent)}: where it has got to`}>
+						<Link />
+						<CheckBay intent={intent} />
+						<Link />
+						<GateBay intent={intent} />
+						<Link />
+						<TrunkBay intent={intent} />
+					</div>
+				</li>
+			))}
+			{lanes.workload ? (
+				<li className="lane">
+					<WorkloadStrip workload={lanes.workload} />
+					<div className="lane-bays">
+						<Link />
+						<WorkloadTrunk landed={lanes.workload.landed} />
+					</div>
+				</li>
+			) : null}
+		</ol>
 	);
 }

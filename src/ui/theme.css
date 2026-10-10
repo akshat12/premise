@@ -307,3 +307,225 @@ kbd {
 		display: none;
 	}
 }
+
+/* ---- Planes: the flat white surface the Scale and A/B views sit on ---- */
+.plane {
+	max-width: 960px;
+	padding: 24px;
+	border: 1px solid var(--rule);
+	border-radius: 3px;
+	background: #fff;
+}
+.facts {
+	display: grid;
+	grid-template-columns: max-content 1fr;
+	column-gap: 16px;
+	row-gap: 8px;
+	margin: 24px 0 0;
+	font-size: 13px;
+}
+.ab-value {
+	width: 216px;
+}
+.ab-figure {
+	font-size: 20px;
+	line-height: 1;
+}
+
+/* ---- Drawer layout ---- */
+.drawer {
+	flex: none;
+	height: 280px;
+}
+.drawer-head {
+	padding: 12px 24px 8px;
+}
+.drawer-columns {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr) minmax(0, 1.2fr);
+	border-top: 1px solid var(--rule);
+}
+.drawer-column {
+	padding: 12px 24px;
+	overflow-y: auto;
+}
+.drawer-column + .drawer-column {
+	border-left: 1px solid var(--rule);
+}
+.chip-group {
+	flex: none;
+	min-width: 0;
+}
+
+/* ---- Narrow screens (under 1280px): see layoutFor in lib/view.ts ----
+   Flow cannot be made narrower than about 1280px, so below that the board is a plain list of
+   lanes, the ledger is a view of its own, and the drawer is a sheet that comes up from the bottom. */
+.topbar-narrow {
+	position: relative;
+	display: flex;
+	flex: none;
+	flex-direction: column;
+	gap: 8px;
+	padding: 8px 12px;
+	border-bottom: 1px solid var(--rule);
+	background: #fff;
+}
+/* The view tabs scroll sideways rather than push the player off the row. */
+.topbar-scroll {
+	min-width: 0;
+	overflow-x: auto;
+	scrollbar-width: none;
+}
+.topbar-scroll::-webkit-scrollbar {
+	display: none;
+}
+.topbar-counters {
+	display: grid;
+	grid-template-columns: repeat(6, minmax(0, 1fr));
+	align-items: end;
+	gap: 12px;
+}
+/* A marker for cut time floats just under the bar, so its three seconds do not move the page. */
+.topbar-marker {
+	position: absolute;
+	top: calc(100% + 8px);
+	right: 12px;
+	z-index: 5;
+}
+
+.lane-list {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+.lane {
+	display: flex;
+	align-items: center;
+	min-width: 0;
+}
+.lane > .strip {
+	flex: 1;
+	min-width: 0;
+}
+.lane-bays {
+	display: flex;
+	flex: none;
+	align-items: center;
+}
+.bay-link {
+	width: 12px;
+	height: 1px;
+	background: var(--ink-soft);
+}
+
+@media (max-width: 1279px) {
+	.drawer {
+		position: fixed;
+		right: 0;
+		bottom: 0;
+		left: 0;
+		z-index: 25;
+		height: min(72dvh, 620px);
+		box-shadow: 0 -1px 0 var(--rule);
+	}
+}
+
+/* ---- Phones (under 768px) ---- */
+@media (max-width: 767px) {
+	.topbar-counters {
+		grid-template-columns: repeat(4, minmax(0, 1fr));
+		gap: 8px;
+	}
+
+	/* The strip on two lines: callsign and status, then its chips, which may wrap. */
+	.strip[data-stacked="true"] {
+		grid-template-columns: 6px minmax(0, 1fr);
+		height: auto;
+		min-height: 48px;
+	}
+	.strip[data-stacked="true"] .strip-band {
+		grid-row: 1 / span 2;
+	}
+	.strip[data-stacked="true"] .strip-open {
+		flex-direction: row;
+		align-items: center;
+		justify-content: flex-start;
+		gap: 10px;
+		padding: 8px 10px 4px;
+	}
+	.strip[data-stacked="true"] .strip-chips {
+		grid-column: 2;
+		padding: 0 10px 8px;
+	}
+	/* Two chips share the line; a long name is cut with an ellipsis rather than wrapped. */
+	.strip[data-stacked="true"] .chip-group {
+		flex: 0 1 auto;
+		max-width: 46%;
+	}
+	.strip[data-stacked="true"] .chip-wrap,
+	.strip[data-stacked="true"] .chip-wrap > *,
+	.strip[data-stacked="true"] .chip {
+		min-width: 0;
+		max-width: 100%;
+	}
+	/* A struck chip and its red-pen note have the line to themselves, and the note may wrap. */
+	.strip[data-stacked="true"] .chip-group[data-note="true"] {
+		flex-wrap: wrap;
+		row-gap: 2px;
+		max-width: 100%;
+	}
+	.strip[data-stacked="true"] .annotation {
+		white-space: normal;
+	}
+
+	/* Bays go under the strip they belong to. */
+	.lane-list[data-stacked="true"] .lane {
+		flex-direction: column;
+		align-items: stretch;
+		gap: 4px;
+	}
+	.lane-list[data-stacked="true"] .lane-bays {
+		padding-left: 6px;
+	}
+	.lane-list[data-stacked="true"] .lane > .strip {
+		flex: none;
+	}
+
+	/* The drawer's three columns become one, and the sheet scrolls as a whole. */
+	.drawer-head {
+		padding: 12px 16px 8px;
+	}
+	.drawer-columns {
+		display: block;
+		overflow-y: auto;
+	}
+	.drawer-column {
+		padding: 12px 16px;
+		overflow-y: visible;
+	}
+	.drawer-column + .drawer-column {
+		border-top: 1px solid var(--rule);
+		border-left: 0;
+	}
+
+	.plane {
+		padding: 16px;
+	}
+	.facts {
+		grid-template-columns: 1fr;
+		row-gap: 2px;
+	}
+	.facts dt:not(:first-child) {
+		margin-top: 8px;
+	}
+	.ab-value {
+		width: 76px;
+	}
+	.ab-figure {
+		font-size: 16px;
+		line-height: 1.2;
+	}
+}

@@ -75,7 +75,7 @@ export function DispatchPanel({ token, onToken, onClose, onStarted }: DispatchPa
 	return (
 		<>
 			<button type="button" aria-label="Close the dispatch panel" onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 29, background: "rgba(23, 32, 43, 0.25)", border: 0 }} />
-			<aside role="dialog" aria-modal="true" aria-label="Dispatch tasks" className="drawer-left flex flex-col" style={{ position: "fixed", top: 0, bottom: 0, left: 0, width: 420, zIndex: 30, background: "#fff", borderRight: "1px solid var(--rule)" }}>
+			<aside role="dialog" aria-modal="true" aria-label="Dispatch tasks" className="drawer-left flex flex-col" style={{ position: "fixed", top: 0, bottom: 0, left: 0, width: "min(420px, 100vw)", zIndex: 30, background: "#fff", borderRight: "1px solid var(--rule)" }}>
 				<header className="flex items-center justify-between" style={{ padding: "14px 20px", borderBottom: "1px solid var(--rule)" }}>
 					<h2 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>Dispatch tasks</h2>
 					<Button variant="ghost" size="sm" onClick={onClose}>

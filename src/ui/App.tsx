@@ -7,8 +7,8 @@ import { AbPanel, type AbResults } from "./components/AbPanel";
 import { DispatchPanel } from "./components/DispatchPanel";
 import { Drawer } from "./components/Drawer";
 import { HumanCards } from "./components/HumanCards";
-import { Lanes } from "./components/Lanes";
-import { LedgerRail } from "./components/LedgerRail";
+import { CompactLanes, Lanes } from "./components/Lanes";
+import { BuiltOn, LedgerRail } from "./components/LedgerRail";
 import { type Command, Palette, Shortcuts } from "./components/Palette";
 import { ScaleView } from "./components/ScaleView";
 import { type LiveState, TopBar } from "./components/TopBar";
@@ -17,17 +17,20 @@ import { useViewState } from "./lib/useViewState";
 import { explain, loadToken, resetDemo, saveToken } from "./lib/api";
 import { openCards, sharedSymbols } from "./lib/chips";
 import { nextStop } from "./lib/demo";
-import { callsign, lanesOf, ledgerRows, OUTSIDE } from "./lib/view";
+import { callsign, lanesOf, layoutFor, ledgerRows, OUTSIDE } from "./lib/view";
 
 const LIVE_URL = "/api/events/ws";
 const SPEEDS = [1, 2, 4, 8];
 type Mode = "replay" | "live";
-type View = "lanes" | "scale" | "ab";
+type View = "lanes" | "ledger" | "scale" | "ab";
 const VIEWS: { value: View; label: string }[] = [
 	{ value: "lanes", label: "Lanes" },
+	// On a wide screen the ledger is the rail beside the lanes. On a narrow one it is a view of its own.
+	{ value: "ledger", label: "Ledger" },
 	{ value: "scale", label: "Scale" },
 	{ value: "ab", label: "A/B" },
 ];
+const VIEW_LABEL: Record<View, string> = { lanes: "Strip board", ledger: "Ledger", scale: "Scale", ab: "A/B results" };
 /** How long a "⏩ compressed" marker stays in the top bar. */
 const MARKER_MS = 3000;
 
@@ -72,6 +75,15 @@ export function App() {
 	// The board is what is left of the window after the ledger rail (320) and the board's own padding (32).
 	// 16 more for a scrollbar, which appears when the drawer is open.
 	const boardWidth = Math.max(1280, windowWidth) - 320 - 32 - 16;
+	const layout = layoutFor(windowWidth);
+	const wide = layout === "wide";
+	const views = useMemo(() => VIEWS.filter((candidate) => !wide || candidate.value !== "ledger"), [wide]);
+	// Widening the window puts the ledger back beside the lanes, so there is no Ledger view to be on.
+	useEffect(() => {
+		if (wide) {
+			setView((current) => (current === "ledger" ? "lanes" : current));
+		}
+	}, [wide]);
 
 	// The recording is a real run of the deployed system. It is loaded on demand, not bundled into the first paint.
 	useEffect(() => {
@@ -188,8 +200,7 @@ export function App() {
 		return () => window.removeEventListener("keydown", onKey);
 	}, [lanes.agents, selected, mode, playing, position, seek]);
 
-	const controls = (
-		<div className="flex items-center gap-2">
+	const modeTabs = (
 			<Tabs
 				size="sm"
 				value={mode}
@@ -203,7 +214,9 @@ export function App() {
 					{ value: "live", label: "Live" },
 				]}
 			/>
-			{mode === "replay" ? (
+	);
+	const transport =
+			mode === "replay" ? (
 				<>
 					<Button variant="secondary" size="sm" aria-label={`Playback speed ${speed}×. Change it.`} title="Playback speed. Click to change it, or press 1, 2 or 4." onClick={() => setSpeed((now) => SPEEDS[(SPEEDS.indexOf(now) + 1) % SPEEDS.length] ?? 1)} style={{ minWidth: 40 }}>
 						<span className="callsign" style={{ fontSize: 14 }}>
@@ -229,9 +242,7 @@ export function App() {
 						<ArrowCounterClockwise size={16} />
 					</Button>
 				</>
-			) : null}
-		</div>
-	);
+			) : null;
 
 	const cards = useMemo(() => openCards(state), [state]);
 	const actions = useMemo<Command[]>(
@@ -268,8 +279,10 @@ export function App() {
 	const jumps = useMemo<Command[]>(() => lanes.agents.map((intent) => ({ id: `jump-${intent.id}`, title: `Jump to ${callsign(intent)}`, run: () => jumpTo(intent.id) })), [lanes.agents, jumpTo]);
 
 	const empty = !loading && lanes.agents.length === 0 && lanes.workload === null;
+	const toggleSelected = (id: IntentId) => setSelected((current) => (current === id ? null : id));
+	const humanCards = <HumanCards inline={!wide} cards={cards} intents={state.intents} readOnly={mode === "replay"} token={token} named={named} onNeedToken={() => setDispatching(true)} />;
 	return (
-		<div className="flex h-full flex-col" style={{ minWidth: 1280 }}>
+		<div className="flex h-full flex-col" style={wide ? { minWidth: 1280 } : undefined}>
 			<TopBar
 				metrics={state.metrics}
 				trunk={state.trunk.commit}
@@ -277,16 +290,20 @@ export function App() {
 				marker={marker}
 				views={
 					<Tabs
+						// The tab marker is measured when it moves. A new layout moves every tab, so start it afresh.
+						key={layout}
 						size="sm"
 						value={view}
 						onValueChange={(value: string) => {
 							setSelected(null);
-							setView(VIEWS.find((candidate) => candidate.value === value)?.value ?? "lanes");
+							setView(views.find((candidate) => candidate.value === value)?.value ?? "lanes");
 						}}
-						tabs={VIEWS}
+						tabs={views}
 					/>
 				}
-				controls={controls}
+				layout={layout}
+				mode={modeTabs}
+				transport={transport}
 				onDispatch={() => setDispatching(true)}
 			/>
 			{notice ? (
@@ -298,15 +315,18 @@ export function App() {
 				</div>
 			) : null}
 			<div className="flex min-h-0 flex-1">
-				<main className="min-w-0 flex-1 overflow-auto" style={{ padding: view === "lanes" ? "8px 16px" : 16 }} aria-label={view === "lanes" ? "Strip board" : view === "scale" ? "Scale" : "A/B results"}>
+				<main className="min-w-0 flex-1 overflow-auto" style={{ padding: !wide ? 12 : view === "lanes" ? "8px 16px" : 16 }} aria-label={VIEW_LABEL[view]}>
+					{!wide && view === "lanes" ? humanCards : null}
 					{view === "ab" ? (
 						<AbPanel results={AB_RESULTS} />
 					) : view === "scale" ? (
 						<ScaleView events={events} metrics={state.metrics} intents={state.intents} />
+					) : view === "ledger" ? (
+						<LedgerRail fill rows={rows} quiet={!empty && !loading} callsignOf={callsignOf} hoverSymbol={hoverSymbol} onHoverSymbol={setHoverSymbol} />
 					) : loading ? (
 						<div className="flex flex-col gap-2" aria-label="Loading the run">
 							{Array.from({ length: 8 }, (_, index) => (
-								<div key={index} className="strip" style={{ width: 480, gridTemplateColumns: "6px 1fr", alignItems: "center" }}>
+								<div key={index} className="strip" style={{ width: 480, maxWidth: "100%", gridTemplateColumns: "6px 1fr", alignItems: "center" }}>
 									<span className="strip-band" />
 									<div style={{ padding: "0 12px" }}>
 										<SkeletonLine />
@@ -325,13 +345,20 @@ export function App() {
 								</Button>
 							}
 						/>
+					) : wide ? (
+						<Lanes lanes={lanes} width={boardWidth} shared={shared} selected={selected} hoverSymbol={hoverSymbol} onSelect={toggleSelected} onHoverSymbol={setHoverSymbol} />
 					) : (
-						<Lanes lanes={lanes} width={boardWidth} shared={shared} selected={selected} hoverSymbol={hoverSymbol} onSelect={(id) => setSelected((current) => (current === id ? null : id))} onHoverSymbol={setHoverSymbol} />
+						<CompactLanes lanes={lanes} stacked={layout === "phone"} shared={shared} selected={selected} hoverSymbol={hoverSymbol} onSelect={toggleSelected} onHoverSymbol={setHoverSymbol} />
+					)}
+					{wide ? null : (
+						<div style={{ marginTop: 12 }}>
+							<BuiltOn />
+						</div>
 					)}
 				</main>
-				{view === "lanes" ? <LedgerRail rows={rows} quiet={!empty && !loading} callsignOf={callsignOf} hoverSymbol={hoverSymbol} onHoverSymbol={setHoverSymbol} /> : null}
+				{wide && view === "lanes" ? <LedgerRail rows={rows} quiet={!empty && !loading} callsignOf={callsignOf} hoverSymbol={hoverSymbol} onHoverSymbol={setHoverSymbol} /> : null}
 			</div>
-			<HumanCards cards={cards} intents={state.intents} readOnly={mode === "replay"} token={token} named={named} onNeedToken={() => setDispatching(true)} />
+			{wide ? humanCards : null}
 			{dispatching ? (
 				<DispatchPanel
 					token={token}

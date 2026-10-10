@@ -11,6 +11,17 @@ export const symbolName = (symbol: SymbolId) => symbol.slice(symbol.lastIndexOf(
 export const symbolFile = (symbol: SymbolId) => (symbol.split("#")[0] ?? "").split("/").at(-1) ?? "";
 export const shortSha = (commit: string | null) => (commit ? commit.slice(0, 7) : "none");
 
+/**
+ * Which layout a window of this width gets.
+ * - "wide" (1280 and up): the strip board drawn with Flow, the ledger rail beside it.
+ * - "medium" (768 to 1279): one lane per row, strip then bays; the ledger is a tab.
+ * - "phone" (under 768): the same, with each strip on two lines and its bays under it.
+ */
+export type Layout = "wide" | "medium" | "phone";
+export const WIDE_FROM = 1280;
+export const MEDIUM_FROM = 768;
+export const layoutFor = (width: number): Layout => (width >= WIDE_FROM ? "wide" : width >= MEDIUM_FROM ? "medium" : "phone");
+
 /** A strip's callsign: the task number and one word. "t02-audit-expired" -> "T02 AUDIT". */
 export function callsign(intent: Pick<IntentView, "taskId" | "id">): string {
 	const match = /^(t\d+)-([a-z0-9]+)/i.exec(intent.taskId);

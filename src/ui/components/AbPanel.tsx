@@ -24,7 +24,7 @@ const cell = { padding: "8px 16px 8px 0", verticalAlign: "top", borderTop: "1px 
 export function AbPanel({ results }: { results: AbResults | null }) {
 	if (results === null) {
 		return (
-			<section aria-label="A/B results" style={{ background: "#fff", border: "1px solid var(--rule)", borderRadius: 3, padding: 24, maxWidth: 960 }}>
+			<section aria-label="A/B results" className="plane">
 				<h2 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>A/B results</h2>
 				<p style={{ margin: "4px 0 0", fontSize: 13, color: "var(--ink-soft)" }}>
 					No comparison has been run yet. Run <code>npx tsx scripts/ab.ts --url &lt;worker url&gt;</code> to make one.
@@ -35,7 +35,7 @@ export function AbPanel({ results }: { results: AbResults | null }) {
 	const races = results.premise.races;
 	const rate = Math.round(results.premise.falsePositiveRate * 100);
 	return (
-		<section aria-label="A/B results" style={{ background: "#fff", border: "1px solid var(--rule)", borderRadius: 3, padding: 24, maxWidth: 960 }}>
+		<section aria-label="A/B results" className="plane">
 			<h2 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>A/B results</h2>
 			<p style={{ margin: "4px 0 0", fontSize: 13, color: "var(--ink-soft)" }}>
 				The same {results.baseline.tasksDispatched} tasks and {results.n} scripted workload Intents (seed {results.seed}), run twice on real Artifacts on {results.date}: once landing on a text rebase and a typecheck, once through Premise.
@@ -51,10 +51,10 @@ export function AbPanel({ results }: { results: AbResults | null }) {
 						<th scope="col" style={{ padding: "0 16px 8px 0", fontWeight: 600 }}>
 							Measure
 						</th>
-						<th scope="col" style={{ padding: "0 16px 8px 0", fontWeight: 600, width: 216 }}>
+						<th scope="col" className="ab-value" style={{ padding: "0 16px 8px 0", fontWeight: 600 }}>
 							Baseline
 						</th>
-						<th scope="col" style={{ padding: "0 16px 8px 0", fontWeight: 600, width: 216 }}>
+						<th scope="col" className="ab-value" style={{ padding: "0 16px 8px 0", fontWeight: 600 }}>
 							Premise
 						</th>
 					</tr>
@@ -66,10 +66,10 @@ export function AbPanel({ results }: { results: AbResults | null }) {
 								{row.metric}
 								{row.note ? <span style={{ display: "block", fontSize: 12, color: "var(--ink-soft)", fontWeight: 400, marginTop: 2, maxWidth: 520 }}>{row.note}</span> : null}
 							</th>
-							<td className="callsign" style={{ ...cell, fontSize: 20, lineHeight: 1 }}>
+							<td className="callsign ab-figure" style={cell}>
 								{row.baseline}
 							</td>
-							<td className="callsign" style={{ ...cell, fontSize: 20, lineHeight: 1 }}>
+							<td className="callsign ab-figure" style={cell}>
 								{row.premise}
 							</td>
 						</tr>

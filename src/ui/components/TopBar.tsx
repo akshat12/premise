@@ -1,6 +1,7 @@
 import { Button, Tooltip } from "@cloudflare/kumo";
+import { AirplaneTakeoff } from "@phosphor-icons/react";
 import type { Metrics } from "../../shared/types";
-import { shortSha } from "../lib/view";
+import { type Layout, shortSha } from "../lib/view";
 import { Counter } from "./Counter";
 
 export type LiveState = { kind: "live" } | { kind: "reconnecting" } | { kind: "replay"; speed: number; done: boolean; paused?: boolean } | { kind: "still"; at: number };
@@ -28,14 +29,66 @@ interface TopBarProps {
 	trunk: string | null;
 	live: LiveState;
 	marker?: string;
+	/** "wide" is the one-line bar. The others stack it into three short rows. */
+	layout: Layout;
 	/** Which view the main area shows (Lanes, Scale, A/B), placed by the app. */
 	views: React.ReactNode;
-	/** Source and speed controls, placed by the app. */
-	controls: React.ReactNode;
+	/** Replay or Live. */
+	mode: React.ReactNode;
+	/** Speed, pause and play-again, in a replay. */
+	transport: React.ReactNode;
 	onDispatch: () => void;
 }
 
-export function TopBar({ metrics, trunk, live, marker, views, controls, onDispatch }: TopBarProps) {
+const markerStyle = { fontSize: 12, color: "var(--ink-soft)", border: "1px solid var(--rule)", borderRadius: 3, padding: "2px 6px", whiteSpace: "nowrap", background: "#fff" } as const;
+
+export function TopBar({ metrics, trunk, live, marker, layout, views, mode, transport, onDispatch }: TopBarProps) {
+	if (layout !== "wide") {
+		// Narrow: what the screen is showing, then where you are and the player, then the numbers.
+		return (
+			<header className="topbar-narrow">
+				<div className="flex items-center gap-3">
+					<span className="callsign" style={{ fontSize: 24, lineHeight: 1 }}>
+						Premise
+					</span>
+					<LivePill state={live} />
+					<div style={{ marginLeft: "auto", flex: "none" }}>{mode}</div>
+				</div>
+				<div className="flex items-center gap-2">
+					<div className="topbar-scroll">{views}</div>
+					<div className="flex items-center gap-1" style={{ marginLeft: "auto", flex: "none" }}>
+						{transport}
+						{layout === "phone" ? (
+							<Button variant="primary" size="sm" shape="square" aria-label="Dispatch tasks" title="Dispatch tasks" onClick={onDispatch}>
+								<AirplaneTakeoff size={16} />
+							</Button>
+						) : (
+							<Button variant="primary" size="sm" onClick={onDispatch}>
+								Dispatch tasks
+							</Button>
+						)}
+					</div>
+				</div>
+				<div className="topbar-counters">
+					<Counter label="Broken builds on trunk" value={metrics.brokenBuildsOnTrunk} hero alert wrap />
+					<Counter label="Human merges" value={metrics.humanMerges} hero alert wrap />
+					<Counter label="Landed" value={metrics.intentsLanded} wrap />
+					<Counter label="Premises broken" value={metrics.premisesBroken} wrap />
+					{layout === "medium" ? (
+						<>
+							<Counter label="Agents active" value={metrics.agentsActive} wrap />
+							<Counter label="Stale, settled" value={metrics.rederives.succeeded} wrap />
+						</>
+					) : null}
+				</div>
+				{marker ? (
+					<span role="status" className="topbar-marker" style={markerStyle}>
+						{marker}
+					</span>
+				) : null}
+			</header>
+		);
+	}
 	return (
 		<header className="flex items-center gap-5 px-4" style={{ height: 56, background: "#fff", borderBottom: "1px solid var(--rule)", flex: "none" }}>
 			<div className="flex items-baseline gap-3" style={{ flex: "none", whiteSpace: "nowrap" }}>
@@ -64,12 +117,15 @@ export function TopBar({ metrics, trunk, live, marker, views, controls, onDispat
 			</div>
 			<div className="flex items-center gap-3" style={{ marginLeft: "auto", flex: "none" }}>
 				{marker ? (
-					<span role="status" style={{ fontSize: 12, color: "var(--ink-soft)", border: "1px solid var(--rule)", borderRadius: 3, padding: "2px 6px", whiteSpace: "nowrap" }}>
+					<span role="status" style={markerStyle}>
 						{marker}
 					</span>
 				) : null}
 				<LivePill state={live} />
-				{controls}
+				<div className="flex items-center gap-2">
+					{mode}
+					{transport}
+				</div>
 				<Button variant="primary" size="sm" onClick={onDispatch}>
 					Dispatch tasks
 				</Button>

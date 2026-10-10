@@ -3,7 +3,7 @@ import type { PremiseEvent } from "../../shared/events";
 import type { Premise } from "../../shared/types";
 import realRun from "../fixtures/real-run.json";
 import { type IntentView, reduceAll } from "./reduce";
-import { annotation, baysReached, callsign, chipsFor, lanesOf, ledgerRows, shortSha, STATUS_LOOK, symbolFile, symbolName, touches, waitingOn } from "./view";
+import { annotation, baysReached, callsign, chipsFor, lanesOf, layoutFor, ledgerRows, shortSha, STATUS_LOOK, symbolFile, symbolName, touches, waitingOn } from "./view";
 
 const VERIFY = "src/auth/session.ts#verifySession";
 const LOGIN = "src/auth/login.ts#handleLogin";
@@ -145,5 +145,13 @@ describe("the recorded run", () => {
 	it("re-derived Intents carry their stamp count to the end", () => {
 		const stamped = lanesOf(end).agents.filter((agent) => (agent.races ?? 0) > 0).map((agent) => callsign(agent).split(" ")[0]);
 		expect(stamped).toEqual(["T02", "T03", "T11"]);
+	});
+});
+
+describe("layoutFor", () => {
+	it("is wide from 1280, medium from 768, and a phone below that", () => {
+		expect([1920, 1440, 1280].map(layoutFor)).toEqual(["wide", "wide", "wide"]);
+		expect([1279, 1024, 768].map(layoutFor)).toEqual(["medium", "medium", "medium"]);
+		expect([767, 430, 375, 320].map(layoutFor)).toEqual(["phone", "phone", "phone", "phone"]);
 	});
 });

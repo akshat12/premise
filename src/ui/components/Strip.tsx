@@ -112,12 +112,14 @@ interface StripProps {
 	callsignOf: (id: IntentId) => string;
 	onSelect: (id: IntentId) => void;
 	onHoverSymbol: (symbol: SymbolId | null) => void;
+	/** On a phone the strip is two lines: callsign and status, then the chips, which may wrap. */
+	stacked?: boolean;
 }
 
 const MAX_CHIPS = 3;
 
 /** One Intent as a flight strip: holder band, callsign, what it changes and relies on, and any red-pen note. */
-export function Strip({ intent, shared, selected, dimmed, callsignOf, onSelect, onHoverSymbol }: StripProps) {
+export function Strip({ intent, shared, selected, dimmed, callsignOf, onSelect, onHoverSymbol, stacked = false }: StripProps) {
 	const look = STATUS_LOOK[intent.status];
 	const chips = chipsFor(intent);
 	// The status word already says "re-deriving", and the race rows take room: keep the note to what changed.
@@ -125,10 +127,11 @@ export function Strip({ intent, shared, selected, dimmed, callsignOf, onSelect, 
 	// With a red-pen note, the struck-through chip and the note are what matter: they go first and
 	// the rest gives way. Otherwise what it changes leads, then what it relies on.
 	const broken = chips.filter((chip) => chip.broken);
-	const shown = note !== undefined && broken.length > 0 ? [broken[0] as Chip, ...chips.filter((chip) => chip.kind === "changes").slice(0, 1)] : chips.slice(0, MAX_CHIPS);
+	// A phone's strip has room for two chips on its second line, or for one chip and a note.
+	const shown = note !== undefined && broken.length > 0 ? [broken[0] as Chip, ...(stacked ? [] : chips.filter((chip) => chip.kind === "changes").slice(0, 1))] : chips.slice(0, stacked ? (note === undefined ? 2 : 1) : MAX_CHIPS);
 	const name = callsign(intent);
 	return (
-		<div className="strip" data-selected={selected} data-dimmed={dimmed} data-status={intent.status} style={{ ["--band" as string]: BAND[look.band] }}>
+		<div className="strip" data-stacked={stacked} data-selected={selected} data-dimmed={dimmed} data-status={intent.status} style={{ ["--band" as string]: BAND[look.band] }}>
 			<span className="strip-band" aria-hidden="true" />
 			<button type="button" className="strip-open" onClick={() => onSelect(intent.id)} aria-pressed={selected} aria-label={`${name}, ${intent.goal.split(".")[0]}, ${look.word}${note ? `: ${note}` : ""}`}>
 				<span className="flex items-center gap-2">
@@ -142,10 +145,15 @@ export function Strip({ intent, shared, selected, dimmed, callsignOf, onSelect, 
 					) : null}
 				</span>
 				<StatusMark status={intent.status} />
+				{stacked && intent.race ? (
+					<span style={{ marginLeft: "auto" }}>
+						<RaceIndicator intent={intent} />
+					</span>
+				) : null}
 			</button>
-			<div className="flex items-center gap-2 overflow-hidden" style={{ paddingRight: intent.race ? 84 : 10 }}>
+			<div className="strip-chips flex items-center gap-2 overflow-hidden" style={{ paddingRight: intent.race && !stacked ? 84 : 10 }}>
 				{shown.map((chip, index) => (
-					<span key={`${chip.kind}:${chip.symbol}`} className="inline-flex items-center gap-2" style={{ minWidth: 0, flex: "none" }}>
+					<span key={`${chip.kind}:${chip.symbol}`} className="chip-group inline-flex items-center gap-2" data-note={index === 0 && note !== undefined && chip.broken}>
 						<SymbolChip chip={chip} shared={shared.has(chip.symbol)} onHover={onHoverSymbol} />
 						{index === 0 && note && chip.broken ? <span className="annotation">{note}</span> : null}
 					</span>
@@ -157,7 +165,7 @@ export function Strip({ intent, shared, selected, dimmed, callsignOf, onSelect, 
 				) : null}
 				{chips.length > shown.length ? <span style={{ fontSize: 12, color: "var(--ink-soft)", whiteSpace: "nowrap" }}>+{chips.length - shown.length}</span> : null}
 			</div>
-			{intent.race ? (
+			{intent.race && !stacked ? (
 				<div className="flex items-center" style={{ position: "absolute", right: 0, top: 0, bottom: 0, padding: "0 8px", background: "var(--strip)", borderLeft: "1px solid var(--rule)", borderRadius: "0 2px 2px 0" }}>
 					<RaceIndicator intent={intent} />
 				</div>

@@ -75,6 +75,13 @@ Do **not** use Cloudflare orange as a UI accent. Use it only on the Kumo `Cloudf
 - 12 agent strips plus 1 workload strip must fit without scrolling at 1440×900.
 - **No card kit.** Strips have a 3px radius, a 1px border and no drop shadow. The drawer and rail are flat white planes divided by a 1px border.
 
+### Narrow screens (added 2026-10-10)
+The layout above is the "wide" one, from 1280px up. Below that the same things are on screen in a different arrangement (`layoutFor` in `src/ui/lib/view.ts`):
+
+- **Medium, 768 to 1279px.** The top bar is three short rows: what the screen is showing (wordmark, Live pill, Replay/Live); where you are and the player (view tabs, speed, pause, play again, Dispatch); the counters. One lane per row in a plain list: the strip, then its three bays with a short rule between them. Flow is not used here because it spaces nodes 64px apart and clips what does not fit. The ledger is a fourth view tab, not a rail.
+- **Phone, under 768px.** The same, with each strip on two lines (callsign and status, then at most two chips, or one chip and its note) and its bays on a line under it. Four counters, not six. The drawer is a sheet that comes up from the bottom, its three columns stacked. Human cards sit at the top of the lanes instead of floating over a corner. The dispatch panel takes the whole width.
+- Nothing scrolls sideways at any width from 320px up. The strips, bays, colours, type and vocabulary are the same at every size.
+
 ## Motion: one orchestrated moment, everything else responds to the user
 - **The moment is the premise break**, the most important event in the product. Keep it to about 1.2 s total:
   1. The red-pen line draws across the "relies on" chip. Animate an SVG `stroke-dashoffset` over 350ms.

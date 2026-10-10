@@ -11,19 +11,31 @@ interface LedgerRailProps {
 	callsignOf: (id: IntentId) => string;
 	hoverSymbol: SymbolId | null;
 	onHoverSymbol: (symbol: SymbolId | null) => void;
+	/** Take the whole width (the ledger as a view of its own, on narrow screens) instead of a 320px rail. */
+	fill?: boolean;
+}
+
+/** The one place Cloudflare's mark appears. */
+export function BuiltOn() {
+	return (
+		<div className="flex items-center gap-2" style={{ padding: "8px 16px", fontSize: 12, color: "var(--ink-soft)" }}>
+			<CloudflareLogo variant="glyph" className="h-4 w-auto" />
+			Built on Cloudflare Workers + Artifacts
+		</div>
+	);
 }
 
 const short = (callsign: string) => callsign.split(" ")[0] ?? callsign;
 
 /** The ledger: for each symbol in play, who is changing it and who relies on it. */
-export function LedgerRail({ rows, quiet, callsignOf, hoverSymbol, onHoverSymbol }: LedgerRailProps) {
+export function LedgerRail({ rows, quiet, callsignOf, hoverSymbol, onHoverSymbol, fill = false }: LedgerRailProps) {
 	return (
-		<aside className="flex flex-col" style={{ width: 320, flex: "none", background: "#fff", borderLeft: "1px solid var(--rule)" }} aria-label="Ledger">
+		<aside className="flex flex-col" style={fill ? { background: "#fff", border: "1px solid var(--rule)", borderRadius: 3 } : { width: 320, flex: "none", background: "#fff", borderLeft: "1px solid var(--rule)" }} aria-label="Ledger">
 			<div style={{ padding: "12px 16px 8px", borderBottom: "1px solid var(--rule)" }}>
 				<h2 style={{ fontSize: 14, fontWeight: 600, margin: 0 }}>Ledger</h2>
 				<p style={{ fontSize: 12, color: "var(--ink-soft)", margin: "2px 0 0" }}>Who changes each symbol, and who relies on it.</p>
 			</div>
-			<ul className="flex-1 overflow-y-auto" style={{ listStyle: "none", margin: 0, padding: 0 }}>
+			<ul className={fill ? undefined : "flex-1 overflow-y-auto"} style={{ listStyle: "none", margin: 0, padding: 0 }}>
 				{rows.length === 0 ? <li style={{ padding: 16, fontSize: 13, color: "var(--ink-soft)" }}>{quiet ? "Nothing in flight: every Intent has landed or stopped." : "Nothing is claimed or relied on yet."}</li> : null}
 				{rows.map((row) => {
 					const active = hoverSymbol === row.symbol;
@@ -69,10 +81,11 @@ export function LedgerRail({ rows, quiet, callsignOf, hoverSymbol, onHoverSymbol
 					);
 				})}
 			</ul>
-			<div className="flex items-center gap-2" style={{ padding: "8px 16px", borderTop: "1px solid var(--rule)", fontSize: 12, color: "var(--ink-soft)" }}>
-				<CloudflareLogo variant="glyph" className="h-4 w-auto" />
-				Built on Cloudflare Workers + Artifacts
-			</div>
+			{fill ? null : (
+				<div style={{ borderTop: "1px solid var(--rule)" }}>
+					<BuiltOn />
+				</div>
+			)}
 		</aside>
 	);
 }

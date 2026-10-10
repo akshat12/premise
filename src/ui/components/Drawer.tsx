@@ -60,8 +60,8 @@ export function Drawer({ intent, events, callsignOf, named, onSelect, onClose }:
 	const now = events.at(-1)?.ts ?? 0;
 	const stale = intent.status === "stale" || intent.status === "rederiving";
 	return (
-		<section className="drawer flex flex-col" style={{ height: 280, flex: "none" }} aria-label={`${callsign(intent)} details`}>
-			<header className="flex items-start justify-between gap-4" style={{ padding: "12px 24px 8px" }}>
+		<section className="drawer flex flex-col" aria-label={`${callsign(intent)} details`}>
+			<header className="drawer-head flex items-start justify-between gap-4">
 				<div style={{ minWidth: 0 }}>
 					<div className="flex items-center gap-3">
 						<span className="callsign" style={{ fontSize: 20, lineHeight: 1 }}>
@@ -76,8 +76,8 @@ export function Drawer({ intent, events, callsignOf, named, onSelect, onClose }:
 					Close
 				</Button>
 			</header>
-			<div className="grid min-h-0 flex-1" style={{ gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1.2fr) minmax(0, 1.2fr)", borderTop: "1px solid var(--rule)" }}>
-				<div style={{ padding: "12px 24px", overflowY: "auto" }}>
+			<div className="drawer-columns min-h-0 flex-1">
+				<div className="drawer-column">
 					<h3 style={columnTitle}>Why</h3>
 					{intent.why.length > 0 ? (
 						<ol style={{ fontSize: 13, margin: 0, paddingLeft: 18 }}>
@@ -95,7 +95,7 @@ export function Drawer({ intent, events, callsignOf, named, onSelect, onClose }:
 						Changes {intent.claims.length === 0 ? "nothing yet" : intent.claims.map((claim) => `${symbolName(claim.symbol)}${claim.mode === "interface" ? " (interface)" : ""}`).join(", ")}.
 					</p>
 				</div>
-				<div style={{ padding: "12px 24px", overflowY: "auto", borderLeft: "1px solid var(--rule)" }}>
+				<div className="drawer-column">
 					<h3 style={columnTitle}>Relies on</h3>
 					{groups.length === 0 ? <p style={muted}>Nothing recorded yet.</p> : null}
 					{groups.map((group) => (
@@ -114,7 +114,7 @@ export function Drawer({ intent, events, callsignOf, named, onSelect, onClose }:
 						</div>
 					))}
 				</div>
-				<div style={{ padding: "12px 24px", overflowY: "auto", borderLeft: "1px solid var(--rule)" }}>
+				<div className="drawer-column">
 					<h3 style={columnTitle}>Timeline</h3>
 					<ol style={{ listStyle: "none", margin: 0, padding: 0 }}>
 						{timeline.map((entry) => (

@@ -9,7 +9,7 @@ const clock = (ms: number) => `${Math.floor(ms / 60_000)}:${String(Math.floor((m
 
 function Figure({ label, value }: { label: string; value: string }) {
 	return (
-		<div className="flex flex-col leading-none" style={{ minWidth: 136 }}>
+		<div className="flex flex-col leading-none" style={{ minWidth: 120 }}>
 			<span className="callsign" style={{ fontSize: 32, lineHeight: 1, fontVariantNumeric: "tabular-nums" }}>
 				{value}
 			</span>
@@ -18,29 +18,34 @@ function Figure({ label, value }: { label: string; value: string }) {
 	);
 }
 
-/** Landings in each 10 s of the run, as bars. The tallest bar is labelled; the axis runs in real time. */
+/**
+ * Landings in each 10 s of the run, as bars. The tallest bar is labelled; the axis runs in real
+ * time. Positions are percentages, not a scaled viewBox, so the label stays 12px at any width.
+ */
 function Sparkline({ buckets, elapsedMs }: { buckets: readonly number[]; elapsedMs: number }) {
 	const peak = Math.max(1, ...buckets);
-	const width = 720;
 	const height = 96;
-	const step = width / buckets.length;
-	const bar = Math.max(1, Math.min(32, step - 3));
+	const top = 16;
+	const step = 100 / buckets.length;
+	// Each bar leaves a sliver of its slot empty, and is never wider than a 32px bar on the full-width chart.
+	const bar = Math.min(step * 0.86, 4.4);
 	const peakAt = buckets.indexOf(peak);
+	const peakX = peakAt * step + bar / 2;
 	return (
-		<figure style={{ margin: 0 }}>
-			<svg viewBox={`0 0 ${width} ${height + 16}`} width="100%" style={{ maxWidth: width, display: "block" }} role="img" aria-label={`Landings in each 10 seconds. The most in one stretch was ${peak}.`}>
+		<figure style={{ margin: 0, maxWidth: 720 }}>
+			<svg width="100%" height={height + top} style={{ display: "block", overflow: "visible" }} role="img" aria-label={`Landings in each 10 seconds. The most in one stretch was ${peak}.`}>
 				{buckets.map((count, index) => {
 					const tall = (count / peak) * height;
-					return <rect key={index} x={index * step} y={height - tall + 16} width={bar} height={Math.max(tall, count > 0 ? 2 : 0)} fill="var(--holds)" />;
+					return <rect key={index} x={`${index * step}%`} y={height - tall + top} width={`${bar}%`} height={Math.max(tall, count > 0 ? 2 : 0)} fill="var(--holds)" />;
 				})}
-				<line x1={0} x2={width} y1={height + 15.5} y2={height + 15.5} stroke="var(--rule)" />
-				{peakAt >= 0 && buckets[peakAt] !== undefined && peak > 1 ? (
-					<text x={Math.min(width - 4, peakAt * step + bar / 2)} y={11} textAnchor={peakAt * step > width - 40 ? "end" : "middle"} style={{ fontSize: 12, fill: "var(--ink-soft)" }}>
+				<line x1="0" x2="100%" y1={height + top - 0.5} y2={height + top - 0.5} stroke="var(--rule)" />
+				{peakAt >= 0 && peak > 1 ? (
+					<text x={`${Math.min(98, Math.max(2, peakX))}%`} y={11} textAnchor={peakX > 96 ? "end" : peakX < 4 ? "start" : "middle"} style={{ fontSize: 12, fill: "var(--ink-soft)" }}>
 						{peak}
 					</text>
 				) : null}
 			</svg>
-			<figcaption className="flex justify-between" style={{ maxWidth: width, fontSize: 12, color: "var(--ink-soft)", marginTop: 4 }}>
+			<figcaption className="flex justify-between" style={{ fontSize: 12, color: "var(--ink-soft)", marginTop: 4 }}>
 				<span>0:00</span>
 				<span>Landings in each {BUCKET_MS / 1000} s</span>
 				<span>{clock(elapsedMs)}</span>
@@ -68,14 +73,14 @@ export function ScaleView({ events, metrics, intents }: ScaleViewProps) {
 	const cost = operationsCost(operations);
 
 	return (
-		<section aria-label="Scale" style={{ background: "#fff", border: "1px solid var(--rule)", borderRadius: 3, padding: 24, maxWidth: 960 }}>
+		<section aria-label="Scale" className="plane">
 			<h2 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>Scale</h2>
 			<p style={{ margin: "4px 0 0", fontSize: 13, color: "var(--ink-soft)" }}>
 				{tally.all === 0
 					? "Nothing has been dispatched yet."
 					: `${whole.format(tally.all)} Intents, each on its own Artifacts fork: ${whole.format(tally.all - tally.workload)} from agents and ${whole.format(tally.workload)} scripted workload Intents (real forks and pushes, no model).`}
 			</p>
-			<div className="flex flex-wrap" style={{ gap: 32, marginTop: 24 }}>
+			<div className="flex flex-wrap" style={{ gap: "24px 32px", marginTop: 24 }}>
 				<Figure label="Forks created" value={whole.format(metrics.forksCreated)} />
 				<Figure label="Pushes" value={whole.format(metrics.pushes)} />
 				<Figure label="Landings a minute" value={stats.landingsPerMinute.toFixed(1)} />
@@ -84,7 +89,7 @@ export function ScaleView({ events, metrics, intents }: ScaleViewProps) {
 			<div style={{ marginTop: 32 }}>
 				<Sparkline buckets={stats.buckets} elapsedMs={stats.elapsedMs} />
 			</div>
-			<dl style={{ margin: "24px 0 0", fontSize: 13, display: "grid", gridTemplateColumns: "max-content 1fr", columnGap: 16, rowGap: 8 }}>
+			<dl className="facts">
 				<dt style={{ color: "var(--ink-soft)" }}>Intents</dt>
 				<dd style={{ margin: 0 }}>
 					{whole.format(tally.landed)} landed, {whole.format(tally.flying)} in flight, {whole.format(tally.stopped)} stopped

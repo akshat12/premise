@@ -47,6 +47,8 @@ function gateErrors(intent: IntentView): string[] {
 }
 
 interface CardProps {
+	/** In the page's flow on a narrow screen: full width, and no room for what a button that is off would do. */
+	inline: boolean;
 	intent: IntentView;
 	other?: IntentView;
 	/** In a replay nothing can be answered: the recording decides. */
@@ -56,7 +58,7 @@ interface CardProps {
 	onNeedToken: () => void;
 }
 
-function HumanCard({ intent, other, readOnly, token, named, onNeedToken }: CardProps) {
+function HumanCard({ inline, intent, other, readOnly, token, named, onNeedToken }: CardProps) {
 	const [applied, setApplied] = useState<Choice | null>(null);
 	const [error, setError] = useState<string | null>(null);
 	const [busy, setBusy] = useState(false);
@@ -87,7 +89,7 @@ function HumanCard({ intent, other, readOnly, token, named, onNeedToken }: CardP
 	}
 
 	return (
-		<section role="alertdialog" aria-label={`${callsign(intent)} needs you`} style={{ width: 360, background: "#fff", border: "1px solid var(--rule)", borderLeft: "4px solid var(--redpen)", borderRadius: 3, padding: "12px 14px" }}>
+		<section role="alertdialog" aria-label={`${callsign(intent)} needs you`} style={{ width: inline ? "100%" : 360, maxWidth: inline ? 480 : "100%", background: "#fff", border: "1px solid var(--rule)", borderLeft: "4px solid var(--redpen)", borderRadius: 3, padding: "12px 14px" }}>
 			<p className="flex items-center gap-2" style={{ margin: 0, fontSize: 14, fontWeight: 600 }}>
 				<Bell size={16} weight="fill" color="var(--redpen)" aria-hidden="true" />
 				{title}
@@ -122,13 +124,13 @@ function HumanCard({ intent, other, readOnly, token, named, onNeedToken }: CardP
 					{applied} applied
 				</p>
 			) : (
-				<div className="flex flex-col gap-2" style={{ marginTop: 10 }}>
+				<div className={inline && readOnly ? "flex gap-2" : "flex flex-col gap-2"} style={{ marginTop: 10 }}>
 					{human.options.map((option) => (
 						<div key={option} className="flex items-start gap-3">
 							<Button size="sm" variant={option === "Abandon" ? "secondary-destructive" : "secondary"} disabled={readOnly || busy} onClick={() => void choose(option)} style={{ width: 84, flex: "none" }}>
 								{option}
 							</Button>
-							<span style={{ fontSize: 12, color: "var(--ink-soft)", paddingTop: 4 }}>{EXPLAIN[option]}</span>
+							{inline && readOnly ? null : <span style={{ fontSize: 12, color: "var(--ink-soft)", paddingTop: 4 }}>{EXPLAIN[option]}</span>}
 						</div>
 					))}
 				</div>
@@ -150,18 +152,20 @@ interface HumanCardsProps {
 	token: string;
 	named: (text: string) => string;
 	onNeedToken: () => void;
+	/** Narrow screens: the cards sit at the top of the page's content instead of floating over its corner. */
+	inline?: boolean;
 }
 
 /** One card for each Intent that is waiting for a person, stacked at the top right. */
-export function HumanCards({ cards, intents, readOnly, token, named, onNeedToken }: HumanCardsProps) {
+export function HumanCards({ cards, intents, readOnly, token, named, onNeedToken, inline = false }: HumanCardsProps) {
 	if (cards.length === 0) {
 		return null;
 	}
 	return (
-		<div className="flex flex-col gap-2" style={{ position: "fixed", top: 64, right: 12, zIndex: 20 }} aria-live="polite">
+		<div className="human-cards flex flex-col gap-2" style={inline ? { marginBottom: 12 } : { position: "fixed", top: 64, right: 12, zIndex: 20 }} aria-live="polite">
 			{cards.map((intent) => {
 				const otherId = waitingOn(intent);
-				return <HumanCard key={intent.id} intent={intent} other={otherId === undefined ? undefined : intents[otherId]} readOnly={readOnly} token={token} named={named} onNeedToken={onNeedToken} />;
+				return <HumanCard key={intent.id} inline={inline} intent={intent} other={otherId === undefined ? undefined : intents[otherId]} readOnly={readOnly} token={token} named={named} onNeedToken={onNeedToken} />;
 			})}
 		</div>
 	);
