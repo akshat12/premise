@@ -11,6 +11,9 @@ export function emptyCounters(): Counters {
 	return { brokenBuildsOnTrunk: 0, behaviouralRegressionsOnTrunk: 0, humanMerges: 0, premisesBroken: 0, rederives: { started: 0, succeeded: 0, failed: 0 }, forksCreated: 0, pushes: 0 };
 }
 
+/** The answers to a stalemate card. (Retry and Abandon answer a fallback, which was counted when it was raised.) */
+const STALEMATE_CHOICES = ["Wait", "Split", "Depend"];
+
 /** What one event adds to the counters. Pure. */
 export function countEvent(counters: Counters, event: PremiseEventBody): Counters {
 	switch (event.t) {
@@ -32,8 +35,12 @@ export function countEvent(counters: Counters, event: PremiseEventBody): Counter
 			return event.rebase === "fail" && event.rederive === "fail" ? { ...counters, rederives: { ...rederives, failed: rederives.failed + 1 } } : counters;
 		}
 		case "human.needed":
-			// A person had to step in. The A/B harness counts these as human merge resolutions.
-			return { ...counters, humanMerges: counters.humanMerges + 1 };
+			// A fallback cannot move without a person: a text conflict in the baseline, or an Intent whose
+			// re-derives kept failing. A stalemate card is different: the Intent also carries on by itself
+			// when the other one finishes, so it only counts if a person actually answers it (below).
+			return event.kind === "fallback" ? { ...counters, humanMerges: counters.humanMerges + 1 } : counters;
+		case "human.resolved":
+			return STALEMATE_CHOICES.includes(event.choice) ? { ...counters, humanMerges: counters.humanMerges + 1 } : counters;
 		default:
 			return counters;
 	}

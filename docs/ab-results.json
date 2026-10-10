@@ -1,0 +1,184 @@
+{
+	"date": "2026-10-10",
+	"url": "https://premise.akshatdivekar.workers.dev",
+	"n": 100,
+	"seed": 7,
+	"headline": "Baseline shipped 3 behavioural regressions and needed 11 human merges; Premise shipped 0 behavioural regressions and needed 0 human merges.",
+	"table": [
+		{
+			"metric": "Behavioural regressions that reached trunk",
+			"baseline": "3",
+			"premise": "0",
+			"note": "Reference tests of landed tasks that went red after a landing."
+		},
+		{
+			"metric": "Human merges",
+			"baseline": "11",
+			"premise": "0",
+			"note": "Baseline: text conflicts someone has to merge by hand. Premise: Intents that could not move without a person, plus stalemate cards a person answered. A stalemate card that resolved by itself is not counted."
+		},
+		{
+			"metric": "Broken builds on trunk",
+			"baseline": "0",
+			"premise": "0",
+			"note": "Typecheck failures after a landing. Both rules typecheck before landing."
+		},
+		{
+			"metric": "Demo tasks landed",
+			"baseline": "12 of 12",
+			"premise": "12 of 12"
+		},
+		{
+			"metric": "Intents landed",
+			"baseline": "100 of 111",
+			"premise": "97 of 112",
+			"note": "Agents and scripted workload together."
+		},
+		{
+			"metric": "Landings per minute",
+			"baseline": "50.8",
+			"premise": "42.1"
+		},
+		{
+			"metric": "Wall time",
+			"baseline": "118.1 s",
+			"premise": "138.2 s"
+		},
+		{
+			"metric": "Premises broken",
+			"baseline": "0",
+			"premise": "27",
+			"note": "Baseline has no premises, so nobody is told."
+		},
+		{
+			"metric": "Stale Intents settled by re-derive",
+			"baseline": "0",
+			"premise": "3"
+		},
+		{
+			"metric": "Stale Intents a plain rebase settled",
+			"baseline": "0",
+			"premise": "16"
+		},
+		{
+			"metric": "False-positive rate",
+			"baseline": "n/a",
+			"premise": "76%",
+			"note": "Share of stale Intents whose plain rebase passed anyway: the premise break cost time and changed nothing."
+		},
+		{
+			"metric": "Turned away at the gate",
+			"baseline": "11 text, 0 type, 0 checks",
+			"premise": "0 text, 0 type, 3 checks",
+			"note": "Text conflicts, type errors after rebase, and (Premise only) failed acceptance checks or assertions."
+		},
+		{
+			"metric": "Gave up waiting for a claim",
+			"baseline": "0",
+			"premise": "15",
+			"note": "Scripted workload Intents that wanted a symbol another Intent was changing, asked three more times, and stopped. In the baseline the same collisions show up as text conflicts for a person."
+		},
+		{
+			"metric": "Reference tests red at the end",
+			"baseline": "3",
+			"premise": "0"
+		},
+		{
+			"metric": "Forks created",
+			"baseline": "111",
+			"premise": "115"
+		}
+	],
+	"baseline": {
+		"brokenBuildsOnTrunk": 0,
+		"behaviouralRegressionsOnTrunk": 3,
+		"humanMerges": 11,
+		"premisesBroken": 0,
+		"rederives": {
+			"started": 0,
+			"succeeded": 0,
+			"failed": 0
+		},
+		"forksCreated": 111,
+		"pushes": 134,
+		"agentsActive": 0,
+		"intentsLanded": 100,
+		"mode": "baseline",
+		"n": 100,
+		"seed": 7,
+		"trunk": "trunk-mv1zuocn",
+		"wallTimeMs": 118096,
+		"landingsPerMinute": 50.80612383145915,
+		"tasksLanded": 12,
+		"tasksDispatched": 12,
+		"ends": {
+			"landed": 100,
+			"failed": 11,
+			"escalated": 0,
+			"other": 0
+		},
+		"races": {
+			"started": 0,
+			"rebaseWon": 0,
+			"rederiveWon": 0,
+			"failed": 0
+		},
+		"falsePositiveRate": 0,
+		"rejected": {
+			"textConflicts": 11,
+			"typecheck": 0,
+			"checks": 0
+		},
+		"claimsLost": 0,
+		"redReferenceTests": [
+			"premise/hidden-tests/t02-audit-expired.test.ts#an expired session writes an audit entry and returns expired",
+			"premise/hidden-tests/t03-expired-metrics.test.ts#a request with an expired session is counted",
+			"premise/hidden-tests/t11-expired-rate-limit.test.ts#requests with an expired session count against the limit"
+		],
+		"finalTypecheckOk": true
+	},
+	"premise": {
+		"brokenBuildsOnTrunk": 0,
+		"behaviouralRegressionsOnTrunk": 0,
+		"humanMerges": 0,
+		"premisesBroken": 27,
+		"rederives": {
+			"started": 21,
+			"succeeded": 19,
+			"failed": 0
+		},
+		"forksCreated": 115,
+		"pushes": 122,
+		"agentsActive": 0,
+		"intentsLanded": 97,
+		"mode": "premise",
+		"n": 100,
+		"seed": 7,
+		"trunk": "trunk-mv1zxqnv",
+		"wallTimeMs": 138169,
+		"landingsPerMinute": 42.12232845283674,
+		"tasksLanded": 12,
+		"tasksDispatched": 12,
+		"ends": {
+			"landed": 97,
+			"failed": 15,
+			"escalated": 0,
+			"other": 0
+		},
+		"races": {
+			"started": 21,
+			"rebaseWon": 16,
+			"rederiveWon": 3,
+			"failed": 0
+		},
+		"falsePositiveRate": 0.7619047619047619,
+		"rejected": {
+			"textConflicts": 0,
+			"typecheck": 0,
+			"checks": 3
+		},
+		"claimsLost": 15,
+		"redReferenceTests": [],
+		"finalTypecheckOk": true
+	}
+}

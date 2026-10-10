@@ -49,9 +49,10 @@ export function priorityFor(taskId: TaskId, priorityOrder: readonly TaskId[] | u
 /**
  * For each task: fork trunk, create the Intent with its acceptance checks frozen, and start its
  * agent. Returns the new Intent ids in the order the tasks were given. If some tasks cannot be
- * started, the rest still are, and DispatchFailed says which.
+ * started, the rest still are, and DispatchFailed says which. `landFirst` names tasks whose
+ * Intents must land before the others in this call are gated (demo and A/B choreography).
  */
-export async function dispatchTasks(env: Env, taskIds: readonly TaskId[], priorityOrder?: readonly TaskId[], store: RepoStore = getRepoStore(env)): Promise<IntentId[]> {
+export async function dispatchTasks(env: Env, taskIds: readonly TaskId[], priorityOrder?: readonly TaskId[], store: RepoStore = getRepoStore(env), options: { landFirst?: readonly TaskId[] } = {}): Promise<IntentId[]> {
 	const trunk = await currentTrunk(env);
 	const tasks = await loadTasks(env, store);
 	const unknown = taskIds.filter((id) => !tasks.some((task) => task.id === id));
@@ -70,6 +71,11 @@ export async function dispatchTasks(env: Env, taskIds: readonly TaskId[], priori
 		}
 	});
 	const ids = started.filter((id) => id !== null);
+	if (options.landFirst !== undefined && options.landFirst.length > 0) {
+		// Choreography: the Intents for these tasks land before any of the others dispatched with them.
+		const first = taskIds.flatMap((taskId, index) => (options.landFirst?.includes(taskId) && started[index] ? [started[index] as IntentId] : []));
+		await landing(env).hold(first, ids.filter((id) => !first.includes(id)));
+	}
 	await publishMetrics(env);
 	if (failed.length > 0) {
 		throw new DispatchFailed(ids, failed);

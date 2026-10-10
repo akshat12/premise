@@ -2,6 +2,8 @@
 import type { CommitSha, Intent } from "../../shared/types";
 import { type CheckerDeps, runChecker, settleQuarantine } from "../gate/checker";
 import { gateEnqueue } from "../gate/client";
+import { currentMode } from "../hub/publish";
+import { intentStub } from "../intent/client";
 import { onCheckerWake } from "./wake";
 
 type HandOffEnv = Parameters<typeof runChecker>[0] & Pick<Env, "LANDING">;
@@ -11,7 +13,21 @@ export async function handOff(env: HandOffEnv, intent: Intent, _commit: CommitSh
 	if (intent.status !== "submitted" && intent.status !== "rederiving") {
 		return; // the Intent moved on while the agent was pushing
 	}
+	if ((await currentMode(env)) === "baseline") {
+		await straightToGate(env, intent, deps);
+		return;
+	}
 	await runChecker(env, intent.id, deps);
+}
+
+/**
+ * The comparison run (A/B baseline) has no post-push checker: nothing was claimed, so there is
+ * nothing to check the push against. The push goes straight to the gate's queue.
+ */
+export async function straightToGate(env: HandOffEnv, intent: Intent, deps: CheckerDeps = { enqueue: gateEnqueue(env) }): Promise<void> {
+	const api = intentStub(env, intent.id);
+	await api.act({ a: "check" });
+	await deps.enqueue?.(await api.act({ a: "queue" }), "rebase");
 }
 
 // When an Intent finishes, quarantined Intents that were waiting on it ask the ledger again.

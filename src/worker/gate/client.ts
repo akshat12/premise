@@ -1,5 +1,5 @@
 // How the rest of the backend reaches the gate.
-import type { CommitSha, IntentId, IntentStatus } from "../../shared/types";
+import type { CommitSha, IntentId, IntentKind, IntentStatus } from "../../shared/types";
 import type { Enqueue } from "./checker";
 import type { RunningEntry, StaleEntry } from "./rederive";
 import type { Standing } from "./standing";
@@ -14,6 +14,8 @@ export interface QueueEntry {
 	enqueuedAt: number;
 	/** Times the gate started on this Intent and could not finish (a repo or network error). */
 	attempts: number;
+	/** Scripted workload Intents may land several to a commit; an agent's Intent always lands alone. */
+	kind?: IntentKind;
 }
 
 export interface LandingStatus {
@@ -24,6 +26,8 @@ export interface LandingStatus {
 	stale: StaleEntry[];
 	/** Intents whose agent is re-deriving right now. */
 	rederiving: RunningEntry[];
+	/** Which version of the gate's code answered (see GATE_VERSION). */
+	version?: number;
 }
 
 /** The Landing Durable Object's RPC surface, declared by hand so callers do not depend on generated stub types. */
@@ -33,6 +37,8 @@ export interface LandingApi {
 	rederiveFailed(intentId: IntentId, attempt: number, reason: string): Promise<void>;
 	humanChoice(intentId: IntentId, choice: "Retry" | "Abandon"): Promise<IntentStatus | null>;
 	standing(): Promise<Standing[]>;
+	hold(first: IntentId[], rest: IntentId[]): Promise<void>;
+	redReferenceTests(): Promise<string[]>;
 	status(): Promise<LandingStatus>;
 	clear(): Promise<void>;
 }

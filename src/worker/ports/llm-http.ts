@@ -20,8 +20,11 @@ export interface HttpOptions {
 	random?: () => number;
 }
 
-export const MAX_RETRIES = 3;
-const BACKOFF_SECONDS = [1, 2, 4];
+// Measured on Gemini's free tier (2026-10-09): 503s and 429s with no wait hint come in bursts of
+// several seconds. With three retries over about 7 s, four in a row ended an agent's run. Five
+// retries over about a minute ride a burst out.
+export const MAX_RETRIES = 5;
+const BACKOFF_SECONDS = [2, 4, 8, 16, 30];
 /** The longest we sleep because the server asked. A per-minute rate limit never needs more. */
 export const MAX_RETRY_AFTER_MS = 60_000;
 
@@ -47,20 +50,20 @@ export function retryHintSeconds(retryAfter: string | null, body: string): numbe
 
 /**
  * How long to wait before retry number `attempt` (0-based): what the server asked for
- * (`hintSeconds`, see `retryHintSeconds`), else 1, 2, 4 s with jitter.
+ * (`hintSeconds`, see `retryHintSeconds`), else 2, 4, 8, 16, 30 s with jitter.
  */
 export function retryDelayMs(attempt: number, hintSeconds: number | null, random: () => number): number {
 	if (hintSeconds !== null) {
 		return Math.min(hintSeconds * 1000, MAX_RETRY_AFTER_MS);
 	}
-	const base = (BACKOFF_SECONDS[Math.min(attempt, BACKOFF_SECONDS.length - 1)] ?? 4) * 1000;
+	const base = (BACKOFF_SECONDS[Math.min(attempt, BACKOFF_SECONDS.length - 1)] ?? 30) * 1000;
 	// Between 50% and 100% of the step, so many agents retrying at once do not line up.
 	return Math.round(base * (0.5 + random() * 0.5));
 }
 
 /**
  * POSTs JSON and returns the parsed JSON reply. Retries retryable statuses and network errors up
- * to three times, waiting as long as the server asks when it says (up to a minute).
+ * to five times, waiting as long as the server asks when it says (up to a minute).
  */
 export async function postJson(url: string, headers: Record<string, string>, body: unknown, options: HttpOptions = {}): Promise<unknown> {
 	const doFetch = options.fetch ?? ((input, init) => fetch(input, init));

@@ -6,7 +6,7 @@ import { type FileChanges, type FileMap, StaleHeadError } from "../ports/repo-st
 import type { RunRequest, RunResult } from "../runner";
 import { surface, typecheck } from "../surface";
 import { demoFiles, referencePatch } from "../testing/demo";
-import { changesBetween, describeFailure, type GateDeps, gateOne, landingMessage } from "./gate";
+import { changesBetween, describeFailure, gateBatch, type GateDeps, gateOne, landingMessage } from "./gate";
 import type { Standing } from "./standing";
 
 // A small repo where every answer is easy to see.
@@ -304,6 +304,92 @@ describe("gateOne with standing checks", () => {
 		const { report } = await gateOne(h.deps, await h.intentWith({ "README.md": "# shop!\n" }, { acceptance: [] }), "rebase", { standing, skipAssertions: true });
 		expect(report.ok).toBe(false);
 		expect(h.runs).toHaveLength(1);
+	});
+});
+
+describe("gateBatch", () => {
+	const helper = (name: string) => `export const ${name} = 1;\n`;
+	const plainIntent = (h: ReturnType<typeof harness>, changes: FileChanges, fields: Partial<Intent> = {}) => h.intentWith(changes, { acceptance: [], kind: "workload", ...fields });
+
+	it("lands several Intents as one commit, with a trailer for each", async () => {
+		const h = harness();
+		const a = await plainIntent(h, { "src/gen/a.ts": helper("a") });
+		const b = await plainIntent(h, { "src/math.ts": MATH.replace("return a + b;", "return b + a;") });
+		const c = await plainIntent(h, { "src/gen/c.ts": helper("c") });
+		const before = await h.store.head("trunk");
+		const outcome = await gateBatch(h.deps, [a, b, c]);
+
+		expect(outcome).toMatchObject({ conflicted: [], deferred: [] });
+		expect(outcome.landed).toMatchObject({ trunkBefore: before, members: [a.id, b.id, c.id], changedSymbols: [], changedBy: {} });
+		expect(outcome.landed?.commit).toBe(await h.store.head("trunk"));
+		expect(outcome.landed?.reports.map((report) => [report.intentId, report.ok, report.landedCommit === outcome.landed?.commit])).toEqual([[a.id, true, true], [b.id, true, true], [c.id, true, true]]);
+		// One typecheck, one commit, and no isolate run (nothing to test).
+		expect(h.state.typechecks).toBe(1);
+		expect(h.messages).toEqual([`batch of 3 workload intents\n\nPremise-Intent: ${a.id}\nPremise-Intent: ${b.id}\nPremise-Intent: ${c.id}`]);
+		expect(h.runs).toEqual([]);
+		const trunk = await h.store.snapshot("trunk", "main");
+		expect([trunk["src/gen/a.ts"], trunk["src/gen/c.ts"]]).toEqual([helper("a"), helper("c")]);
+		expect(trunk["src/math.ts"]).toContain("return b + a;");
+		expect(outcome.landed?.newTrunkFiles).toEqual(trunk);
+	});
+
+	it("leaves out a member that conflicts with an earlier one, for a run of its own", async () => {
+		const h = harness();
+		const first = await plainIntent(h, { "src/math.ts": MATH.replace("return a + b;", "return b + a;") });
+		const clash = await plainIntent(h, { "src/math.ts": MATH.replace("return a + b;", "return a + b + 0;") });
+		const other = await plainIntent(h, { "src/gen/o.ts": helper("o") });
+		const outcome = await gateBatch(h.deps, [first, clash, other]);
+		expect(outcome.landed?.members).toEqual([first.id, other.id]);
+		expect(outcome.conflicted).toEqual([clash.id]);
+	});
+
+	it("says which member changed which type surface, including symbols that changed only by mentioning one", async () => {
+		const h = harness();
+		const widen = (field: string) => MATH.replace("amount: number;", `amount: number;\n\t${field}?: number;`);
+		const one = await plainIntent(h, { "src/math.ts": widen("_w1") }, { claims: [{ symbol: "src/math.ts#Money", mode: "interface" }] });
+		const two = await plainIntent(h, { "src/label.ts": 'export function label(name: string, loud?: boolean): string {\n\treturn "item " + name + String(loud ?? "");\n}\n' }, { claims: [{ symbol: "src/label.ts#label", mode: "interface" }] });
+		// A claim on the interface of a symbol that does not exist yet (a new helper) changes no existing surface.
+		const fresh = await plainIntent(h, { "src/gen/n.ts": helper("n") }, { claims: [{ symbol: "src/gen/n.ts#n", mode: "interface" }] });
+		const body = await plainIntent(h, { "README.md": "# shop!\n" });
+		const outcome = await gateBatch(h.deps, [one, two, fresh, body]);
+		expect(outcome.landed?.members).toEqual([one.id, two.id, fresh.id, body.id]);
+		expect(outcome.deferred).toEqual([]);
+		expect(outcome.landed?.changedSymbols).toEqual(["src/label.ts#label", "src/math.ts#Money", "src/math.ts#total"]);
+		// `total` takes Money[]: it changed because Money did, so it is put down to the member that changed Money.
+		expect(outcome.landed?.changedBy).toEqual({ "src/math.ts#Money": one.id, "src/math.ts#total": one.id, "src/label.ts#label": two.id });
+	});
+
+	it("lands nothing when the merged result does not typecheck, so the members can be gated singly", async () => {
+		const h = harness();
+		const before = await h.store.head("trunk");
+		const good = await plainIntent(h, { "src/gen/a.ts": helper("a") });
+		const bad = await plainIntent(h, { "src/gen/b.ts": 'export const b: number = "no";\n' });
+		const outcome = await gateBatch(h.deps, [good, bad]);
+		expect(outcome.landed).toBeNull();
+		expect(outcome.reason).toMatch(/^typecheck failed: src\/gen\/b\.ts:1: /);
+		expect(await h.store.head("trunk")).toBe(before);
+	});
+
+	it("runs the landed Intents' checks once for the batch, and lands nothing if one fails", async () => {
+		const withTest = { ...REPO, "tests/label.test.ts": "export const tests = {};\n" };
+		const standing: Standing[] = [{ intentId: "ilanded01", tests: [{ file: "tests/label.test.ts", name: "labels items" }], assertions: [] }];
+		const h = harness(withTest);
+		const members = [await plainIntent(h, { "src/gen/a.ts": helper("a") }), await plainIntent(h, { "src/gen/b.ts": helper("b") })];
+		expect((await gateBatch(h.deps, members, { standing })).landed?.members).toHaveLength(2);
+		expect(h.runs).toHaveLength(1);
+		expect(h.runs[0]?.tests).toEqual([{ file: "tests/label.test.ts", name: "labels items" }]);
+
+		h.state.runner = (req) => ({ ...allPass(req), tests: req.tests.map((test) => ({ ...test, ok: false, error: "broken", ms: 1 })) });
+		const again = [await plainIntent(h, { "src/gen/c.ts": helper("c") }), await plainIntent(h, { "src/gen/d.ts": helper("d") })];
+		const outcome = await gateBatch(h.deps, again, { standing });
+		expect(outcome.landed).toBeNull();
+		expect(outcome.reason).toContain("Breaks landed Intent ilanded01");
+	});
+
+	it("refuses a member that has checks of its own: those get a gate run to themselves", async () => {
+		const h = harness();
+		const withChecks = await h.intentWith({ "src/gen/a.ts": helper("a") });
+		expect(await gateBatch(h.deps, [withChecks])).toEqual({ landed: null, conflicted: [], deferred: [], reason: "a member has checks of its own" });
 	});
 });
 

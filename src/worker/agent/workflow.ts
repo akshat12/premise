@@ -1,5 +1,6 @@
 import { WorkflowEntrypoint, type WorkflowEvent, type WorkflowStep } from "cloudflare:workers";
 import { landing } from "../gate/client";
+import { withChosenLlm } from "../hub/publish";
 import { intentStub } from "../intent/client";
 import { getRepoStore } from "../ports";
 import { getLlm, type LlmClient, type LlmMessage, resolveLlmConfig, ScriptedLlm } from "../ports/llm";
@@ -7,6 +8,7 @@ import type { Intent } from "../../shared/types";
 import { handOff } from "./handoff";
 import { type AgentOutcome, type AgentParams, runAgent, type Steps } from "./run";
 import { AGENT_SCRIPTS, scriptKey } from "./scripts";
+import { isWorkloadParams, runWorkloadIntent, type WorkloadParams, type WorkloadResult } from "../workload/run";
 
 /** The model client for a run. A scripted run replays from wherever the conversation has got to, so a restarted Workflow carries on with the right turn. */
 export function llmFor(env: Env, params: AgentParams): (intent: Intent, messages: readonly LlmMessage[]) => LlmClient {
@@ -40,18 +42,30 @@ export function workflowSteps(step: WorkflowStep): Steps {
 
 /**
  * One agent run for one Intent. All the logic is in run.ts; this class only wires in the
- * environment and makes each step durable.
+ * environment and makes each step durable. It also runs scripted workload Intents (workload/run.ts),
+ * so that each of those gets an invocation of its own.
  */
-export class AgentWorkflow extends WorkflowEntrypoint<Env, AgentParams> {
-	async run(event: WorkflowEvent<AgentParams>, step: WorkflowStep): Promise<AgentOutcome> {
-		const params = event.payload;
+export class AgentWorkflow extends WorkflowEntrypoint<Env, AgentParams | WorkloadParams> {
+	async run(event: WorkflowEvent<AgentParams | WorkloadParams>, step: WorkflowStep): Promise<AgentOutcome | WorkloadResult> {
 		const env = this.env;
+		if (isWorkloadParams(event.payload)) {
+			// A scripted workload Intent: no model, one step. It never throws, so there is nothing to retry.
+			const { job, trunk } = event.payload;
+			return step.do("workload", { retries: { limit: 0, delay: "1 second" }, timeout: "10 minutes" }, async () => runWorkloadIntent(env, getRepoStore(env), job, { trunk }) as Promise<never>) as Promise<WorkloadResult>;
+		}
+		const params = event.payload as AgentParams;
+		// The provider may have been chosen at run time; read it once, when the run starts.
+		const chosen = await step.do("choose-model", async () => {
+			const applied = await withChosenLlm(env);
+			return { LLM: applied.LLM, LLM_MODEL: applied.LLM_MODEL };
+		});
+		const llm = llmFor({ ...env, ...chosen }, params);
 		return runAgent(
 			{
 				env,
 				store: getRepoStore(env),
 				intent: intentStub(env, params.intentId),
-				llm: llmFor(env, params),
+				llm,
 				handOff: (intent, commit) => handOff(env, intent, commit),
 				instanceId: event.instanceId,
 				// A re-derive that cannot finish tells the gate, which decides between another attempt and a person.

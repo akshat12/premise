@@ -94,9 +94,9 @@ describe("HTTP retry policy", () => {
 		expect([400, 401, 402, 403, 404, 413, 422].some(isRetryable)).toBe(false);
 	});
 
-	it("backs off 1, 2, 4 seconds with jitter, or as long as the server asks, up to a minute", () => {
-		expect([0, 1, 2, 3].map((attempt) => retryDelayMs(attempt, null, () => 1))).toEqual([1000, 2000, 4000, 4000]);
-		expect(retryDelayMs(0, null, () => 0)).toBe(500);
+	it("backs off 2, 4, 8, 16, 30 seconds with jitter, or as long as the server asks, up to a minute", () => {
+		expect([0, 1, 2, 3, 4, 5].map((attempt) => retryDelayMs(attempt, null, () => 1))).toEqual([2000, 4000, 8000, 16_000, 30_000, 30_000]);
+		expect(retryDelayMs(0, null, () => 0)).toBe(1000);
 		expect(retryDelayMs(0, 7, () => 0)).toBe(7000);
 		expect(retryDelayMs(2, 36, () => 1)).toBe(36_000);
 		expect(retryDelayMs(0, 600, () => 0)).toBe(60_000);
@@ -216,7 +216,7 @@ describe("AnthropicLlm", () => {
 		const llm = new AnthropicLlm({ apiKey: "k", model: "m", fetch: fake.fetchFn, sleep: async (ms) => void sleeps.push(ms), random: () => 1 });
 		expect((await llm.turn("s", [{ role: "user", content: "hi" }], [])).stop).toBe("tool_use");
 		expect(fake.calls).toHaveLength(3);
-		expect(sleeps).toEqual([2000, 2000]);
+		expect(sleeps).toEqual([2000, 4000]);
 	});
 
 	it("retries a network error", async () => {
@@ -225,10 +225,10 @@ describe("AnthropicLlm", () => {
 		expect(calls).toHaveLength(2);
 	});
 
-	it("gives up after three retries", async () => {
-		const { llm, calls } = make([429, 429, 429, 429, 429].map((status) => json({ error: "rate" }, status)));
+	it("gives up after five retries", async () => {
+		const { llm, calls } = make([429, 429, 429, 429, 429, 429, 429, 429].map((status) => json({ error: "rate" }, status)));
 		await expect(llm.turn("s", [{ role: "user", content: "hi" }], [])).rejects.toBeInstanceOf(LlmHttpError);
-		expect(calls).toHaveLength(4);
+		expect(calls).toHaveLength(6);
 	});
 
 	it("does not retry a 400 and includes the response body in the error", async () => {
@@ -426,7 +426,7 @@ describe("resolveLlmConfig and getLlm", () => {
 
 	it("switches provider by changing variables only", () => {
 		expect(resolveLlmConfig({ LLM: "openai", LLM_MODEL: "gpt-x", OPENAI_API_KEY: "o" })).toMatchObject({ wire: "openai-compatible", baseUrl: "https://api.openai.com/v1", model: "gpt-x", apiKey: "o" });
-		expect(resolveLlmConfig({ LLM: "google", GEMINI_API_KEY: "g" })).toMatchObject({ baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai", model: "gemini-3.8-flash" });
+		expect(resolveLlmConfig({ LLM: "google", GEMINI_API_KEY: "g" })).toMatchObject({ baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai", model: "gemini-3.5-flash-lite" });
 		expect(resolveLlmConfig({ LLM: "workers-ai", LLM_API_KEY: "cf", CLOUDFLARE_ACCOUNT_ID: "acct" })).toMatchObject({ baseUrl: "https://api.cloudflare.com/client/v4/accounts/acct/ai/v1", model: "@cf/openai/gpt-oss-120b" });
 		expect(resolveLlmConfig({ LLM: "openai-compatible", LLM_BASE_URL: "http://localhost:11434/v1/", LLM_API_KEY: "x", LLM_MODEL: "local" })).toMatchObject({ baseUrl: "http://localhost:11434/v1", model: "local" });
 		expect(getLlm({ LLM: "google", GEMINI_API_KEY: "g" })).toBeInstanceOf(OpenAiCompatibleLlm);
@@ -434,7 +434,7 @@ describe("resolveLlmConfig and getLlm", () => {
 	});
 
 	it("does not send a leftover Claude model id to another provider", () => {
-		expect(resolveLlmConfig({ LLM: "google", LLM_MODEL: "claude-sonnet-5-5", GEMINI_API_KEY: "g" })).toMatchObject({ model: "gemini-3.8-flash" });
+		expect(resolveLlmConfig({ LLM: "google", LLM_MODEL: "claude-sonnet-5-5", GEMINI_API_KEY: "g" })).toMatchObject({ model: "gemini-3.5-flash-lite" });
 		expect(() => resolveLlmConfig({ LLM: "openai", LLM_MODEL: "claude-sonnet-5-5", OPENAI_API_KEY: "o" })).toThrow('needs LLM_MODEL set to one of that provider\'s model ids (it is still "claude-sonnet-5-5")');
 		expect(resolveLlmConfig({ LLM: "openrouter", LLM_MODEL: "anthropic/claude-sonnet-5-5", LLM_API_KEY: "r" })).toMatchObject({ model: "anthropic/claude-sonnet-5-5" });
 	});

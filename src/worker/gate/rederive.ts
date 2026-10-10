@@ -149,7 +149,11 @@ export type RaceStart =
 	/** The rebase passed, so it landed. */
 	| { kind: "landed"; outcome: Extract<LandOutcome, { kind: "landed" }> }
 	/** The rebase did not pass; the agent is re-deriving on `fork`. */
-	| { kind: "rederiving"; attempt: number; fork: string };
+	| { kind: "rederiving"; attempt: number; fork: string }
+	/** A scripted workload Intent whose rebase did not pass. It has no agent to re-derive it, so it is failed. */
+	| { kind: "failed"; reason: string }
+	/** A scripted workload Intent whose rebase is worth trying: send it back through the gate, where it can land in a batch. */
+	| { kind: "regate" };
 
 /** The fork a re-derive attempt works in. */
 export const rederiveFork = (intentId: IntentId, attempt: number) => `${intentId}-r${attempt}`;
@@ -165,6 +169,15 @@ export async function startRace(env: LandEnv, entry: StaleEntry, deps: RaceDeps)
 	if (intent === null) {
 		return { kind: "skipped", status: null };
 	}
+	const trunkHead = await deps.gate.head(deps.trunk);
+	const rebaseIsPointless = intent.headCommit === null || entry.rebaseFailedAt === trunkHead;
+	if (intent.kind === "workload" && rebaseIsPointless) {
+		// Nothing to try: there is no agent behind a workload Intent, and its rebase is already known not to pass.
+		const reason = entry.reason ?? "its work no longer fits trunk";
+		await settle(api, { a: "fail" }, reason);
+		await publishMetrics(env);
+		return { kind: "failed", reason };
+	}
 	if (intent.status === "stale") {
 		intent = await api.act({ a: "rederive" });
 	} else if (intent.status !== "rederiving") {
@@ -175,11 +188,15 @@ export async function startRace(env: LandEnv, entry: StaleEntry, deps: RaceDeps)
 	const before = intent;
 	const attempt = (await api.incRederive()).rederiveAttempts;
 	await publish(env, { t: "rederive.race", id, rebase: "pending", rederive: "pending" });
+	if (before.kind === "workload") {
+		// Its only path is the rebase, and the gate can do that for many of them at once.
+		return { kind: "regate" };
+	}
 
 	// The rebase. Skipped when there is nothing pushed to rebase, or when the gate has just
 	// rejected exactly this rebase onto exactly this trunk.
 	let reason = entry.reason ?? undefined;
-	if (before.headCommit !== null && entry.rebaseFailedAt !== (await deps.gate.head(deps.trunk))) {
+	if (!rebaseIsPointless) {
 		const outcome = await landWork(env, before, "rebase", deps);
 		if (outcome.kind === "landed") {
 			await publish(env, { t: "rederive.race", id, rebase: "pass", rederive: "pending", winner: "rebase" });

@@ -1,7 +1,7 @@
 // Drives one agent through plan, claim, work and submit. This is the whole of the agent's
 // control flow; the Workflow class in workflow.ts only supplies durable steps.
 import type { Assertion, Claim, CommitSha, Intent, IntentId, LedgerDecision, Premise, TaskDef } from "../../shared/types";
-import { hub, publish, waitTopic } from "../hub/publish";
+import { currentMode, hub, publish, waitTopic } from "../hub/publish";
 import type { IntentApi } from "../intent/client";
 import { IllegalTransition, type IntentAction } from "../intent/machine";
 import { isStalemateAcrossShards, requestClaimsAcrossShards, shardsOf } from "../ledger/client";
@@ -267,6 +267,10 @@ export async function runAgent(deps: AgentDeps, params: AgentParams, steps: Step
 			}
 			const { decision, claims, stalemate } = await steps.do(`claim-${round}`, async () => {
 				const intent = await api.get();
+				if ((await currentMode(env)) === "baseline") {
+					// The comparison run has no ledger: everyone simply edits what they like.
+					return { decision: { kind: "granted" } as LedgerDecision, claims: intent.claims, stalemate: false };
+				}
 				const answer = await requestClaimsAcrossShards(env, { intentId: intent.id, claims: intent.claims, priority: params.priority ?? DEFAULT_PRIORITY, dependsOn: intent.dependsOn });
 				await publish(env, { t: "claim.decision", id: intent.id, decision: answer, symbols: intent.claims.map((claim) => claim.symbol) });
 				const other = answer.kind === "split" ? answer.with : undefined;

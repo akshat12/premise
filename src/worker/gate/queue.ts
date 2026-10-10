@@ -3,6 +3,8 @@ import type { TaskDef, TaskId } from "../../shared/types";
 import type { QueueEntry } from "./client";
 
 export const BATCH_SIZE = 5;
+/** How many scripted workload Intents may land as one commit. */
+export const WORKLOAD_BATCH_SIZE = 10;
 
 /** A task's place in the task list, starting at 1. Tasks that are not in the list go after all that are. */
 export function taskPriority(tasks: readonly Pick<TaskDef, "id">[], taskId: TaskId): number {

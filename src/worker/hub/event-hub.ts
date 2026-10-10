@@ -127,7 +127,7 @@ export class EventHub extends DurableObject<Env> {
 		sql.exec("DELETE FROM waiters");
 		sql.exec("DELETE FROM processed_commits");
 		sql.exec("DELETE FROM asserters");
-		sql.exec("DELETE FROM meta WHERE key != 'trunk'");
+		sql.exec("DELETE FROM meta WHERE key NOT IN ('trunk', 'llm')");
 		this.broadcast(JSON.stringify({ reset: true }));
 	}
 
@@ -178,6 +178,32 @@ export class EventHub extends DurableObject<Env> {
 
 	async setTrunk(name: string): Promise<void> {
 		this.setMeta("trunk", name);
+	}
+
+	/**
+	 * How work lands. "premise" is the product. "baseline" is the comparison for the A/B report:
+	 * no ledger, no premises, no re-derive; a clean textual rebase that typechecks lands.
+	 * A reset puts it back to "premise".
+	 */
+	async mode(): Promise<"premise" | "baseline"> {
+		return this.getMeta<"premise" | "baseline">("mode", "premise");
+	}
+
+	async setMode(mode: "premise" | "baseline"): Promise<void> {
+		this.setMeta("mode", mode === "baseline" ? "baseline" : "premise");
+	}
+
+	/**
+	 * Which model provider the agents use, when it has been chosen at run time (an admin route sets
+	 * it). null means "whatever the Worker is configured with" (the LLM and LLM_MODEL vars). Like
+	 * the trunk name, it is configuration and survives a reset.
+	 */
+	async llm(): Promise<{ provider: string; model?: string } | null> {
+		return this.getMeta<{ provider: string; model?: string } | null>("llm", null);
+	}
+
+	async setLlm(choice: { provider: string; model?: string } | null): Promise<void> {
+		this.setMeta("llm", choice);
 	}
 
 	/** Notes that a Workflow instance is paused until `topic` happens. */

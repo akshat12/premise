@@ -5,12 +5,24 @@ import { currentTrunk, hub, publish } from "../hub/publish";
 import { getRepoStore } from "../ports";
 import { ArtifactsRepoStore } from "../ports/artifacts-repo-store";
 import { runContract } from "../ports/repo-store.contract";
+import { describeLlm, resolveLlmConfig } from "../ports/llm";
 import { runInIsolate } from "../runner";
 import { analyze } from "../surface";
 import type { Assertion } from "../../shared/types";
 import { importTrunk } from "./import-trunk";
+import { MAX_WORKLOAD, runWorkload } from "../workload/run";
+import { type AbOptions, collectAb, isQuiet, runAbMode, startAbMode } from "../ab/run";
 
 const SMOKE_PREFIX = "smoke";
+
+function abOptions(body: Record<string, unknown>): AbOptions | null {
+	const n = body.n === undefined ? 100 : body.n;
+	const seed = body.seed === undefined ? 7 : body.seed;
+	if ((body.mode !== "baseline" && body.mode !== "premise") || typeof n !== "number" || !Number.isInteger(n) || n < 0 || n > MAX_WORKLOAD || typeof seed !== "number" || !Number.isFinite(seed)) {
+		return null;
+	}
+	return { mode: body.mode, n, seed };
+}
 
 /** Deletes any `smoke-*` repos a crashed run left behind. */
 async function sweepSmokeRepos(artifacts: Artifacts): Promise<string[]> {
@@ -71,6 +83,60 @@ export async function handleAdmin(request: Request, env: Env, url: URL): Promise
 					assertions: run.assertions,
 				},
 			});
+		}
+		case "/api/admin/workload": {
+			// Starts `n` scripted workload Intents. They are labelled `kind: "workload"` everywhere.
+			const body = ((await request.json().catch(() => null)) ?? {}) as Record<string, unknown>;
+			const number = (value: unknown) => (typeof value === "number" && Number.isFinite(value) ? value : undefined);
+			const n = number(body.n);
+			if (n === undefined || !Number.isInteger(n) || n < 1 || n > MAX_WORKLOAD) {
+				return Response.json({ error: `body must be { n: 1..${MAX_WORKLOAD}, seed?: number, concurrency?: number, overlapRate?: number }` }, { status: 400 });
+			}
+			const concurrency = number(body.concurrency);
+			const overlapRate = number(body.overlapRate);
+			const summary = await runWorkload(env, { n, seed: number(body.seed) ?? 1, ...(concurrency === undefined ? {} : { concurrency }), ...(overlapRate === undefined ? {} : { overlapRate }) });
+			return Response.json({ ok: true, ...summary });
+		}
+		case "/api/admin/ab": {
+			// Starts one mode of the A/B comparison (it resets the demo first). With `wait`, also waits for it and returns the measurements.
+			const body = ((await request.json().catch(() => null)) ?? {}) as Record<string, unknown>;
+			const options = abOptions(body);
+			if (options === null) {
+				return Response.json({ error: 'body must be { mode: "baseline" | "premise", n?: 0..1000, seed?: number, wait?: boolean }' }, { status: 400 });
+			}
+			return Response.json(body.wait === true ? { ok: true, result: await runAbMode(env, options) } : { ok: true, ...(await startAbMode(env, options)) });
+		}
+		case "/api/admin/ab/result": {
+			// The measurements for the mode that was started, once nothing is moving any more.
+			const body = ((await request.json().catch(() => null)) ?? {}) as Record<string, unknown>;
+			const options = abOptions(body);
+			if (options === null) {
+				return Response.json({ error: 'body must be { mode: "baseline" | "premise", n?: number, seed?: number }' }, { status: 400 });
+			}
+			const state = await isQuiet(env);
+			return Response.json(state.quiet ? { ok: true, quiet: true, counts: state.counts, result: await collectAb(env, options) } : { ok: true, quiet: false, counts: state.counts });
+		}
+		case "/api/admin/llm": {
+			// Chooses which model provider the agents use from now on, without a redeploy:
+			// { provider: "scripted" } replays recorded agents; { provider: "google", model: "..." } uses a real model.
+			// { provider: null } goes back to what the Worker is configured with.
+			const body = ((await request.json().catch(() => null)) ?? {}) as Record<string, unknown>;
+			if (body.provider === null) {
+				await hub(env).setLlm(null);
+				return Response.json({ ok: true, llm: describeLlm(env) });
+			}
+			if (typeof body.provider !== "string" || (body.model !== undefined && typeof body.model !== "string")) {
+				return Response.json({ error: "body must be { provider: string | null, model?: string }" }, { status: 400 });
+			}
+			const choice = { provider: body.provider, ...(typeof body.model === "string" ? { model: body.model } : {}) };
+			const chosen = { ...env, LLM: choice.provider, ...(choice.model === undefined ? {} : { LLM_MODEL: choice.model }) };
+			try {
+				resolveLlmConfig(chosen); // refuses an unknown provider, or one whose key is not set
+			} catch (error) {
+				return Response.json({ error: error instanceof Error ? error.message : String(error) }, { status: 400 });
+			}
+			await hub(env).setLlm(choice);
+			return Response.json({ ok: true, llm: describeLlm(chosen) });
 		}
 		case "/api/admin/import-trunk":
 			return importTrunk(request, env);

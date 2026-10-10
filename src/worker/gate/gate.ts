@@ -1,7 +1,7 @@
 // The gate, for one Intent: rebase onto trunk, typecheck, run the acceptance tests and the premise
 // assertions, and only then commit to trunk. Everything it touches comes in through `GateDeps`, so
 // the whole pipeline runs in a unit test with an in-memory repo.
-import type { CommitSha, GateReport, Intent, SymbolId } from "../../shared/types";
+import type { CommitSha, GateReport, Intent, IntentId, SymbolId } from "../../shared/types";
 import { type FileChanges, type FileMap, StaleHeadError } from "../ports/repo-store";
 import type { RunRequest, RunResult } from "../runner";
 import { diffSurface, type SurfaceMap, type TypecheckResult } from "../surface";
@@ -17,6 +17,27 @@ export interface GateDeps {
 	run(req: RunRequest): Promise<RunResult>;
 	/** The repo acting as trunk. Defaults to "trunk". */
 	trunk?: string;
+	/**
+	 * Optional and only a saving: what changed in `repo` between two commits. With it, an Intent's
+	 * head is built from its base plus its few changed files instead of reading the whole tree again.
+	 */
+	delta?(repo: string, from: CommitSha, to: CommitSha): Promise<FileChanges>;
+}
+
+/** An Intent's files at its head, the cheap way when the store can say what changed. */
+async function headFiles(deps: GateDeps, intent: Intent & { headCommit: CommitSha }, base: FileMap): Promise<FileMap> {
+	if (deps.delta === undefined) {
+		return deps.snapshot(intent.repo, intent.headCommit);
+	}
+	const files = { ...base };
+	for (const [path, content] of Object.entries(await deps.delta(intent.repo, intent.baseCommit, intent.headCommit))) {
+		if (content === null) {
+			delete files[path];
+		} else {
+			files[path] = content;
+		}
+	}
+	return files;
 }
 
 export type GatePath = GateReport["path"];
@@ -102,7 +123,8 @@ async function attempt(deps: GateDeps, intent: Intent, opts: GateOptions): Promi
 	}
 	const trunk = deps.trunk ?? DEFAULT_TRUNK;
 	const trunkHead = await deps.head(trunk);
-	const [trunkFiles, base, head] = await Promise.all([deps.snapshot(trunk, trunkHead), deps.snapshot(intent.repo, intent.baseCommit), deps.snapshot(intent.repo, intent.headCommit)]);
+	const [trunkFiles, base] = await Promise.all([deps.snapshot(trunk, trunkHead), deps.snapshot(intent.repo, intent.baseCommit)]);
+	const head = await headFiles(deps, { ...intent, headCommit: intent.headCommit }, base);
 
 	const rebased = threeWayRebase(base, head, trunkFiles);
 	const stopped = { changedSymbols: [], conflicts: rebased.conflicts, passed: false, landedCommit: null, trunkBefore: trunkHead, standingFailures: [] as StandingFailure[], retired: [] as StandingVerdict["retired"] };
@@ -184,4 +206,121 @@ export function describeFailure(report: GateReport, conflicts: readonly string[]
 	}
 	const test = report.tests.failed[0];
 	return test === undefined ? "Did not pass the gate" : `Acceptance check failed on the new trunk: "${test.name}": ${test.error}`;
+}
+
+export interface BatchOutcome {
+	/** What landed, or null when the batch could not land as one (land its members one at a time instead). */
+	landed: {
+		commit: CommitSha;
+		trunkBefore: CommitSha;
+		members: IntentId[];
+		reports: GateReport[];
+		changedSymbols: SymbolId[];
+		/** Which member changed which symbol's type surface. A symbol that changed only because it mentions another is put down to that other's member. */
+		changedBy: Record<SymbolId, IntentId>;
+		newTrunkFiles: FileMap;
+	} | null;
+	/** Members whose rebase conflicts with trunk or with an earlier member. Gate these on their own, so each gets its own verdict. */
+	conflicted: IntentId[];
+	/** Members left for the next batch. (Currently none are; kept so a caller need not change if a batch is ever capped.) */
+	deferred: IntentId[];
+	/** Why the batch could not land as one, when it could not. */
+	reason?: string;
+}
+
+/** The commit message for a batch: one line saying what it is, and a trailer for every Intent in it. */
+export function batchMessage(intents: readonly Pick<Intent, "id">[]): string {
+	return `batch of ${intents.length} workload intent${intents.length === 1 ? "" : "s"}\n\n${intents.map((intent) => `Premise-Intent: ${intent.id}`).join("\n")}`;
+}
+
+/**
+ * Lands several Intents as one commit: each is rebased in turn onto trunk plus the ones before it,
+ * the result is typechecked once, the landed Intents' standing checks run once, and one commit
+ * goes to trunk. Only for Intents with no acceptance checks or assertions of their own (the
+ * scripted workload): an Intent with checks gets a gate run to itself.
+ *
+ * If the combined result does not pass, nothing lands and `landed` is null; the caller then gates
+ * the members singly, which also says which of them was at fault.
+ */
+export async function gateBatch(deps: GateDeps, intents: readonly Intent[], opts: Pick<GateOptions, "standing"> & { path?: GatePath } = {}): Promise<BatchOutcome> {
+	const started = Date.now();
+	const none = (reason: string): BatchOutcome => ({ landed: null, conflicted: [], deferred: [], reason });
+	if (intents.some((intent) => intent.acceptance.length > 0 || intent.premises.some((premise) => premise.source === "asserted") || intent.headCommit === null)) {
+		return none("a member has checks of its own");
+	}
+	const trunk = deps.trunk ?? DEFAULT_TRUNK;
+	const trunkHead = await deps.head(trunk);
+	const trunkFiles = await deps.snapshot(trunk, trunkHead);
+	const before = deps.surface(trunkFiles).map;
+
+	// Reading each member's files is the slow part, and the members do not depend on each other for it.
+	const loaded = await Promise.all(
+		intents.map(async (intent) => {
+			const base = await deps.snapshot(intent.repo, intent.baseCommit);
+			return { intent, base, head: await headFiles(deps, { ...intent, headCommit: intent.headCommit as CommitSha }, base) };
+		}),
+	);
+	let merged = trunkFiles;
+	const members: Intent[] = [];
+	const conflicted: IntentId[] = [];
+	const deferred: IntentId[] = [];
+	for (const { intent, base, head } of loaded) {
+		const rebased = threeWayRebase(base, head, merged);
+		if (rebased.conflicts.length > 0) {
+			conflicted.push(intent.id);
+			continue;
+		}
+		merged = rebased.files;
+		members.push(intent);
+	}
+	if (members.length === 0) {
+		return { landed: null, conflicted, deferred, reason: "no member rebases cleanly" };
+	}
+
+	const checked = deps.typecheck(merged);
+	if (!checked.ok) {
+		return { ...none(`typecheck failed: ${checked.errors[0] ?? "unknown error"}`), conflicted, deferred };
+	}
+	const plan = planStanding(opts.standing ?? [], { id: "", acceptance: [] }, trunkFiles, merged);
+	const extra = standingRequest(plan);
+	if (plan.tampered.length > 0 || extra.tests.length + extra.assertions.length > 0) {
+		const run = plan.tampered.length > 0 ? { tests: [], assertions: [] } : await deps.run({ files: merged, tests: extra.tests, assertions: extra.assertions });
+		const verdict = "loadError" in run && run.loadError !== undefined ? null : judgeStanding(plan, run);
+		if (verdict === null || verdict.failures.length > 0) {
+			return { ...none(verdict === null ? "the merged files do not load" : describeStandingFailure(verdict.failures)), conflicted, deferred };
+		}
+	}
+
+	const changes = changesBetween(trunkFiles, merged);
+	const commit = Object.keys(changes).length === 0 ? trunkHead : await deps.commitTrunk(trunkHead, changes, batchMessage(members));
+	const after = deps.surface(merged).map;
+	const moved = diffSurface(before, after);
+	const changedSymbols = [...moved.changed, ...moved.removed].sort();
+	// Who changed what. A member that changes the surface of a symbol trunk already had must hold
+	// an interface claim on it (the post-push checker sees to that), so the claims say whose it is.
+	const changedBy: Record<SymbolId, IntentId> = {};
+	for (const intent of members) {
+		for (const claim of intent.claims) {
+			if (claim.mode === "interface" && before.has(claim.symbol) && changedSymbols.includes(claim.symbol)) {
+				changedBy[claim.symbol] ??= intent.id;
+			}
+		}
+	}
+	// A symbol that changed only because it mentions a changed one belongs to whoever changed that one.
+	for (let grew = true; grew; ) {
+		grew = false;
+		for (const symbol of changedSymbols) {
+			if (changedBy[symbol] !== undefined) {
+				continue;
+			}
+			const via = [...(after.get(symbol)?.refs ?? []), ...(before.get(symbol)?.refs ?? [])].find((ref) => changedBy[ref] !== undefined);
+			if (via !== undefined) {
+				changedBy[symbol] = changedBy[via] as IntentId;
+				grew = true;
+			}
+		}
+	}
+	const durationMs = Date.now() - started;
+	const reports = members.map((intent): GateReport => ({ intentId: intent.id, path: opts.path ?? "rebase", textConflict: false, typecheck: { ok: true, errors: [] }, ...NOT_RUN, ok: true, landedCommit: commit, durationMs }));
+	return { landed: { commit, trunkBefore: trunkHead, members: members.map((intent) => intent.id), reports, changedSymbols, changedBy, newTrunkFiles: merged }, conflicted, deferred };
 }

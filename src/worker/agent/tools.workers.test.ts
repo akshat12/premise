@@ -208,6 +208,25 @@ describe("write_file", () => {
 	});
 });
 
+describe("write_file and test files", () => {
+	it("will not replace a test file that was already in the repo, but lets the Intent write its own", async () => {
+		const { call, ctx, api } = await setup();
+		ctx.phase = "work";
+		// Shared helpers and other people's tests: nothing would notice if these were overwritten.
+		for (const path of ["tests/support.ts", "tests/users.test.ts", "tests/billing.test.ts"]) {
+			const refused = await call("write_file", { path, content: "export const tests = {};\n" });
+			expect(refused).toMatchObject({ isError: true, text: expect.stringContaining(`${path} is an existing test file that other work depends on`) });
+			expect(refused.text).toContain("Put your tests in tests/audit-expired.test.ts.");
+		}
+		expect(await api.overlay()).toEqual({});
+		// Its own acceptance test file, and any new file, are its to write.
+		expect(await call("write_file", { path: "tests/audit-expired.test.ts", content: "export const tests = {};\n" })).toMatchObject({ text: expect.stringContaining("Wrote tests/audit-expired.test.ts") });
+		expect(await call("write_file", { path: "tests/helpers-for-audit.ts", content: "export const x = 1;\n" })).toMatchObject({ text: expect.stringContaining("Wrote tests/helpers-for-audit.ts") });
+		// Existing source files are not affected by this rule (claims govern those).
+		expect((await call("write_file", { path: LOGIN.split("#")[0], content: "export const y = 1;\n" })).isError).toBeUndefined();
+	});
+});
+
 describe("run_checks and submit", () => {
 	async function working() {
 		const s = await setup();

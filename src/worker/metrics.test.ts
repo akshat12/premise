@@ -24,7 +24,13 @@ describe("countEvent", () => {
 	});
 
 	it("counts each time a person is needed", () => {
-		expect(count([{ t: "human.needed", id: "i1", kind: "stalemate", message: "m", options: ["Wait"] }]).humanMerges).toBe(1);
+		// A fallback cannot move without a person, so it counts when it is raised.
+		expect(count([{ t: "human.needed", id: "i1", kind: "fallback", message: "m", options: ["Retry", "Abandon"] }]).humanMerges).toBe(1);
+		// A stalemate card counts only if a person answers it; otherwise the Intent went on by itself.
+		expect(count([{ t: "human.needed", id: "i1", kind: "stalemate", message: "m", options: ["Wait"] }]).humanMerges).toBe(0);
+		expect(count([{ t: "human.needed", id: "i1", kind: "stalemate", message: "m", options: ["Wait"] }, { t: "human.resolved", id: "i1", choice: "Split" }]).humanMerges).toBe(1);
+		// Answering a fallback does not count it a second time.
+		expect(count([{ t: "human.needed", id: "i1", kind: "fallback", message: "m", options: ["Retry", "Abandon"] }, { t: "human.resolved", id: "i1", choice: "Retry" }]).humanMerges).toBe(1);
 	});
 
 	it("returns the same object for events that change nothing", () => {

@@ -28,10 +28,10 @@ export async function handleDispatch(request: Request, env: Env, url: URL): Prom
 
 	if (isDispatch) {
 		if (!isStringArray(body.taskIds) || body.taskIds.length === 0) {
-			return Response.json({ error: "body must be { taskIds: string[], priorityOrder?: string[] }" }, { status: 400 });
+			return Response.json({ error: "body must be { taskIds: string[], priorityOrder?: string[], landFirst?: string[] }" }, { status: 400 });
 		}
 		try {
-			const intents = await dispatchTasks(env, body.taskIds as TaskId[], isStringArray(body.priorityOrder) ? body.priorityOrder : undefined);
+			const intents = await dispatchTasks(env, body.taskIds as TaskId[], isStringArray(body.priorityOrder) ? body.priorityOrder : undefined, undefined, isStringArray(body.landFirst) ? { landFirst: body.landFirst } : {});
 			return Response.json({ intents });
 		} catch (error) {
 			if (error instanceof UnknownTasks) {

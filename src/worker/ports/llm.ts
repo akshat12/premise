@@ -93,7 +93,7 @@ interface ProviderPreset {
 export const PROVIDERS: Record<string, ProviderPreset> = {
 	anthropic: { wire: "anthropic", baseUrl: () => "https://api.anthropic.com", keys: ["LLM_API_KEY", "ANTHROPIC_API_KEY"], defaultModel: "claude-sonnet-5-5" },
 	openai: { wire: "openai-compatible", baseUrl: () => "https://api.openai.com/v1", keys: ["LLM_API_KEY", "OPENAI_API_KEY"] },
-	google: { wire: "openai-compatible", baseUrl: () => "https://generativelanguage.googleapis.com/v1beta/openai", keys: ["LLM_API_KEY", "GEMINI_API_KEY"], defaultModel: "gemini-3.8-flash" },
+	google: { wire: "openai-compatible", baseUrl: () => "https://generativelanguage.googleapis.com/v1beta/openai", keys: ["LLM_API_KEY", "GEMINI_API_KEY"], defaultModel: "gemini-3.5-flash-lite" },
 	openrouter: { wire: "openai-compatible", baseUrl: () => "https://openrouter.ai/api/v1", keys: ["LLM_API_KEY", "OPENROUTER_API_KEY"] },
 	groq: { wire: "openai-compatible", baseUrl: () => "https://api.groq.com/openai/v1", keys: ["LLM_API_KEY", "GROQ_API_KEY"] },
 	// Workers AI through its OpenAI-compatible REST endpoint. The key is a Cloudflare API token.

@@ -144,6 +144,23 @@ describe("invalidateWith", () => {
 		expect(h.breaks).toEqual([]);
 	});
 
+	it("when one commit carries several Intents, each break names the Intent that changed that symbol", async () => {
+		const world: World = {
+			statuses: { ibatch001: "landed", ibatch002: "landed", ireader01: "working", ireader02: "working", ireader03: "working" },
+			readers: [reader("ireader01", SESSION), reader("ireader02", TAX), reader("ireader03", VERIFY)],
+			intents: {},
+			failing: [],
+		};
+		const h = fake(world);
+		await invalidateWith(h.deps, landed({ byIntent: "ibatch001", changedSymbols: [SESSION, TAX, VERIFY], changedBy: { [SESSION]: "ibatch001", [TAX]: "ibatch002" } }));
+		expect(h.breaks.map((item) => [item.id, item.by.intentId, item.by.reason])).toEqual([
+			["ireader01", "ibatch001", "type surface of Session changed in intent ibatch001"],
+			["ireader02", "ibatch002", "type surface of taxFor changed in intent ibatch002"],
+			// Not listed: put down to the Intent the landing as a whole is put down to.
+			["ireader03", "ibatch001", "type surface of verifySession changed in intent ibatch001"],
+		]);
+	});
+
 	it("names a push from outside the gate as the cause", async () => {
 		const world: World = { statuses: { ireader01: "working" }, readers: [reader("ireader01", SESSION)], intents: { ireader01: { id: "ireader01", premises: [asserted("a1", VERIFY)] } }, failing: ["ireader01:a1"] };
 		const h = fake(world);

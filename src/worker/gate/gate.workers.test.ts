@@ -267,7 +267,7 @@ describe("the Landing Durable Object", () => {
 			expect(statusesOf(events).slice(-3)).toEqual(["queued", "gating", "landed"]);
 			expect(events.find((event) => event.t === "gate.result")).toMatchObject({ report: { path: "rebase", textConflict: false, typecheck: { ok: true }, tests: { passed: ["the marker is exported"], failed: [] }, ok: true } });
 		}
-		expect(await landing(env).status()).toEqual({ queue: [], busy: false, stale: [], rederiving: [] });
+		expect(await landing(env).status()).toMatchObject({ queue: [], busy: false, stale: [], rederiving: [] });
 	});
 
 	it("orders its queue by task order and shows it in status()", async () => {
@@ -300,6 +300,6 @@ describe("the Landing Durable Object", () => {
 	it("clear() empties the queue", async () => {
 		await drained();
 		await landing(env).clear();
-		expect(await landing(env).status()).toEqual({ queue: [], busy: false, stale: [], rederiving: [] });
+		expect(await landing(env).status()).toMatchObject({ queue: [], busy: false, stale: [], rederiving: [] });
 	});
 });

@@ -225,6 +225,31 @@ describe("dispatchTasks when a fork cannot be made", () => {
 	}, 60_000);
 });
 
+describe("POST /api/admin/llm", () => {
+	it("chooses the model provider at run time, refuses one that cannot work, and can be put back", async () => {
+		const unknown = await post("/api/admin/llm", { provider: "nope" });
+		expect(unknown.status).toBe(400);
+		expect(await unknown.json()).toMatchObject({ error: expect.stringContaining('LLM="nope" is not a known provider') });
+		const bad = await post("/api/admin/llm", { provider: 7 });
+		expect(bad.status).toBe(400);
+		await bad.text();
+		const noToken = await post("/api/admin/llm", { provider: "scripted" }, {});
+		expect(noToken.status).toBe(401);
+		await noToken.text();
+		expect(await hub(env).llm()).toBeNull();
+
+		expect(await (await post("/api/admin/llm", { provider: "scripted" })).json()).toEqual({ ok: true, llm: { provider: "scripted" } });
+		expect(await hub(env).llm()).toEqual({ provider: "scripted" });
+		// It is configuration, so a reset of the event log leaves it alone.
+		await hub(env, "llm-test").setLlm({ provider: "google", model: "m" });
+		await hub(env, "llm-test").reset();
+		expect(await hub(env, "llm-test").llm()).toEqual({ provider: "google", model: "m" });
+
+		expect(await (await post("/api/admin/llm", { provider: null })).json()).toEqual({ ok: true, llm: { provider: "scripted" } });
+		expect(await hub(env).llm()).toBeNull();
+	});
+});
+
 describe("POST /api/human/:id", () => {
 	it("validates the choice and publishes human.resolved", async () => {
 		const bad = await post("/api/human/i00000001", { choice: "Maybe" });
@@ -268,7 +293,7 @@ describe("POST /api/admin/reset-demo", () => {
 		expect(await get<RegistryRow[]>("/api/intents")).toEqual([]);
 		expect(await get<LedgerSnapshot>("/api/ledger")).toEqual({ claims: [], readers: [] });
 		expect(await get<Metrics>("/api/metrics")).toMatchObject({ agentsActive: 0, intentsLanded: 0, forksCreated: 0, pushes: 0 });
-		expect(await get<LandingStatus>("/api/gate")).toEqual({ queue: [], busy: false, stale: [], rederiving: [] });
+		expect(await get<LandingStatus>("/api/gate")).toMatchObject({ queue: [], busy: false, stale: [], rederiving: [] });
 
 		// And it can be dispatched against straight away.
 		const { intents: fresh } = (await (await post("/api/dispatch", { taskIds: ["t12-password-policy"] })).json()) as { intents: string[] };

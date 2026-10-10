@@ -4,29 +4,39 @@
 //   - stale Intents waiting to be re-derived, a few at a time (rederive.ts).
 // All the deciding is in those two files and in gate.ts; this file is storage, ordering and wiring.
 import { DurableObject } from "cloudflare:workers";
-import type { Assertion, CommitSha, IntentId, IntentStatus, Premise, TaskDef } from "../../shared/types";
+import type { Assertion, CommitSha, IntentId, IntentKind, IntentStatus, Premise, TaskDef } from "../../shared/types";
 import { workflowInstanceId } from "../agent/instance";
-import { currentTrunk, publish, publishMetrics } from "../hub/publish";
+import { hiddenTests, newlyRed, redTests } from "../ab/regress";
+import { currentMode, currentTrunk, hub, publish, publishMetrics } from "../hub/publish";
 import { intentStub } from "../intent/client";
 import { getRepoStore } from "../ports";
 import type { RepoStore } from "../ports/repo-store";
 import type { LandingStatus, QueueEntry, QueuePath } from "./client";
-import { gateDeps, landIntent, newGateCache, settle } from "./land";
-import { pickBatch, taskPriority } from "./queue";
+import { gateDeps, landBatch, landIntent, newGateCache, settle } from "./land";
+import { BATCH_SIZE, pickBatch, taskPriority, WORKLOAD_BATCH_SIZE } from "./queue";
 import type { Standing, StandingStore } from "./standing";
 import { DEFAULT_MAX_CONCURRENT, finishRederive, MAX_FAILED_REDERIVES, type RaceDeps, RederiveScheduler, type RederiveStore, type StaleEntry, type Started, startRace } from "./rederive";
 
+/**
+ * Bump this when the gate's behaviour changes. `GET /api/gate` reports it, which is the only way
+ * to tell that this object is running the new code after a deploy: a busy Durable Object can go
+ * on running the previous version for minutes.
+ */
+export const GATE_VERSION = 6;
 /** How many times the gate starts on an Intent, or tries to start its re-derive, before giving up on that attempt. */
 export const MAX_ATTEMPTS = 3;
 const RETRY_DELAY_MS = 2_000;
+/** Statuses in which an Intent that others are held behind is still expected to reach the gate and land. */
+const ON_ITS_WAY: readonly IntentStatus[] = ["planning", "claiming", "waiting", "working", "submitted", "checking", "quarantined", "queued", "gating"];
+const HOLD_POLL_MS = 1_000;
 /** A re-derive whose agent has not come back in this long is counted as failed. */
 export const RACE_TIMEOUT_MS = 20 * 60 * 1000;
 
-type QueueRow = { intent_id: string; path: string; priority: number; enqueued_at: number; attempts: number };
+type QueueRow = { intent_id: string; path: string; priority: number; enqueued_at: number; attempts: number; kind: string | null };
 type StaleRow = { intent_id: string; priority: number; since: number; rebase_failed_at: string | null; reason: string | null };
 type RunningRow = { intent_id: string; attempt: number; started: number };
 
-const toEntry = (row: QueueRow): QueueEntry => ({ intentId: row.intent_id, path: row.path === "rederive" ? "rederive" : "rebase", priority: row.priority, enqueuedAt: row.enqueued_at, attempts: row.attempts });
+const toEntry = (row: QueueRow): QueueEntry => ({ intentId: row.intent_id, path: row.path === "rederive" ? "rederive" : "rebase", priority: row.priority, enqueuedAt: row.enqueued_at, attempts: row.attempts, kind: row.kind === "workload" ? "workload" : "agent" });
 
 /**
  * The gate. Reach it through `landing()` in gate/client.ts.
@@ -39,9 +49,11 @@ const toEntry = (row: QueueRow): QueueEntry => ({ intentId: row.intent_id, path:
 export class Landing extends DurableObject<Env> {
 	private busy = false;
 	private cache = newGateCache();
-	private taskOrder: { trunk: string; tasks: Pick<TaskDef, "id">[] } | undefined;
+	private taskOrder: { trunk: string; tasks: TaskDef[] } | undefined;
 	/** Stale Intents whose race could not be started just now; they go back in the queue after the current pass. */
 	private deferred: StaleEntry[] = [];
+	/** True when the last pass found nothing it was allowed to gate, only Intents being held back. */
+	private onlyHeldLeft = false;
 	/** How many times in a row starting each Intent's race has thrown. */
 	private startErrors = new Map<IntentId, number>();
 
@@ -61,13 +73,21 @@ export class Landing extends DurableObject<Env> {
 			if (!sql.exec<{ name: string }>("PRAGMA table_info(stale_queue)").toArray().some((column) => column.name === "reason")) {
 				sql.exec("ALTER TABLE stale_queue ADD COLUMN reason TEXT");
 			}
+			if (!sql.exec<{ name: string }>("PRAGMA table_info(queue)").toArray().some((column) => column.name === "kind")) {
+				sql.exec("ALTER TABLE queue ADD COLUMN kind TEXT");
+			}
+			// Demo choreography: `intent_id` is not gated until `waits_for` has landed or stopped (see hold()).
+			sql.exec("CREATE TABLE IF NOT EXISTS holds(intent_id TEXT NOT NULL, waits_for TEXT NOT NULL, PRIMARY KEY (intent_id, waits_for))");
+			// For counting regressions that reach trunk: the demo tasks that have landed, and their reference tests that were red after the last landing.
+			sql.exec("CREATE TABLE IF NOT EXISTS landed_tasks(task_id TEXT PRIMARY KEY)");
+			sql.exec("CREATE TABLE IF NOT EXISTS red_tests(key TEXT PRIMARY KEY)");
 		});
 	}
 
 	// ---- storage ----
 
 	private rows(): QueueEntry[] {
-		return this.ctx.storage.sql.exec<QueueRow>("SELECT intent_id, path, priority, enqueued_at, attempts FROM queue ORDER BY enqueued_at, intent_id").toArray().map(toEntry);
+		return this.ctx.storage.sql.exec<QueueRow>("SELECT intent_id, path, priority, enqueued_at, attempts, kind FROM queue ORDER BY enqueued_at, intent_id").toArray().map(toEntry);
 	}
 
 	private get rederives(): RederiveStore {
@@ -136,9 +156,9 @@ export class Landing extends DurableObject<Env> {
 	}
 
 	/** The task list from trunk, which decides the order Intents are gated and re-derived in. Read once per trunk. */
-	private async tasks(trunk: string, store: RepoStore): Promise<Pick<TaskDef, "id">[]> {
+	private async tasks(trunk: string, store: RepoStore): Promise<TaskDef[]> {
 		if (this.taskOrder?.trunk !== trunk) {
-			let tasks: Pick<TaskDef, "id">[] = [];
+			let tasks: TaskDef[] = [];
 			try {
 				tasks = JSON.parse((await store.readFile(trunk, "main", "premise/tasks.json")) ?? "[]") as TaskDef[];
 			} catch {
@@ -150,9 +170,13 @@ export class Landing extends DurableObject<Env> {
 	}
 
 	private async priorityOf(intentId: IntentId): Promise<number> {
+		return (await this.describe(intentId)).priority;
+	}
+
+	private async describe(intentId: IntentId): Promise<{ priority: number; kind: IntentKind }> {
 		const intent = await intentStub(this.env, intentId).get().catch(() => null);
 		const tasks = await this.tasks(await currentTrunk(this.env), getRepoStore(this.env));
-		return taskPriority(tasks, intent?.taskId ?? "");
+		return { priority: taskPriority(tasks, intent?.taskId ?? ""), kind: intent?.kind ?? "agent" };
 	}
 
 	private wake(delayMs = 0): Promise<void> {
@@ -162,16 +186,46 @@ export class Landing extends DurableObject<Env> {
 	// ---- what other parts of the system call ----
 
 	async enqueue(intentId: IntentId, path: QueuePath = "rebase"): Promise<void> {
-		const priority = await this.priorityOf(intentId);
+		const { priority, kind } = await this.describe(intentId);
 		// Asking again for an Intent that is already queued keeps its place and takes the newer path.
 		this.ctx.storage.sql.exec(
-			"INSERT INTO queue (intent_id, path, priority, enqueued_at, attempts) VALUES (?, ?, ?, ?, 0) ON CONFLICT(intent_id) DO UPDATE SET path = excluded.path, attempts = 0",
+			"INSERT INTO queue (intent_id, path, priority, enqueued_at, attempts, kind) VALUES (?, ?, ?, ?, 0, ?) ON CONFLICT(intent_id) DO UPDATE SET path = excluded.path, attempts = 0",
 			intentId,
 			path === "rederive" ? "rederive" : "rebase",
 			priority,
 			Date.now(),
+			kind,
 		);
 		await this.wake();
+	}
+
+	/**
+	 * Choreography for a demo or an A/B run: none of `rest` is gated until every one of `first` has
+	 * landed or stopped being on its way. It only orders landings; it changes nothing about what
+	 * the gate checks. Without it, which of several Intents dispatched together lands first depends
+	 * on which agent happens to finish first.
+	 */
+	async hold(first: IntentId[], rest: IntentId[]): Promise<void> {
+		for (const waiting of rest) {
+			for (const ahead of first) {
+				if (waiting !== ahead) {
+					this.ctx.storage.sql.exec("INSERT OR IGNORE INTO holds (intent_id, waits_for) VALUES (?, ?)", waiting, ahead);
+				}
+			}
+		}
+	}
+
+	/** Intents that must not be gated yet. Holds on Intents that have landed or stopped are dropped first. */
+	private async held(): Promise<Set<IntentId>> {
+		const sql = this.ctx.storage.sql;
+		const ahead = sql.exec<{ waits_for: string }>("SELECT DISTINCT waits_for FROM holds").toArray().map((row) => row.waits_for);
+		for (const id of ahead) {
+			const status = (await intentStub(this.env, id).get().catch(() => null))?.status;
+			if (status === undefined || !ON_ITS_WAY.includes(status)) {
+				sql.exec("DELETE FROM holds WHERE waits_for = ?", id);
+			}
+		}
+		return new Set(sql.exec<{ intent_id: string }>("SELECT DISTINCT intent_id FROM holds").toArray().map((row) => row.intent_id));
 	}
 
 	/** An Intent went stale: get it re-derived. Whoever made it stale calls this (invalidation, or the gate itself). */
@@ -217,12 +271,12 @@ export class Landing extends DurableObject<Env> {
 	}
 
 	async status(): Promise<LandingStatus> {
-		return { queue: this.rows(), busy: this.busy, stale: this.rederives.waiting(), rederiving: this.rederives.running() };
+		return { queue: this.rows(), busy: this.busy, stale: this.rederives.waiting(), rederiving: this.rederives.running(), version: GATE_VERSION };
 	}
 
 	/** Empties both queues. Used when the demo is reset. */
 	async clear(): Promise<void> {
-		for (const table of ["queue", "stale_queue", "running", "rederive_failures", "standing_tests", "standing_assertions"]) {
+		for (const table of ["queue", "stale_queue", "running", "rederive_failures", "standing_tests", "standing_assertions", "holds", "landed_tasks", "red_tests"]) {
 			this.ctx.storage.sql.exec(`DELETE FROM ${table}`);
 		}
 		await this.ctx.storage.deleteAlarm();
@@ -246,6 +300,7 @@ export class Landing extends DurableObject<Env> {
 				gate: gateDeps(this.env, store, trunk, this.cache),
 				cache: this.cache,
 				standing: this.standingChecks,
+				baseline: (await currentMode(this.env)) === "baseline",
 				startAgent: (intent, attempt, broken, reason) => this.startAgent(intent.id, attempt, broken, reason),
 			};
 			// A slot marked as taken with no attempt number is a race whose start was cut short
@@ -270,7 +325,8 @@ export class Landing extends DurableObject<Env> {
 		}
 		const running = this.rederives.running();
 		if (this.rows().length > 0 || retry) {
-			await this.wake(retry ? RETRY_DELAY_MS : 0);
+			// If everything left is being held back, look again in a moment rather than at once.
+			await this.wake(retry ? RETRY_DELAY_MS : this.onlyHeldLeft ? HOLD_POLL_MS : 0);
 		} else if (running.length > 0) {
 			// Nothing to do until an agent comes back. Look again when the oldest one would be overdue.
 			await this.ctx.storage.setAlarm(Math.min(...running.map((entry) => entry.started)) + RACE_TIMEOUT_MS + 1);
@@ -287,52 +343,150 @@ export class Landing extends DurableObject<Env> {
 		});
 	}
 
-	/** Gates one batch, in order. Returns true if an Intent hit an error and is still queued for another try. */
+	/**
+	 * Gates the next Intents in the queue, in order. An agent's Intent gets a gate run to itself;
+	 * scripted workload Intents land several to a commit. Returns true if something hit an error
+	 * and is still queued for another try.
+	 */
 	private async processBatch(deps: RaceDeps): Promise<boolean> {
 		const sql = this.ctx.storage.sql;
+		const held = await this.held();
+		const rows = this.rows();
+		const next = pickBatch(rows.filter((entry) => !held.has(entry.intentId)), WORKLOAD_BATCH_SIZE);
+		this.onlyHeldLeft = next.length === 0 && rows.length > 0;
+		const together = next.filter((entry) => entry.kind === "workload" && entry.attempts === 0);
+		const batched = new Set(together.length > 1 ? together.map((entry) => entry.intentId) : []);
+		const alone = next.filter((entry) => !batched.has(entry.intentId));
 		let retry = false;
 
-		for (const entry of pickBatch(this.rows())) {
-			const id = entry.intentId;
-			try {
-				const outcome = await landIntent(this.env, id, entry.path, deps);
-				sql.exec("DELETE FROM queue WHERE intent_id = ?", id);
-				if (entry.path === "rederive") {
-					if (outcome.kind === "landed") {
-						await this.endRederive(id, { landed: true });
-					} else if (outcome.kind === "failed") {
-						await this.endRederive(id, { landed: false, reason: outcome.note });
-					} else if (outcome.kind === "skipped" && outcome.status !== "stale") {
-						this.scheduler().finished(id); // abandoned, or gone: free its slot
-					}
-				} else if (outcome.kind === "stale") {
-					// The gate has just shown that the plain rebase does not pass on this trunk.
-					await this.queueStale(id, outcome.trunkAt, outcome.note);
-				}
-				if (outcome.kind === "landed") {
-					for (const other of outcome.stale) {
-						await this.queueStale(other);
-					}
-				}
-			} catch (error) {
-				const message = error instanceof Error ? error.message : String(error);
-				console.error(`gate: could not check ${id} (attempt ${entry.attempts + 1})`, message);
-				if (entry.attempts + 1 < MAX_ATTEMPTS) {
-					sql.exec("UPDATE queue SET attempts = attempts + 1 WHERE intent_id = ?", id);
-					retry = true;
-					continue;
-				}
-				sql.exec("DELETE FROM queue WHERE intent_id = ?", id);
-				const reason = `The gate could not check this Intent: ${message}`;
-				if (entry.path === "rederive" && this.scheduler().isRunning(id) !== undefined) {
-					await this.endRederive(id, { landed: false, reason }).catch(() => undefined);
-				} else {
-					await settle(intentStub(this.env, id), { a: "fail" }, reason).catch(() => undefined);
-				}
-				await publishMetrics(this.env).catch(() => undefined);
+		for (const entry of alone.slice(0, BATCH_SIZE)) {
+			retry = (await this.gateSingle(entry, deps)) || retry;
+		}
+		// The batch waits its turn: if there were more single Intents ahead of it than one pass takes, it goes next pass.
+		if (batched.size === 0 || alone.length > BATCH_SIZE) {
+			return retry;
+		}
+		let singly: IntentId[];
+		try {
+			const outcome = await landBatch(this.env, together.map((entry) => entry.intentId), deps);
+			if (outcome.commit !== null && outcome.landed.length > 0) {
+				await this.afterLanding(outcome.commit, outcome.landed, deps);
 			}
+			for (const entry of together) {
+				// Whatever is not held back, or left for a run of its own, is done with: it landed, or was no longer waiting.
+				if (!outcome.singly.includes(entry.intentId) && !outcome.deferred.includes(entry.intentId)) {
+					sql.exec("DELETE FROM queue WHERE intent_id = ?", entry.intentId);
+				}
+			}
+			for (const other of outcome.stale) {
+				await this.queueStale(other);
+			}
+			singly = outcome.singly;
+		} catch (error) {
+			// The batch as a whole could not be checked. Each member gets its own run, with its own retries.
+			console.error("gate: batch could not be checked", error instanceof Error ? error.message : String(error));
+			singly = together.map((entry) => entry.intentId);
+		}
+		for (const entry of together.filter((candidate) => singly.includes(candidate.intentId))) {
+			retry = (await this.gateSingle(entry, deps)) || retry;
 		}
 		return retry;
+	}
+
+	/** One Intent through the gate, and what follows from the result. Returns true if it hit an error and stays queued. */
+	private async gateSingle(entry: QueueEntry, deps: RaceDeps): Promise<boolean> {
+		const sql = this.ctx.storage.sql;
+		const id = entry.intentId;
+		try {
+			const outcome = await landIntent(this.env, id, entry.path, deps);
+			sql.exec("DELETE FROM queue WHERE intent_id = ?", id);
+			if (entry.path === "rederive" && entry.kind === "workload") {
+				// A stale workload Intent having its rebase tried again. There is no agent behind it, so this is its only chance.
+				if (outcome.kind === "landed") {
+					await publish(this.env, { t: "rederive.race", id, rebase: "pass", rederive: "pending", winner: "rebase" });
+				} else if (outcome.kind === "failed") {
+					await publish(this.env, { t: "rederive.race", id, rebase: "fail", rederive: "fail" });
+					await settle(intentStub(this.env, id), { a: "fail" }, outcome.note);
+					await publishMetrics(this.env);
+				}
+			} else if (entry.path === "rederive") {
+				if (outcome.kind === "landed") {
+					await this.endRederive(id, { landed: true });
+				} else if (outcome.kind === "failed") {
+					await this.endRederive(id, { landed: false, reason: outcome.note });
+				} else if (outcome.kind === "skipped" && outcome.status !== "stale") {
+					this.scheduler().finished(id); // abandoned, or gone: free its slot
+				}
+			} else if (outcome.kind === "stale") {
+				// The gate has just shown that the plain rebase does not pass on this trunk.
+				await this.queueStale(id, outcome.trunkAt, outcome.note);
+			}
+			if (outcome.kind === "landed") {
+				for (const other of outcome.stale) {
+					await this.queueStale(other);
+				}
+				await this.afterLanding(outcome.commit, [id], deps);
+			}
+			return false;
+		} catch (error) {
+			const message = error instanceof Error ? error.message : String(error);
+			console.error(`gate: could not check ${id} (attempt ${entry.attempts + 1})`, message);
+			if (entry.attempts + 1 < MAX_ATTEMPTS) {
+				sql.exec("UPDATE queue SET attempts = attempts + 1 WHERE intent_id = ?", id);
+				return true;
+			}
+			sql.exec("DELETE FROM queue WHERE intent_id = ?", id);
+			const reason = `The gate could not check this Intent: ${message}`;
+			if (entry.path === "rederive" && this.scheduler().isRunning(id) !== undefined) {
+				await this.endRederive(id, { landed: false, reason }).catch(() => undefined);
+			} else {
+				await settle(intentStub(this.env, id), { a: "fail" }, reason).catch(() => undefined);
+			}
+			await publishMetrics(this.env).catch(() => undefined);
+			return false;
+		}
+	}
+
+	/**
+	 * After every landing: do the reference tests of the demo tasks that have landed still pass on
+	 * trunk? One that is newly red is a behavioural regression that reached trunk, and is counted.
+	 * This is measurement only; it never stops or undoes anything (in the A/B comparison it is what
+	 * shows the difference between the two landing rules).
+	 */
+	private async afterLanding(commit: CommitSha, landed: readonly IntentId[], deps: RaceDeps): Promise<void> {
+		try {
+			const sql = this.ctx.storage.sql;
+			const tasks = await this.tasks(deps.trunk, deps.store);
+			for (const id of landed) {
+				const taskId = (await intentStub(this.env, id).get().catch(() => null))?.taskId;
+				if (taskId !== undefined && tasks.some((task) => task.id === taskId)) {
+					sql.exec("INSERT OR IGNORE INTO landed_tasks (task_id) VALUES (?)", taskId);
+				}
+			}
+			const files = this.cache.snapshots.get(commit);
+			const done = sql.exec<{ task_id: string }>("SELECT task_id FROM landed_tasks").toArray().map((row) => row.task_id);
+			const tests = files === undefined ? [] : hiddenTests(tasks, done, files);
+			if (files === undefined || tests.length === 0) {
+				return;
+			}
+			const red = redTests(tests, await deps.gate.run({ files, tests, assertions: [] }));
+			const fresh = newlyRed(sql.exec<{ key: string }>("SELECT key FROM red_tests").toArray().map((row) => row.key), red);
+			sql.exec("DELETE FROM red_tests");
+			for (const key of red) {
+				sql.exec("INSERT OR IGNORE INTO red_tests (key) VALUES (?)", key);
+			}
+			if (fresh.length > 0) {
+				await hub(this.env).bump("behaviouralRegressionsOnTrunk", fresh.length);
+				await publishMetrics(this.env);
+			}
+		} catch (error) {
+			console.error("gate: could not run the reference tests after a landing", error instanceof Error ? error.message : String(error));
+		}
+	}
+
+	/** Reference tests of landed demo tasks that are red on trunk right now. */
+	async redReferenceTests(): Promise<string[]> {
+		return this.ctx.storage.sql.exec<{ key: string }>("SELECT key FROM red_tests ORDER BY key").toArray().map((row) => row.key);
 	}
 
 	/** Adds a stale Intent to the re-derive queue. If it was mid re-derive, trunk has moved under that attempt, which is void. */
@@ -353,6 +507,15 @@ export class Landing extends DurableObject<Env> {
 		try {
 			const result = await startRace(this.env, entry, deps);
 			this.startErrors.delete(id);
+			if (result.kind === "regate") {
+				this.ctx.storage.sql.exec(
+					"INSERT INTO queue (intent_id, path, priority, enqueued_at, attempts, kind) VALUES (?, 'rederive', ?, ?, 0, 'workload') ON CONFLICT(intent_id) DO UPDATE SET path = 'rederive', attempts = 0, kind = 'workload'",
+					id,
+					entry.priority,
+					Date.now(),
+				);
+				return { kind: "done" };
+			}
 			if (result.kind === "landed") {
 				this.setFailures(id, 0);
 				for (const other of result.outcome.stale) {

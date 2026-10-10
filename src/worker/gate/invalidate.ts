@@ -24,6 +24,11 @@ export interface Landed {
 	changedSymbols: SymbolId[];
 	/** Trunk's files at `commit`. */
 	newTrunkFiles: FileMap;
+	/**
+	 * When one commit carries several Intents (a batch): which of them changed which symbol.
+	 * A changed symbol that is not listed is put down to `byIntent`.
+	 */
+	changedBy?: Record<SymbolId, IntentId>;
 }
 
 export interface Break {
@@ -31,6 +36,8 @@ export interface Break {
 	symbol: SymbolId;
 	reason: string;
 	scope: BreakScope;
+	/** The Intent that caused it, when it is not the one the whole landing is put down to. */
+	by?: IntentId | null;
 }
 
 export interface InvalidateResult {
@@ -61,20 +68,22 @@ const INTENT_FETCH_CONCURRENCY = 12;
 const who = (byIntent: IntentId | null) => (byIntent === null ? "a push to trunk" : `intent ${byIntent}`);
 
 /** Which observed or derived premises a set of surface changes breaks. Pure. */
-export function surfaceBreaks(readers: readonly Reader[], eligible: ReadonlySet<IntentId>, byIntent: IntentId | null): Break[] {
+export function surfaceBreaks(readers: readonly Reader[], eligible: ReadonlySet<IntentId>, byIntent: IntentId | null, changedBy: Readonly<Record<SymbolId, IntentId>> = {}): Break[] {
 	const seen = new Set<string>();
 	const breaks: Break[] = [];
 	for (const reader of readers) {
 		const key = `${reader.intentId} ${reader.symbol}`;
-		if (reader.intentId === byIntent || !eligible.has(reader.intentId) || seen.has(key)) {
+		const by = changedBy[reader.symbol] ?? byIntent;
+		if (reader.intentId === by || !eligible.has(reader.intentId) || seen.has(key)) {
 			continue;
 		}
 		seen.add(key);
 		breaks.push({
 			intentId: reader.intentId,
 			symbol: reader.symbol,
-			reason: `type surface of ${parseSymbolId(reader.symbol).name} changed in ${who(byIntent)}`,
+			reason: `type surface of ${parseSymbolId(reader.symbol).name} changed in ${who(by)}`,
 			scope: { sources: ["observed", "derived"] },
+			...(by === byIntent ? {} : { by }),
 		});
 	}
 	return breaks;
@@ -136,12 +145,12 @@ export async function invalidateWith(deps: InvalidateDeps, landed: Landed): Prom
 	// Taken once, before anything is broken: an Intent that goes stale on a surface change in this
 	// call still has its assertions checked, so it is told everything that broke.
 	const eligible = new Set((await deps.registry()).filter((row) => !SETTLED.includes(row.status) && row.id !== landed.byIntent).map((row) => row.id));
-	const by = (reason: string): BrokenBy => ({ intentId: landed.byIntent ?? OUTSIDE_PUSH, commit: landed.commit, reason });
+	const by = (item: Break): BrokenBy => ({ intentId: (item.by === undefined ? landed.byIntent : item.by) ?? OUTSIDE_PUSH, commit: landed.commit, reason: item.reason });
 	const broken: Break[] = [];
 	const stale = new Set<IntentId>();
 	const apply = async (breaks: readonly Break[]) => {
 		for (const item of breaks) {
-			const result = await deps.breakPremise(item.intentId, item.symbol, by(item.reason), item.scope);
+			const result = await deps.breakPremise(item.intentId, item.symbol, by(item), item.scope);
 			if (result.broken) {
 				broken.push(item);
 				if (result.stale) {
@@ -152,7 +161,7 @@ export async function invalidateWith(deps: InvalidateDeps, landed: Landed): Prom
 	};
 
 	if (landed.changedSymbols.length > 0) {
-		await apply(surfaceBreaks(await deps.readersOf(landed.changedSymbols), eligible, landed.byIntent));
+		await apply(surfaceBreaks(await deps.readersOf(landed.changedSymbols), eligible, landed.byIntent, landed.changedBy));
 	}
 
 	const asserting = (await deps.asserters()).filter((id) => eligible.has(id));

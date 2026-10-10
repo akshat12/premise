@@ -3,6 +3,7 @@
 import { parseSymbolId } from "../../shared/ids";
 import type { Assertion, Claim, CommitSha, Intent, IntentId, Premise, SymbolId } from "../../shared/types";
 import { landing } from "../gate/client";
+import { currentMode } from "../hub/publish";
 import { judgeStanding, planStanding, type Standing, standingRequest } from "../gate/standing";
 import type { IntentApi } from "../intent/client";
 import type { ToolDef } from "../ports/llm";
@@ -311,6 +312,13 @@ async function writeFile(ctx: ToolContext, input: Record<string, unknown>): Prom
 	if (input.content.length > MAX_FILE_CHARS) {
 		throw new ToolError(`content is too large (${input.content.length} characters; the limit is ${MAX_FILE_CHARS}).`);
 	}
+	// A test file that was already in the repo belongs to whoever landed it. Nothing would notice
+	// if it were replaced (the gate runs this Intent's own tests), so it is not allowed.
+	const intent = await ctx.intent.get();
+	const own = intent.acceptance.map((check) => check.testFile);
+	if (path.startsWith("tests/") && !own.includes(path) && (await ctx.base()).files[path] !== undefined) {
+		throw new ToolError(`${path} is an existing test file that other work depends on, so it cannot be changed. Put your tests in ${[...new Set(own)].join(", ") || "a new file under tests/"}. You can import from existing helpers without editing them.`);
+	}
 	await ctx.intent.writeOverlay(path, input.content);
 	return { text: `Wrote ${path} (${input.content.split("\n").length} lines).` };
 }
@@ -423,7 +431,7 @@ export function createToolContext(env: AgentEnv, store: RepoStore, intent: Inten
 		phase: "plan",
 		recorded: new Set(),
 		// If the gate cannot be asked, the agent simply finds out at the gate instead.
-		standing: standing ?? (async () => (env.LANDING === undefined ? [] : landing({ LANDING: env.LANDING }).standing().catch(() => []))),
+		standing: standing ?? (async () => (env.LANDING === undefined || (await currentMode(env)) === "baseline" ? [] : landing({ LANDING: env.LANDING }).standing().catch(() => []))),
 		base() {
 			base ??= (async () => {
 				const record = await intent.get();

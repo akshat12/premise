@@ -18,7 +18,8 @@
 			}
 		],
 		"hints": [
-			"Add the acceptance tests in tests/session-expiry.test.ts."
+			"Add the acceptance tests in tests/session-expiry.test.ts.",
+			"Do not call assert_premise in this Intent: it changes how verifySession reports an expired session, so a-session-throws must not be adopted."
 		]
 	},
 	{
