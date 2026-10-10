@@ -1,5 +1,6 @@
 // Read-only APIs for the UI. No admin token: they expose nothing that the event stream does not.
 import { loadTasks } from "../dispatch";
+import { landing } from "../gate/client";
 import { currentTrunk, hub } from "../hub/publish";
 import { intentStub } from "../intent/client";
 import { snapshotAcrossShards } from "../ledger/client";
@@ -26,6 +27,9 @@ export async function handleApi(request: Request, env: Env, url: URL): Promise<R
 	}
 	if (path === "/api/ledger") {
 		return Response.json(await snapshotAcrossShards(env, await hub(env).shards()));
+	}
+	if (path === "/api/gate") {
+		return Response.json(await landing(env).status());
 	}
 	if (path === "/api/metrics") {
 		return Response.json(await hub(env).metrics());

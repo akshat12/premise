@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import type { PremiseEvent } from "../shared/events";
 import type { Intent, Metrics, TaskDef } from "../shared/types";
 import { isIntentRepo, priorityFor } from "./dispatch";
+import type { LandingStatus } from "./gate/client";
 import { currentTrunk, hub } from "./hub/publish";
 import { intentStub } from "./intent/client";
 import type { LedgerSnapshot } from "./ledger/ledger-shard";
@@ -20,6 +21,18 @@ async function waitForStatus(id: string, wanted: Intent["status"][], timeoutMs =
 		const intent = await intentStub(env, id).get();
 		if (wanted.includes(intent.status) || Date.now() > deadline) {
 			return intent;
+		}
+		await new Promise((resolve) => setTimeout(resolve, 100));
+	}
+}
+
+/** Waits until the gate has nothing queued and nothing in hand. */
+async function gateIdle(timeoutMs = 20_000): Promise<void> {
+	const deadline = Date.now() + timeoutMs;
+	for (;;) {
+		const status = await get<LandingStatus>("/api/gate");
+		if ((status.queue.length === 0 && !status.busy) || Date.now() > deadline) {
+			return;
 		}
 		await new Promise((resolve) => setTimeout(resolve, 100));
 	}
@@ -73,7 +86,7 @@ describe("POST /api/dispatch", () => {
 		await wrongMethod.text();
 	});
 
-	it("dispatches two tasks: two Intents, two forks, two workflows, and both reach the gate's queue", async () => {
+	it("dispatches two tasks: two Intents, two forks, two workflows, and both land on trunk through the gate", async () => {
 		await using introspector = await introspectWorkflow(env.AGENT_WORKFLOW);
 		const before = (await hub(env).since(0, 5000)).at(-1)?.seq ?? 0;
 		const trunk = await currentTrunk(env);
@@ -96,56 +109,79 @@ describe("POST /api/dispatch", () => {
 		const outputs = await Promise.all(instances.map((instance) => instance.getOutput()));
 		expect(outputs.every((output) => (output as { result: string }).result === "submitted")).toBe(true);
 
-		const [role, currency] = await Promise.all(ids.map((id) => waitForStatus(id, ["queued"])));
-		expect(role).toMatchObject({ taskId: "t07-role-check", kind: "agent", status: "queued", baseCommit: trunkHead, repo: ids[0] });
-		expect(currency).toMatchObject({ taskId: "t09-currency-format", status: "queued" });
+		const [role, currency] = await Promise.all(ids.map((id) => waitForStatus(id, ["landed", "failed", "stale"])));
+		await gateIdle();
+		expect(role).toMatchObject({ taskId: "t07-role-check", kind: "agent", status: "landed", baseCommit: trunkHead, repo: ids[0] });
+		expect(currency).toMatchObject({ taskId: "t09-currency-format", status: "landed" });
 		expect(role?.acceptance.map((check) => check.id)).toEqual(["t07-ac1", "t07-ac2", "t07-ac3"]);
-		expect(await store.head(ids[0] ?? "")).toBe(role?.headCommit);
 		expect(await store.readFile(ids[0] ?? "", "main", "src/users/roles.ts")).toContain("export function canAccess(");
-		// Trunk did not move: only the gate lands work.
-		expect(await store.head(trunk)).toBe(trunkHead);
+		// Trunk moved twice, and only through the gate: it now has both Intents' work.
+		const newHead = await store.head(trunk);
+		expect(newHead).not.toBe(trunkHead);
+		expect([role?.headCommit, currency?.headCommit]).toContain(newHead);
+		expect(await store.readFile(trunk, "main", "src/users/roles.ts")).toContain("export function canAccess(");
+		expect(await store.readFile(trunk, "main", "tests/currency-format.test.ts")).not.toBeNull();
 
 		// The events, in order, for one of the Intents.
 		const events = (await hub(env).since(before, 5000)) as PremiseEvent[];
-		const mine = events.filter((event) => ("id" in event && event.id === ids[0]) || (event.t === "intent.created" && event.intent.id === ids[0]) || (event.t === "artifacts" && event.repo === ids[0]));
-		expect(mine.map((event) => event.t).filter((t, index, all) => t !== all[index - 1])).toEqual(["artifacts", "intent.created", "premise.recorded", "intent.why", "intent.status", "claim.decision", "intent.status", "artifacts", "intent.status", "push.checked", "intent.status"]);
+		const about = (id: string) => (event: PremiseEvent) =>
+			("id" in event && event.id === id) || (event.t === "intent.created" && event.intent.id === id) || (event.t === "artifacts" && event.repo === id) || (event.t === "gate.result" && event.report.intentId === id) || (event.t === "trunk.advanced" && event.byIntent === id);
+		const mine = events.filter(about(ids[0] ?? ""));
+		expect(mine.map((event) => event.t).filter((t, index, all) => t !== all[index - 1])).toEqual(["artifacts", "intent.created", "premise.recorded", "intent.why", "intent.status", "claim.decision", "intent.status", "artifacts", "intent.status", "push.checked", "intent.status", "gate.result", "intent.status", "trunk.advanced"]);
 		expect(mine[0]).toMatchObject({ t: "artifacts", type: "forked", detail: { source: trunk } });
+		expect(mine.flatMap((event) => (event.t === "intent.status" ? [event.status] : []))).toEqual(["claiming", "working", "submitted", "checking", "queued", "gating", "landed"]);
+		expect(mine.find((event) => event.t === "gate.result")).toMatchObject({ report: { path: "rebase", textConflict: false, typecheck: { ok: true }, ok: true } });
 		expect(events.filter((event) => event.t === "metrics").length).toBeGreaterThanOrEqual(1);
+		expect(events.filter((event) => event.t === "trunk.advanced" && ids.includes(event.byIntent ?? ""))).toHaveLength(2);
 
-		// The registry, the Intent API and the ledger all show them.
+		// While they were in flight the ledger had them as the writers of what they declared, and as readers of what they read.
+		const granted = events.flatMap((event) => (event.t === "claim.decision" && ids.includes(event.id) && event.decision.kind === "granted" ? event.symbols : []));
+		expect(granted.sort()).toEqual(["src/billing/currency.ts#formatMoney", "src/users/roles.ts#RESOURCE_MINIMUM", "src/users/roles.ts#Resource", "src/users/roles.ts#canAccess"]);
+		expect(mine.some((event) => event.t === "premise.recorded" && event.premise.symbol === "src/users/roles.ts#isAtLeast")).toBe(true);
+
+		// Now that they have landed, the registry and the Intent API say so, and the ledger has let go of them.
 		const registry = await get<RegistryRow[]>("/api/intents");
-		expect(registry.filter((row) => ids.includes(row.id)).map((row) => [row.taskId, row.status, row.kind])).toEqual([["t07-role-check", "queued", "agent"], ["t09-currency-format", "queued", "agent"]]);
-		expect(await get<Intent>(`/api/intents/${ids[0]}`)).toMatchObject({ id: ids[0], status: "queued" });
+		expect(registry.filter((row) => ids.includes(row.id)).map((row) => [row.taskId, row.status, row.kind])).toEqual([["t07-role-check", "landed", "agent"], ["t09-currency-format", "landed", "agent"]]);
+		expect(await get<Intent>(`/api/intents/${ids[0]}`)).toMatchObject({ id: ids[0], status: "landed" });
 		const ledger = await get<LedgerSnapshot>("/api/ledger");
-		expect(ledger.claims.filter((claim) => ids.includes(claim.intentId)).map((claim) => claim.symbol).sort()).toEqual(["src/billing/currency.ts#formatMoney", "src/users/roles.ts#RESOURCE_MINIMUM", "src/users/roles.ts#Resource", "src/users/roles.ts#canAccess"]);
-		expect(ledger.readers.some((reader) => reader.intentId === ids[0] && reader.symbol === "src/users/roles.ts#isAtLeast")).toBe(true);
+		expect(ledger.claims.filter((claim) => ids.includes(claim.intentId))).toEqual([]);
+		expect(ledger.readers.filter((reader) => ids.includes(reader.intentId))).toEqual([]);
 
 		const metrics = await get<Metrics>("/api/metrics");
 		expect(metrics.forksCreated).toBeGreaterThanOrEqual(2);
 		expect(metrics.pushes).toBeGreaterThanOrEqual(2);
-		expect(metrics.agentsActive).toBeGreaterThanOrEqual(2);
-
-		for (const id of ids) {
-			await intentStub(env, id).act({ a: "fail" }, "test cleanup");
-		}
+		expect(metrics.intentsLanded).toBeGreaterThanOrEqual(2);
 	}, 60_000);
 
-	it("wakes a waiting agent when the Intent it waits on fails or lands", async () => {
+	it("wakes a waiting agent when the Intent it waits on lands", async () => {
 		await using introspector = await introspectWorkflow(env.AGENT_WORKFLOW);
-		const first = ((await (await post("/api/dispatch", { taskIds: ["t08-profile-validation"] })).json()) as { intents: string[] }).intents[0] ?? "";
-		await waitForStatus(first, ["queued"]);
+		const before = (await hub(env).since(0, 5000)).at(-1)?.seq ?? 0;
+		// The same task twice: both want the same symbols, so the ledger makes one of them wait.
+		const { intents: ids } = (await (await post("/api/dispatch", { taskIds: ["t08-profile-validation", "t08-profile-validation"] })).json()) as { intents: string[] };
+		expect(ids).toHaveLength(2);
 
-		// The same task again: it wants the same symbols, so the ledger makes it wait.
-		const second = ((await (await post("/api/dispatch", { taskIds: ["t08-profile-validation"] })).json()) as { intents: string[] }).intents[0] ?? "";
-		expect((await waitForStatus(second, ["waiting"])).status).toBe("waiting");
+		// The one that got the symbols lands, which releases them and wakes the other. The wait itself
+		// times out after 30 seconds, so finishing well inside that shows it was woken.
+		const started = Date.now();
+		const done = await Promise.all(ids.map((id) => waitForStatus(id, ["landed", "failed", "stale"], 25_000)));
+		expect(done.map((intent) => intent.status)).toEqual(["landed", "landed"]);
+		expect(Date.now() - started).toBeLessThan(25_000);
 
-		// The first Intent goes away, which releases its claims and wakes the second.
-		await intentStub(env, first).act({ a: "fail" }, "abandoned");
-		expect((await waitForStatus(second, ["queued", "failed"], 30_000)).status).toBe("queued");
+		const events = await hub(env).since(before, 5000);
+		const statuses = (id: string) => events.flatMap((event) => (event.t === "intent.status" && event.id === id ? [event.status] : []));
+		const waited = ids.filter((id) => statuses(id).includes("waiting"));
+		expect(waited).toHaveLength(1);
+		expect(statuses(waited[0] ?? "")).toEqual(["claiming", "waiting", "claiming", "working", "submitted", "checking", "queued", "gating", "landed"]);
+		// It waited for the other one, and only started work after that one had landed.
+		const other = ids.find((id) => id !== waited[0]) ?? "";
+		const seqOf = (id: string, status: Intent["status"]) => events.find((event) => event.t === "intent.status" && event.id === id && event.status === status)?.seq ?? 0;
+		expect(seqOf(waited[0] ?? "", "working")).toBeGreaterThan(seqOf(other, "landed"));
+		// Trunk moved once: the second Intent's work was already there.
+		expect(events.filter((event) => event.t === "trunk.advanced").map((event) => event.t === "trunk.advanced" && event.byIntent)).toEqual([other]);
 
 		const instances = await introspector.get();
 		await Promise.all(instances.map((instance) => instance.waitForStatus("complete")));
-		await intentStub(env, second).act({ a: "fail" }, "test cleanup");
+		await gateIdle();
 	}, 90_000);
 });
 
@@ -169,8 +205,9 @@ describe("POST /api/admin/reset-demo", () => {
 		await using introspector = await introspectWorkflow(env.AGENT_WORKFLOW);
 		const store = getRepoStore(env);
 		const { intents: ids } = (await (await post("/api/dispatch", { taskIds: ["t12-password-policy"] })).json()) as { intents: string[] };
-		await waitForStatus(ids[0] ?? "", ["queued"]);
+		expect((await waitForStatus(ids[0] ?? "", ["landed", "failed", "stale"])).status).toBe("landed");
 		await Promise.all((await introspector.get()).map((instance) => instance.waitForStatus("complete")));
+		await gateIdle();
 		const oldTrunk = await currentTrunk(env);
 		expect((await store.list()).some(isIntentRepo)).toBe(true);
 
@@ -190,12 +227,15 @@ describe("POST /api/admin/reset-demo", () => {
 		expect((await hub(env).since(0)).map((event) => event.t)).toEqual(["metrics"]);
 		expect(await get<RegistryRow[]>("/api/intents")).toEqual([]);
 		expect(await get<LedgerSnapshot>("/api/ledger")).toEqual({ claims: [], readers: [] });
-		expect(await get<Metrics>("/api/metrics")).toMatchObject({ agentsActive: 0, forksCreated: 0, pushes: 0 });
+		expect(await get<Metrics>("/api/metrics")).toMatchObject({ agentsActive: 0, intentsLanded: 0, forksCreated: 0, pushes: 0 });
+		expect(await get<LandingStatus>("/api/gate")).toEqual({ queue: [], busy: false });
 
 		// And it can be dispatched against straight away.
 		const { intents: fresh } = (await (await post("/api/dispatch", { taskIds: ["t12-password-policy"] })).json()) as { intents: string[] };
-		expect((await waitForStatus(fresh[0] ?? "", ["queued"])).status).toBe("queued");
+		expect((await waitForStatus(fresh[0] ?? "", ["landed", "failed", "stale"])).status).toBe("landed");
 		await Promise.all((await introspector.get()).map((instance) => instance.waitForStatus("complete")));
-		await intentStub(env, fresh[0] ?? "").act({ a: "fail" }, "test cleanup");
+		await gateIdle();
+		// It landed on the fresh trunk, not the old one.
+		expect(await store.readFile(body.trunk, "main", "tests/password-digit.test.ts")).not.toBeNull();
 	}, 90_000);
 });

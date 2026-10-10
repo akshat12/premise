@@ -2,6 +2,7 @@
 import { newIntentId } from "../shared/ids";
 import type { Intent, IntentId, TaskDef, TaskId } from "../shared/types";
 import { DEFAULT_PRIORITY } from "./agent/run";
+import { landing } from "./gate/client";
 import { workflowInstanceId } from "./agent/workflow";
 import { currentTrunk, hub, publish, publishMetrics } from "./hub/publish";
 import { intentStub, newIntent } from "./intent/client";
@@ -130,6 +131,7 @@ export async function resetDemo(env: Env): Promise<ResetResult> {
 
 	const shards = await hub(env).shards();
 	await Promise.all(shards.map((shard) => ledgerShard(env, shard).clear()));
+	await landing(env).clear();
 	await hub(env).setTrunk(trunk);
 	await hub(env).reset();
 	// Earlier reset copies are no longer needed. The original trunk repo is left alone.

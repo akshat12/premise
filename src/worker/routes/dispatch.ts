@@ -4,6 +4,7 @@ import { isAdminRequest } from "../admin-auth";
 import { wakeHumanWaiters } from "../agent/wake";
 import { dispatchTasks, UnknownTasks } from "../dispatch";
 import { settleQuarantine } from "../gate/checker";
+import { gateEnqueue } from "../gate/client";
 import { intentStub } from "../intent/client";
 import { publish } from "../hub/publish";
 
@@ -50,7 +51,7 @@ export async function handleDispatch(request: Request, env: Env, url: URL): Prom
 	let status = intent?.status ?? null;
 	if (intent?.status === "quarantined" && (choice === "Wait" || choice === "Split" || choice === "Depend")) {
 		// The Intent edited symbols someone else holds. The choice settles who gets them.
-		status = (await settleQuarantine(env, id, choice)).status;
+		status = (await settleQuarantine(env, id, choice, { enqueue: gateEnqueue(env) })).status;
 	} else {
 		// The Intent's agent is paused on a stalemate and takes it from here.
 		woken = await wakeHumanWaiters(env, id, choice);
