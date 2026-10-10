@@ -102,6 +102,15 @@ export class LedgerShard extends DurableObject<Env> {
 		return decision;
 	}
 
+	/** Gives the requested symbols to the requester whoever holds them now. Only a person's decision does this. */
+	async seize(req: ClaimRequest): Promise<LedgerDecision> {
+		const now = Date.now();
+		this.dropExpired(now);
+		this.insertClaims(req, req.claims.map((claim) => claim.symbol), now);
+		await this.scheduleExpiry();
+		return { kind: "granted" };
+	}
+
 	/** Pushes the expiry of an Intent's claims out by another ten minutes. */
 	async renew(intentId: IntentId): Promise<void> {
 		this.sql.exec("UPDATE claims SET expires_at = ? WHERE intent_id = ?", Date.now() + CLAIM_TTL_MS, intentId);

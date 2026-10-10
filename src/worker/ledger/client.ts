@@ -10,6 +10,7 @@ type LedgerEnv = Pick<Env, "LEDGER">;
 /** The LedgerShard RPC surface, declared by hand so callers do not depend on generated stub types. */
 export interface LedgerApi {
 	requestClaims(req: ClaimRequest): Promise<LedgerDecision>;
+	seize(req: ClaimRequest): Promise<LedgerDecision>;
 	renew(intentId: IntentId): Promise<void>;
 	release(intentId: IntentId, landed?: boolean): Promise<void>;
 	subscribe(intentId: IntentId, premises: { symbol: SymbolId; surfaceHash: string | null }[]): Promise<void>;
@@ -56,6 +57,14 @@ export async function requestClaimsAcrossShards(env: LedgerEnv, req: ClaimReques
 			await Promise.all(granted.map((name) => ledgerShard(env, name).release(req.intentId)));
 		}
 		return decision;
+	}
+	return { kind: "granted" };
+}
+
+/** Gives the requested symbols to the requester regardless of who holds them. Only for a person's explicit decision. */
+export async function forceClaimsAcrossShards(env: LedgerEnv, req: ClaimRequest): Promise<LedgerDecision> {
+	for (const [shard, claims] of groupByShard(req.claims, (claim) => claim.symbol)) {
+		await ledgerShard(env, shard).seize({ ...req, claims });
 	}
 	return { kind: "granted" };
 }

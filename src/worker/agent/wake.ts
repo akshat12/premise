@@ -4,6 +4,18 @@ import { hub, waitTopic } from "../hub/publish";
 
 type WakeEnv = Pick<Env, "HUB" | "AGENT_WORKFLOW">;
 
+/**
+ * Waiters are normally Workflow instance ids. One whose id starts with this prefix is a
+ * quarantined Intent waiting for the checker to look again; `recheck` handles those.
+ */
+export const CHECKER_WAITER = "checker:";
+let recheck: ((env: WakeEnv, intentId: string) => Promise<unknown>) | undefined;
+
+/** Registers what to do for a quarantined Intent when the Intent it waits on finishes. Set by the checker's wiring. */
+export function onCheckerWake(handler: (env: WakeEnv, intentId: string) => Promise<unknown>): void {
+	recheck = handler;
+}
+
 export const LEDGER_FREE = "ledger-free";
 export const HUMAN_CHOICE = "human-choice";
 
@@ -12,6 +24,11 @@ async function send(env: WakeEnv, topic: string, type: string, payload: unknown)
 	let woken = 0;
 	for (const id of instances) {
 		try {
+			if (id.startsWith(CHECKER_WAITER)) {
+				await recheck?.(env, id.slice(CHECKER_WAITER.length));
+				woken++;
+				continue;
+			}
 			const instance = await env.AGENT_WORKFLOW.get(id);
 			await instance.sendEvent({ type, payload });
 			woken++;

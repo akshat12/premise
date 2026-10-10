@@ -55,7 +55,7 @@ Tracks:
 
 ### Day 4 (Sun Oct 11 to Mon Oct 12): gate, invalidation, re-derive
 
-- [ ] **T13** (B): Post-push checker (out-of-claim edits, derived premises). Depends on: T12
+- [x] **T13** (B): Post-push checker (out-of-claim edits, derived premises). Depends on: T12
 - [x] **T14** (B): Behavioural runner (repo tests and assertions in a Dynamic Worker). Depends on: T05, T03
 - [ ] **T15** (B): Landing DO, the gate (diff3 rebase, typecheck, tests, assertions, push to trunk). Depends on: T13, T14, T07
 - [ ] **T16** (B): Premise invalidation, plus the trunk `pushed` event consumer. Depends on: T15

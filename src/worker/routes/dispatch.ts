@@ -3,6 +3,8 @@ import type { TaskId } from "../../shared/types";
 import { isAdminRequest } from "../admin-auth";
 import { wakeHumanWaiters } from "../agent/wake";
 import { dispatchTasks, UnknownTasks } from "../dispatch";
+import { settleQuarantine } from "../gate/checker";
+import { intentStub } from "../intent/client";
 import { publish } from "../hub/publish";
 
 export const HUMAN_CHOICES = ["Wait", "Split", "Depend", "Retry", "Abandon"] as const;
@@ -43,7 +45,16 @@ export async function handleDispatch(request: Request, env: Env, url: URL): Prom
 	if (typeof choice !== "string" || !(HUMAN_CHOICES as readonly string[]).includes(choice)) {
 		return Response.json({ error: `choice must be one of ${HUMAN_CHOICES.join(", ")}` }, { status: 400 });
 	}
-	const woken = await wakeHumanWaiters(env, id, choice);
+	const intent = await intentStub(env, id).get().catch(() => null);
+	let woken = 0;
+	let status = intent?.status ?? null;
+	if (intent?.status === "quarantined" && (choice === "Wait" || choice === "Split" || choice === "Depend")) {
+		// The Intent edited symbols someone else holds. The choice settles who gets them.
+		status = (await settleQuarantine(env, id, choice)).status;
+	} else {
+		// The Intent's agent is paused on a stalemate and takes it from here.
+		woken = await wakeHumanWaiters(env, id, choice);
+	}
 	await publish(env, { t: "human.resolved", id, choice });
-	return Response.json({ ok: true, id, choice, woken });
+	return Response.json({ ok: true, id, choice, woken, status });
 }

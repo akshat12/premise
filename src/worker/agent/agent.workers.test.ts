@@ -18,7 +18,7 @@ type Store = ReturnType<typeof seededStore>;
 
 async function run(store: Store, started: Awaited<ReturnType<typeof startIntent>>, turns: readonly LlmTurn[], options: { mode?: AgentParams["mode"]; steps?: Steps & { names: string[] }; priority?: number } = {}) {
 	const steps = options.steps ?? memorySteps();
-	const deps: AgentDeps = { env, store, intent: started.api, llm: replay(turns), handOff: (intent, commit) => handOff(env, intent, commit) };
+	const deps: AgentDeps = { env, store, intent: started.api, llm: replay(turns), handOff: (intent, commit) => handOff(env, intent, commit, { store }) };
 	const outcome = await runAgent(deps, { intentId: started.id, mode: options.mode ?? "fresh", ...(options.priority === undefined ? {} : { priority: options.priority }) }, steps);
 	return { outcome, steps, intent: await started.api.get() };
 }
@@ -114,7 +114,7 @@ describe("runAgent: a scripted run of t04, end to end", () => {
 		expect(statuses).toEqual(["claiming", "working", "submitted", "checking", "queued"]);
 
 		const order = events.map((event) => event.t).filter((t, index, all) => t !== all[index - 1]);
-		expect(order).toEqual(["intent.created", "premise.recorded", "intent.why", "intent.status", "claim.decision", "intent.status", "artifacts", "intent.status"]);
+		expect(order).toEqual(["intent.created", "premise.recorded", "intent.why", "intent.status", "claim.decision", "intent.status", "artifacts", "intent.status", "push.checked", "premise.recorded", "intent.status"]);
 		expect(events.find((event) => event.t === "claim.decision")).toMatchObject({ decision: { kind: "granted" }, symbols: ["src/api/responses.ts#withSessionHeaders"] });
 		expect(events.find((event) => event.t === "artifacts")).toMatchObject({ type: "pushed", repo: started.id });
 		await started.api.act({ a: "fail" }, "test cleanup");
@@ -276,7 +276,7 @@ describe("runAgent: when things go wrong", () => {
 			env,
 			store,
 			intent: started.api,
-			handOff: (intent, commit) => handOff(env, intent, commit),
+			handOff: (intent, commit) => handOff(env, intent, commit, { store }),
 			llm: (intent, messages) => {
 				const last = messages.at(-1);
 				seen.push(last === undefined || last.role !== "user" ? "" : typeof last.content === "string" ? last.content : last.content.map((block) => `${block.is_error ? "ERR " : ""}${block.content}`).join(" | "));
@@ -319,7 +319,7 @@ describe("runAgent: when things go wrong", () => {
 			env,
 			store,
 			intent: started.api,
-			handOff: (intent, commit) => handOff(env, intent, commit),
+			handOff: (intent, commit) => handOff(env, intent, commit, { store }),
 			llm: (intent, messages) => {
 				turnsSeen++;
 				return replay(script)(intent, messages);

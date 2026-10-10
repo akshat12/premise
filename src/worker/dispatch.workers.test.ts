@@ -108,7 +108,7 @@ describe("POST /api/dispatch", () => {
 		// The events, in order, for one of the Intents.
 		const events = (await hub(env).since(before, 5000)) as PremiseEvent[];
 		const mine = events.filter((event) => ("id" in event && event.id === ids[0]) || (event.t === "intent.created" && event.intent.id === ids[0]) || (event.t === "artifacts" && event.repo === ids[0]));
-		expect(mine.map((event) => event.t).filter((t, index, all) => t !== all[index - 1])).toEqual(["artifacts", "intent.created", "premise.recorded", "intent.why", "intent.status", "claim.decision", "intent.status", "artifacts", "intent.status"]);
+		expect(mine.map((event) => event.t).filter((t, index, all) => t !== all[index - 1])).toEqual(["artifacts", "intent.created", "premise.recorded", "intent.why", "intent.status", "claim.decision", "intent.status", "artifacts", "intent.status", "push.checked", "intent.status"]);
 		expect(mine[0]).toMatchObject({ t: "artifacts", type: "forked", detail: { source: trunk } });
 		expect(events.filter((event) => event.t === "metrics").length).toBeGreaterThanOrEqual(1);
 
@@ -159,7 +159,7 @@ describe("POST /api/human/:id", () => {
 		await noToken.text();
 
 		const response = await post("/api/human/i00000001", { choice: "Split" });
-		expect(await response.json()).toEqual({ ok: true, id: "i00000001", choice: "Split", woken: 0 });
+		expect(await response.json()).toEqual({ ok: true, id: "i00000001", choice: "Split", woken: 0, status: null });
 		expect((await hub(env).since(0, 5000)).at(-1)).toMatchObject({ t: "human.resolved", id: "i00000001", choice: "Split" });
 	});
 });

@@ -428,3 +428,21 @@ The user asked that the architecture make it easy to switch to another model pro
 - **`POST /api/admin/reset-demo`** deletes the Intent forks, imports (or in memory mode, seeds) a fresh trunk under a new name, clears the ledger shards, then clears the event log, registry, counters and waiters. On the deployed Worker it took 5.3 s and left `trunk` (the original import) alongside `trunk-<time>`; earlier reset copies are deleted, the original `trunk` is not. Workflows still running for deleted forks are not terminated; they fail on their own.
 - `POST /api/dispatch` and `POST /api/human/:id` both require the admin token. There is no separate `run-one` route: dispatching one task does the same thing.
 - The smoke test now has 9 contract cases and passes on the deployed Worker.
+
+## 2026-10-09: T13 notes (post-push checker)
+
+- `src/worker/gate/checker.ts`: `checkPush` (pure), `runChecker` and `settleQuarantine`. `agent/handoff.ts` now calls `runChecker`; it is what the agent's `hand-off` step runs.
+- **Derived premises look at whole symbols, not only changed lines.** For an edited source file the search covers the changed lines plus the full range of every exported symbol the edit touched. The `t02` patch adds one line inside a `catch` block; on changed lines alone the checker would miss `verifySession` and `SessionExpiredError`, which the function plainly depends on. New files and edited test files are searched too (a new test shows what the Intent leans on). Only source symbols become premises; test helpers and `premise/` have no type surface.
+- A derived premise is skipped when the Intent already has an observed premise on the same symbol. Base surfaces are cached in memory per base commit (8 entries).
+- **Quarantine and upgrade.** An out-of-claim edit moves the Intent to `quarantined` and asks the ledger for the missing claims at the strength the push used.
+  - Granted: claims are merged, status goes to `queued`, and the Intent is handed to the gate.
+  - Not granted: the Intent stays `quarantined`, `human.needed` (kind `stalemate`, options Wait / Split / Depend) is published, and a waiter is recorded so the checker looks again when the holder lands or fails.
+- **What the three choices do for a quarantined Intent** (`POST /api/human/:id` calls `settleQuarantine` when the status is `quarantined`; for an escalated Intent it still wakes the paused agent run):
+  - **Split:** the contested symbols are given to this Intent, the one that actually edited them, whoever holds them (`forceClaimsAcrossShards`, a new ledger operation used only here). It then goes to `queued`.
+  - **Wait:** ask again now; if still refused, stay quarantined until the holder finishes.
+  - **Depend:** as Wait, and the holder is added to `dependsOn`.
+- **Waiters can now be quarantined Intents as well as Workflow instances.** A waiter id starting with `checker:` is re-checked through `settleQuarantine(..., "retry")` instead of being sent a Workflow event. `agent/handoff.ts` registers that handler when it loads.
+- **A re-derived Intent** (status `rederiving`) is checked the same way but is never quarantined and keeps its status; it is handed to the gate with path `"rederive"`.
+- **The gate hook is `CheckerDeps.enqueue(intent, path)`.** Nothing is passed yet, so a checked Intent stops at `queued`. T15 supplies it.
+- `runChecker` and `settleQuarantine` take an optional `store`, so tests can use their own `MemoryRepoStore`.
+- Event order for a clean run is now: ... `artifacts` (pushed), `intent.status` (submitted, checking), `push.checked`, `premise.recorded` (derived, if any), `intent.status` (queued).
