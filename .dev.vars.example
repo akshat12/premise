@@ -1,4 +1,19 @@
+# Copy to .dev.vars (git-ignored). These override the vars in wrangler.jsonc for local dev.
 REPO_STORE=memory
-LLM=scripted
 ADMIN_TOKEN=change-me
+
+# Which model provider the agents use. "scripted" replays recorded turns and needs no key.
+# Others: anthropic | openai | google | openrouter | groq | workers-ai | openai-compatible
+LLM=scripted
+
+# A key for the provider named by LLM. Either the generic name or the provider's own name works:
+#   anthropic -> ANTHROPIC_API_KEY     openai -> OPENAI_API_KEY      google -> GEMINI_API_KEY
+#   openrouter -> OPENROUTER_API_KEY   groq -> GROQ_API_KEY          workers-ai -> CLOUDFLARE_API_TOKEN
+LLM_API_KEY=
 ANTHROPIC_API_KEY=
+
+# Optional. LLM_MODEL defaults per provider where one is known (anthropic, google, workers-ai).
+# LLM_MODEL=claude-sonnet-5-5
+# LLM_BASE_URL=            # a gateway or proxy, or required for LLM=openai-compatible
+# LLM_MAX_TOKENS=16000
+# LLM_EFFORT=medium        # reasoning effort, for providers that support it

@@ -305,3 +305,41 @@ A third LLM option, after the Anthropic key and the Workers AI fallback. Nothing
 - **Expiry:** claims last 10 minutes (`CLAIM_TTL_MS`). Expired rows are dropped at the start of every request and snapshot as well as by the alarm, so correctness does not depend on the alarm firing. The alarm publishes nothing.
 - **Extra client functions:** `subscribeAcrossShards`, `renewEverywhere`, `isStalemateAcrossShards`, `groupByShard`, `shardsOf`, `ledgerShard`. Like the hub, the shard is used through a hand-written `LedgerApi` interface.
 - Workers tests use a unique fake directory per test (`t<time>x<n>/billing/...`), because storage is shared across the workers test run.
+
+## 2026-10-09: T09 notes (LLM client, provider-neutral)
+
+The user asked that the architecture make it easy to switch to another model provider (Google, OpenAI or something else). T09 is built that way.
+
+- **One port, three adapters.** `ports/llm.ts` holds the `LlmClient` interface, the provider table and `getLlm`. Adapters: `llm-anthropic.ts` (Messages API over `fetch`), `llm-openai.ts` (any OpenAI-compatible chat-completions endpoint), `llm-scripted.ts` (`ScriptedLlm`, `RecordingLlm`). `llm-http.ts` has the shared POST-with-retries.
+- **Switching provider is configuration only.** Set `LLM` to a row of `PROVIDERS` and supply a key:
+
+  | `LLM` | Wire format | Key (first found) | Default model |
+  |---|---|---|---|
+  | `scripted` | none | none | none |
+  | `anthropic` | Anthropic | `LLM_API_KEY`, `ANTHROPIC_API_KEY` | `claude-sonnet-5-5` |
+  | `openai` | OpenAI-compatible | `LLM_API_KEY`, `OPENAI_API_KEY` | none, set `LLM_MODEL` |
+  | `google` | OpenAI-compatible | `LLM_API_KEY`, `GEMINI_API_KEY` | `gemini-3.8-flash` |
+  | `openrouter` | OpenAI-compatible | `LLM_API_KEY`, `OPENROUTER_API_KEY` | none |
+  | `groq` | OpenAI-compatible | `LLM_API_KEY`, `GROQ_API_KEY` | none |
+  | `workers-ai` | OpenAI-compatible (REST) | `LLM_API_KEY`, `CLOUDFLARE_API_TOKEN` | `@cf/openai/gpt-oss-120b` |
+  | `openai-compatible` | OpenAI-compatible | `LLM_API_KEY` | none; needs `LLM_BASE_URL` |
+
+  Optional: `LLM_MODEL`, `LLM_BASE_URL` (a gateway or proxy), `LLM_MAX_TOKENS` (default 16,000), `LLM_EFFORT`. A new provider with one of the two wire formats is one row; a new wire format is one more adapter.
+- **Nothing has been called for real.** There is no key for any provider. Every adapter test uses a fake `fetch`. Two live tests exist and are skipped unless `ANTHROPIC_API_KEY` or `LIVE_LLM=<provider>` (plus that provider's key) is in the environment. The first live call may show a request-shape problem that the mocked tests cannot.
+- **Workers AI is reachable as a preset** through its OpenAI-compatible REST endpoint with a Cloudflare API token. The keyless `env.AI` binding adapter is still not written, as the user asked; `toChatMessages`, `toChatTools` and `fromChatCompletion` are pure so that adapter would be about twenty lines.
+- **Additions to the interface in the task file** (all optional fields, so scripts and callers that ignore them still work):
+  - `raw` on assistant messages and on `LlmTurn`: the provider's own form of the turn, replayed verbatim. Use `assistantMessage(turn)` to build the message to append.
+  - `inputError` on `tool_use` blocks: set when the model's arguments could not be parsed. The agent loop must answer with an `is_error` result, not run the tool.
+  - `stop` can also be `"refusal"`.
+- **Why `raw` exists, and a rule T11 must follow.** Current Claude models think by default and return `thinking` blocks that must be sent back unchanged. Their signature also covers the system prompt, the tool list and every earlier message; on Anthropic accounts created since 2026-08-31, a request whose history was edited is rejected with a 400. Gemini has a similar requirement (thought signatures on tool calls). So, **within one conversation: keep `system` and `tools` identical on every call and only ever append to `messages`.** In particular the plan and work phases must not use different system prompts or tool lists inside one conversation. T11 will use one prompt and one tool list for the whole run, enforce phases in the tool handlers, and announce the phase change in a tool result. This is also what makes prompt caching work.
+- **Anthropic adapter details.**
+  - `max_tokens` defaults to 16,000, not the task's 4,096: thinking counts against it, and 4,096 can cut off a whole-file write.
+  - Top-level `cache_control: { type: "ephemeral" }` is sent (automatic prompt caching), because every turn resends the conversation. Turn it off with the `cache: false` option if it causes trouble.
+  - `output_config.effort` is sent only when `LLM_EFFORT` is set. Anthropic's guidance for Claude Sonnet 5.5 is to start agentic tool use at `medium`.
+  - `tool_choice` is never sent: forcing a tool returns a 400 on Sonnet 5.5.
+  - Server-side refusal fallbacks (`fallbacks: "default"`, a beta header) are **not** enabled, because a wrong beta header fails every request and it cannot be tried without a key. A refusal comes back as `stop: "refusal"`.
+  - Usage adds cached input tokens to `input`.
+- **OpenAI-compatible adapter details.** Sends `max_completion_tokens`. Tool results become one `role: "tool"` message each; an error result is prefixed `ERROR: `. Only `role`, `content` and `tool_calls` are replayed from the provider's message, since servers differ on which other fields they accept back.
+- **Retries:** 408, 409, 429 and 5xx (including Anthropic's 529), and network errors, up to three times, waiting the server's `retry-after` if given (capped at 30 s) or else 1, 2, 4 s with jitter.
+- `RecordingLlm` drops `raw` from what it records, since scripts never go back to a provider.
+- `LLM_MODEL` stays `claude-sonnet-5-5` in `wrangler.jsonc`. If `LLM` is switched and `LLM_MODEL` is left as a Claude id, the provider's default model is used, or the error says to set `LLM_MODEL`.

@@ -7,6 +7,20 @@ declare global {
 		ADMIN_TOKEN?: string;
 		/** Only needed when LLM="anthropic". */
 		ANTHROPIC_API_KEY?: string;
+		// The LLM port (ports/llm.ts) is provider-neutral. These are all optional: which ones are
+		// read depends on the `LLM` variable.
+		/** A key for whichever provider `LLM` names. Checked before the provider-specific names below. */
+		LLM_API_KEY?: string;
+		OPENAI_API_KEY?: string;
+		GEMINI_API_KEY?: string;
+		OPENROUTER_API_KEY?: string;
+		GROQ_API_KEY?: string;
+		CLOUDFLARE_API_TOKEN?: string;
+		/** Overrides the provider's base URL (for a gateway or proxy), or supplies it for LLM="openai-compatible". */
+		LLM_BASE_URL?: string;
+		LLM_MAX_TOKENS?: string;
+		/** Reasoning effort, passed through to providers that support it. */
+		LLM_EFFORT?: string;
 	}
 }
 
