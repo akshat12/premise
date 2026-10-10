@@ -19,7 +19,8 @@
     "agent:scripts": "tsx scripts/build-agent-scripts.ts",
     "demo:record": "tsx scripts/record-run.ts",
     "demo:compress": "tsx scripts/compress-run.ts",
-    "demo": "tsx scripts/demo.ts"
+    "demo": "tsx scripts/demo.ts",
+    "demo:offline": "vite build && tsx scripts/serve-offline.ts"
   },
   "license": "MIT",
   "type": "module",

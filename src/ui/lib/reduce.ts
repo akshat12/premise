@@ -113,7 +113,15 @@ export function reduce(state: ViewState, e: PremiseEvent): ViewState {
 			if (!state.intents[e.id]) {
 				return state;
 			}
-			const next = updateIntent(state, e.id, (intent) => ({ ...intent, status: e.status, lastNote: e.note ?? intent.lastNote }));
+			let next = updateIntent(state, e.id, (intent) => ({ ...intent, status: e.status, lastNote: e.note ?? intent.lastNote }));
+			// An Intent that starts working straight after the ledger proposed a Split has accepted it:
+			// what the proposal left it is what it changes. (No event says so on its own.)
+			const decision = state.intents[e.id]?.decision;
+			if (e.status === "working" && decision?.kind === "split") {
+				const mine = decision.proposal.mine;
+				next = updateIntent(next, e.id, (intent) => ({ ...intent, claims: mergeClaims(intent.claims, mine) }));
+				next = { ...next, ledger: withWriter(next.ledger, mine, e.id) };
+			}
 			if (e.status === "landed") {
 				const landed = next.trunk.landed.includes(e.id) ? next.trunk.landed : [...next.trunk.landed, e.id];
 				return { ...next, trunk: { ...next.trunk, landed }, ledger: withoutIntent(next.ledger, e.id) };

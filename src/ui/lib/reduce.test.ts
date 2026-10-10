@@ -127,6 +127,16 @@ describe("reduce: one case per event type", () => {
 		}
 	});
 
+	it("an Intent that starts working after a Split changes what the Split left it", () => {
+		const proposed: PremiseEventBody[] = [created("i1"), { t: "claim.decision", id: "i1", decision: { kind: "split", with: "i2", proposal: { mine: [VERIFY], theirs: [LOGIN] } }, symbols: [VERIFY, LOGIN] }];
+		// Proposed only: nothing is shown as changing yet. Escalated instead of working: still nothing.
+		expect(run([...proposed, { t: "intent.status", id: "i1", status: "escalated" }]).intents.i1?.claims).toEqual([]);
+		const state = run([...proposed, { t: "intent.status", id: "i1", status: "working" }]);
+		expect(state.intents.i1?.claims).toEqual([{ symbol: VERIFY, mode: "body" }]);
+		expect(state.ledger[VERIFY]?.writer).toBe("i1");
+		expect(state.ledger[LOGIN]).toBeUndefined();
+	});
+
 	it("push.checked records the head commit and any out-of-claim edits", () => {
 		const state = run([created("i1"), { t: "push.checked", id: "i1", commit: SHA("b"), touched: [LOGIN, VERIFY], outOfClaim: [VERIFY] }]);
 		expect(state.intents.i1).toMatchObject({ headCommit: SHA("b"), outOfClaim: [VERIFY] });

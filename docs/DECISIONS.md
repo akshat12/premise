@@ -729,3 +729,18 @@ The user approved the fix proposed under T16. It is not in `SPEC.md` or any task
   - `grep -ri "merge queue\\|pull request" README.md src/ui`: nothing. `git ls-files | grep -E "dev.vars|\\.env$"`: nothing.
   - `npm run typecheck && npm test`: 703 passed, 4 skipped.
   - The README's deployed link, `https://premise.akshatdivekar.workers.dev/?demo=main`, plays; the second → lands on the premise break.
+
+## 2026-10-10: T25 notes (video script, shot list, dry run, submission checklist, stage variant)
+
+**Status: documents written; one acceptance step is the human's.** The script has to be read aloud once against `/?demo=main` and land between 7:30 and 9:00. Until that is done the T25 box in `PLAN.md` stays unticked.
+
+- **Files.** `docs/video/script.md`, `shot-list.md`, `dry-run.md`, `stage-10min.md`, `end-frame.html`; `docs/SUBMISSION.md`; `scripts/serve-offline.ts` (`npm run demo:offline`).
+- **The script is written against the real recording.** Every number in it is from `demo/runs/main.json` or `docs/ab-results.md`, and every key press in the shot list was tried. It is about 1,160 spoken words: 7:45 at 150 words a minute, 8:00 to 8:30 with the pauses. That is an estimate from a word count, not a timed read.
+- **Order of beats differs from the recording's own order.** In the recording the stalemate card (0:20) comes before the premise break (0:26). The video shows the break first, then restarts the recording for the stalemate (shot 5: Play again, Space, →).
+- **The ⏩ marker is shown after the three re-derives, not during them.** The first idle stretch in the run comes at 1:56, after T11 has landed; nothing was idle during the re-derives, so there is nothing to mark there.
+- **The dispatch shot opens the real dispatch panel but does not press Dispatch.** The narration says plainly that what follows is a recording of that run.
+- **What the script admits:** the agents in the recording replay recorded turns; the workload is scripted; 17% slower; a 76% false-positive rate.
+- **`vite preview` is not an offline fallback.** The task suggested `npm run build && npx vite preview` for the stage. Tried with no Cloudflare login: it fails ("Failed to start the remote proxy session"), because preview starts the Worker and the Artifacts binding is remote. `npm run demo:offline` builds and then serves `dist/client` as plain files from a 40-line Node server (no dependency); the recorded run and the fonts are in the build, so `/?demo=main` plays with the network off. Checked with `HOME` pointed at an empty directory and in the browser.
+- **A UI fix found while scripting:** an Intent that accepted the ledger's Split showed no "changes" chip and its drawer said "Changes nothing yet", because accepting a Split publishes no event. The reducer now takes "starts working straight after a Split decision" as acceptance and shows what the proposal left it (`reduce.ts`, with a test). T05 now shows a pencil chip for `taxFor` at the stalemate.
+- **The repo has no git remote.** Publishing it is the first item in `docs/SUBMISSION.md`. Checked on Oct 10: the deployed admin token and the Gemini key are in no tracked file and no commit; the only token in the repo is `local-admin-token`, the local test value.
+- **`docs/SUBMISSION.md`:** every item has an owner (Akshat; some can be done by a coding session once he says go) and a day. The proposed days are Oct 10 publish, Oct 11 dry run and timed read, Oct 12 record, Oct 13 upload and checks, Oct 14 by 6 PM PDT submit, Oct 20 stage rehearsal offline.
