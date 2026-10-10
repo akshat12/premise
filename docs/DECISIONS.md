@@ -249,3 +249,15 @@ A third LLM option, after the Anthropic key and the Workers AI fallback. Nothing
 - **What Premise needs:** one agent run is roughly 8 to 32 model requests, so a 12-agent demo run with re-derives is roughly 150 to 450 requests, with up to 12 agents calling at once.
 - **Integration:** it needs an API key (a `GEMINI_API_KEY` secret). It has an OpenAI-compatible endpoint (`https://generativelanguage.googleapis.com/v1beta/openai/`, `Authorization: Bearer <key>`) that accepts `tools`, so it could share the chat-completions adapter the Workers AI fallback would need. AI Gateway also proxies it. For Gemini 3 models the model's thought and function-call parts must be sent back unchanged on the next turn; whether the OpenAI-compatible endpoint handles that across tool results is not documented and was not tested.
 - **Data:** content sent on the free tier is used to improve Google's products. The demo repo is public, so that is acceptable here.
+
+## 2026-10-09: T06 notes (symbol index)
+
+- `src/worker/symbols/index.ts` uses the TypeScript parser only. It is the first app code that imports `typescript`; it runs in the Node unit tests, and T07 adds the first test inside workerd.
+- **Extra exports beyond the task's API:** `resolveImport(fromPath, specifier)` and `isIndexedPath(path)` (true for `*.ts` outside `tests/` and `premise/`, not `.d.ts`).
+- **`signatureEndLine` for consts:** a const whose value is an arrow function or function expression with a block body is treated like a function, so editing its body is a body touch. Every other const is all interface, as the task says.
+- **`lineDiff` treats lines that differ only in whitespace as equal** and drops changes made only of blank lines. That is how `touchedSymbols` ignores reformatting.
+- **Private helpers:** a changed non-exported declaration gives a body touch on every export that mentions its name, following helper-to-helper chains. The check is a name match on the export's source lines, not scope-aware.
+- **`importMap` has no entry for `import * as ns`.** `referencedSymbols` resolves `ns.name` and `ns.Type` uses to `<path>#name` itself. It skips identifiers that are declaration names or property names, and does not model shadowing.
+- **Re-exports from another module** (`export { x } from "./y.js"`, `export * as ns from ...`) are not symbols of the re-exporting file. `demo-repo/src/index.ts` is all re-exports, so it contributes only `VERSION`.
+- The demo-repo test reads the repo through `DEMO_REPO_FILES` (Vite's `import.meta.glob`) rather than `node:fs`, because the Worker tsconfig has no Node types.
+- On the demo repo, the planted `t01` edit is reported as a **body** touch on `verifySession` and nothing else.
