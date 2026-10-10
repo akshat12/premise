@@ -95,9 +95,16 @@ export function fromChatCompletion(response: unknown): LlmTurn {
 	const count = (key: string) => (typeof usage[key] === "number" ? (usage[key] as number) : 0);
 
 	// What we replay: only the fields every server accepts back on an assistant message.
+	// The tool calls go back whole. Gemini attaches each call's thought signature to the call
+	// (`extra_content.google.thought_signature`) and answers 400 if it does not come back.
 	const raw: Record<string, unknown> = { role: "assistant", content: typeof message.content === "string" ? message.content : null };
 	if (calls.length > 0) {
 		raw.tool_calls = calls;
+	}
+	// `extra_content` is where an OpenAI-compatible server puts what the format has no field for.
+	// Gemini puts the signature of a reply without tool calls there. It is opaque: back it goes.
+	if (isRecord(message.extra_content)) {
+		raw.extra_content = message.extra_content;
 	}
 	return { blocks, stop, usage: { input: count("prompt_tokens"), output: count("completion_tokens") }, raw };
 }

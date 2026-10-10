@@ -334,6 +334,20 @@ describe("OpenAiCompatibleLlm", () => {
 		]);
 	});
 
+	it("replays what the provider attached to a reply without tool calls, and nothing else from it", async () => {
+		// Seen from Gemini on 2026-10-09: a text reply carries its thought signature on the message itself.
+		const textReply = { role: "assistant", content: "Done.", refusal: null, extra_content: { google: { thought_signature: "sig-text" } } };
+		const { llm, calls } = make([json({ choices: [{ finish_reason: "stop", message: textReply }], usage: {} }), json({ choices: [{ finish_reason: "stop", message: { role: "assistant", content: "Still done." } }], usage: {} })]);
+		const messages: LlmMessage[] = [{ role: "user", content: "Say hi" }];
+		const first = await llm.turn("s", messages, [ECHO]);
+		expect(first.raw).toEqual({ role: "assistant", content: "Done.", extra_content: { google: { thought_signature: "sig-text" } } });
+		messages.push(assistantMessage(first), { role: "user", content: "Continue by calling a tool." });
+		const second = await llm.turn("s", messages, [ECHO]);
+		expect((calls[1]?.body.messages as unknown[])[2]).toEqual({ role: "assistant", content: "Done.", extra_content: { google: { thought_signature: "sig-text" } } });
+		// A server that attaches nothing gets nothing extra back.
+		expect(second.raw).toEqual({ role: "assistant", content: "Still done." });
+	});
+
 	it("builds assistant messages from blocks when there is no provider payload", () => {
 		const messages: LlmMessage[] = [
 			{ role: "assistant", content: [{ type: "text", text: "Looking." }, { type: "tool_use", id: "c1", name: "echo", input: { text: "x" } }] },
