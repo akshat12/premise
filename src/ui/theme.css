@@ -1,0 +1,260 @@
+/* Premise's own tokens. Everything else on screen uses Kumo's semantic tokens.
+   These are for the strip board and the premise states only (see docs/UI.md). */
+:root {
+	/* Light mode only. Kumo's colours are written with light-dark(), which follows `color-scheme`,
+	   so pinning it here keeps the whole app light whatever the system is set to. */
+	color-scheme: only light;
+
+	--board: #edf0f3;
+	--strip: #fffdf4;
+	--strip-workload: #f2f6fc;
+	--ink: #17202b;
+	--ink-soft: #5a6675;
+	--holds: #23775a;
+	--redpen: #c42f28;
+	--bluestamp: #2b55c2;
+	--amber: #a86a12;
+	--rule: #d5dae1;
+
+	--font-callsign: "Barlow Condensed", "Arial Narrow", sans-serif;
+	--font-symbol: "IBM Plex Mono", ui-monospace, monospace;
+}
+
+html,
+body,
+#root {
+	height: 100%;
+}
+
+body {
+	margin: 0;
+	background: var(--board);
+	color: var(--ink);
+}
+
+.callsign {
+	font-family: var(--font-callsign);
+	font-weight: 600;
+	font-variant-numeric: tabular-nums;
+	letter-spacing: 0.01em;
+}
+
+.symbol {
+	font-family: var(--font-symbol);
+	font-weight: 500;
+}
+
+/* ---- The strip ---- */
+.strip {
+	position: relative;
+	display: grid;
+	grid-template-columns: 6px 150px minmax(0, 1fr);
+	align-items: stretch;
+	/* Kumo's Flow spaces lanes 16px apart, so 48px is what lets 13 strips fit a 900px-high screen. */
+	height: 48px;
+	width: 100%;
+	border: 1px solid var(--rule);
+	border-radius: 3px;
+	background: var(--strip);
+	color: var(--ink);
+	text-align: left;
+	transition: opacity 120ms linear;
+}
+.strip[data-kind="workload"] {
+	background: var(--strip-workload);
+}
+.strip[data-selected="true"] {
+	border-color: var(--ink);
+	box-shadow: inset 0 0 0 1px var(--ink);
+}
+.strip[data-dimmed="true"] {
+	opacity: 0.4;
+}
+.strip-band {
+	border-radius: 2px 0 0 2px;
+	background: var(--band, var(--ink-soft));
+	transition: background-color 200ms linear;
+}
+.strip-open {
+	display: flex;
+	flex-direction: column;
+	justify-content: center;
+	gap: 2px;
+	padding: 0 12px;
+	border: 0;
+	background: none;
+	color: inherit;
+	text-align: left;
+	cursor: pointer;
+}
+.chip-wrap {
+	display: inline-flex;
+	min-width: 0;
+}
+.strip-open:focus-visible,
+.chip-wrap button:focus-visible {
+	outline: 2px solid var(--bluestamp);
+	outline-offset: 1px;
+}
+
+/* ---- Chips ---- */
+.chip {
+	position: relative;
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	height: 22px;
+	max-width: 190px;
+	padding: 0 6px;
+	border: 1px solid var(--rule);
+	border-radius: 3px;
+	background: #fff;
+	color: var(--ink);
+	font-size: 12px;
+	line-height: 1;
+	white-space: nowrap;
+	cursor: default;
+}
+.chip > .symbol {
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+.chip[data-broken="true"] {
+	border-color: var(--redpen);
+	color: var(--redpen);
+}
+/* The red pen: a line drawn through a broken "relies on" chip. */
+.redpen-line {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	pointer-events: none;
+	overflow: visible;
+}
+.redpen-line path {
+	fill: none;
+	stroke: var(--redpen);
+	stroke-width: 2;
+	stroke-linecap: round;
+	stroke-dasharray: 100;
+	stroke-dashoffset: 0;
+	animation: redpen-draw 350ms ease-out both;
+}
+@keyframes redpen-draw {
+	from {
+		stroke-dashoffset: 100;
+	}
+	to {
+		stroke-dashoffset: 0;
+	}
+}
+.annotation {
+	color: var(--redpen);
+	font-size: 13px;
+	font-style: italic;
+	white-space: nowrap;
+	animation: annotation-in 150ms linear 350ms both;
+}
+@keyframes annotation-in {
+	from {
+		opacity: 0;
+	}
+	to {
+		opacity: 1;
+	}
+}
+/* The re-derive stamp. */
+.stamp {
+	display: inline-flex;
+	align-items: center;
+	height: 20px;
+	padding: 0 5px;
+	border: 2px solid var(--bluestamp);
+	border-radius: 2px;
+	color: var(--bluestamp);
+	font-size: 14px;
+	line-height: 1;
+	transform: rotate(-4deg);
+	animation: stamp-in 120ms ease-out both;
+}
+@keyframes stamp-in {
+	from {
+		transform: rotate(-4deg) scale(1.15);
+	}
+	to {
+		transform: rotate(-4deg) scale(1);
+	}
+}
+
+/* ---- Bays (the stages after the strip) ---- */
+.bay {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	justify-content: flex-start;
+	height: 28px;
+	padding: 0 8px;
+	border: 1px solid var(--rule);
+	border-radius: 3px;
+	background: #fff;
+	color: var(--ink);
+	font-size: 13px;
+	white-space: nowrap;
+	overflow: hidden;
+}
+.bay[data-reached="false"] {
+	background: transparent;
+	color: var(--ink-soft);
+	border-style: dashed;
+}
+
+/* ---- Live pill ---- */
+.live-dot {
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	background: currentColor;
+}
+.live-dot[data-pulse="true"] {
+	animation: live-pulse 1.5s ease-in-out infinite;
+}
+@keyframes live-pulse {
+	0%,
+	100% {
+		opacity: 1;
+	}
+	50% {
+		opacity: 0.35;
+	}
+}
+
+/* ---- Drawer ---- */
+.drawer {
+	border-top: 1px solid var(--rule);
+	background: #fff;
+	animation: drawer-up 160ms ease-out both;
+}
+@keyframes drawer-up {
+	from {
+		transform: translateY(24px);
+		opacity: 0;
+	}
+	to {
+		transform: translateY(0);
+		opacity: 1;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.strip,
+	.strip-band,
+	.redpen-line path,
+	.annotation,
+	.stamp,
+	.drawer,
+	.live-dot[data-pulse="true"] {
+		animation: none;
+		transition: none;
+	}
+}

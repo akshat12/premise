@@ -644,3 +644,25 @@ The user approved the fix proposed under T16. It is not in `SPEC.md` or any task
   - `behaviouralRegressionsOnTrunk` 0 (the hidden reference tests of all three passed on trunk), `premisesBroken` 1, `rederives` 1/1/0.
   - It is slow because three agents share 15 requests a minute; most of the time is waiting out 429s.
 - Afterwards the live Worker was put back to recorded agents (`provider: null`) and reset.
+
+## 2026-10-09: T20 notes (UI shell, counters, strip board)
+
+- **Files.** `src/ui/theme.css` (tokens and the strip, chip, bay, stamp and red-pen styles), `src/ui/lib/view.ts` (pure: callsigns, status looks, bays, chips, annotation, lanes, ledger rows), `src/ui/lib/useViewState.ts`, `src/ui/components/{TopBar,Counter,Strip,Lanes,LedgerRail,Drawer}.tsx`, `src/ui/App.tsx`. Screens: `docs/screens/t20.jpg` (the premise break) and `docs/screens/t20-end-with-drawer.jpg`.
+- **Light mode is forced** three ways that agree: `color-scheme: only light` on `:root` (in `theme.css` and inline on `<html>`), `<meta name="color-scheme" content="only light">`, and `data-mode="light"` on `<html>`. Kumo's colours are written with `light-dark()`, which follows `color-scheme`; its dark theme is otherwise switched on by `data-mode="dark"`, which is never set. Checked by emulating a dark system: `prefers-color-scheme: dark` matched and the page stayed light.
+- **The replay plays a real run, not a hand-written one.** `src/ui/fixtures/real-run.json` is the event log of the deployed Worker running the 12 recorded agents (`landFirst: t01`) plus 40 workload Intents: 1,119 events over 99 s. It is loaded on demand as its own chunk. `sample-run.json` (hand-written, T04) is still there for the reducer's tests.
+- **`?frame=N`** shows the recording as it stood after its first N events and stops there (the pill says "Still · event N"). Event 360 is the premise break. `?live` opens on the live stream.
+- **Strips are 48px tall, not 56.** Kumo's Flow lays nodes out itself with 16px between lanes and 64px between nodes, and clips what does not fit. 13 lanes at 56px need 920px; at 48px they need 816px, which fits under the top bar at 1440×900.
+- **The strip's width follows the window** (`stripWidthFor`): whatever is left after the backlog, the three bays and the gaps, so all bays stay on screen from 1280 up. Bays have fixed widths and one word each; a failed gate shows a red cross and says why in its title and in the strip's note.
+- **What a strip shows:** the holder band, the callsign (`T02 AUDIT`, from the task id), a status icon and word, then up to three chips (pencil = changes, eye = relies on; filled icon = interface claim or asserted premise). With a red-pen note, the struck-through chip and the note come first and the other chips give way. Broken premises are not shown once the Intent has landed.
+- **The re-derive stamp counts races** (`IntentView.races`, counted in the reducer from `rederive.race` events that start with both legs pending), because no event carries `rederiveAttempts`.
+- **The ledger rail lists agents' Intents only**, broken symbols first, then contested ones. Workload Intents would bury them.
+- **View state is reduced incrementally** (`useViewState`): only the events that arrived since the last render are applied.
+- **Hover a chip or a ledger row** and every strip that does not touch that symbol dims to 40%. `j`/`k` move between strips, `Esc` closes the drawer. The command palette and shortcuts sheet are left for T22.
+- **Counters:** the two hero numbers are Broken builds on trunk and Human merges; then Agents active, Landed, Premises broken, and "Stale, settled" (`rederives.succeeded`, which counts stale Intents settled by a rebase as well as by a re-derive).
+- **Not in this task:** dispatching from the UI (the button says so), the full drawer (T21), human cards (T22). The live stream sends at most 5,000 events of backlog; a run with more needs paging.
+- **Self-critique.**
+  - Five-second test at the break (`?frame=360`): three red strips each say "verifySession changed", the ledger's top row is `verifySession` with three readers struck through, and nothing else on screen is red.
+  - Changed after looking: the note used to overlap the chips (it now sits right after the struck chip); callsigns wrapped (one line now); the last bay ran under the rail (width now follows the window); a landed strip still showed its struck chip (hidden once landed); "Re-derived" over-claimed (renamed).
+  - Taken away: the file name on every plain ledger row. Nothing felt missing.
+  - Keep consistent in T21 to T23: red is only ever a broken premise or a failed gate; blue only the re-derive stamp, the workload strip's band and the replay pill; no shadows, 3px radius, 1px `--rule` borders; callsigns are the only uppercase.
+- The screenshot tool returns images scaled to 800px wide, so the saved screens are that size even though the page was laid out at 1440×900.

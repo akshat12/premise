@@ -15,6 +15,8 @@ export interface IntentView extends IntentSummary {
 	/** The latest gate report for this Intent. */
 	gate?: GateReport;
 	race?: { rebase: RaceLeg; rederive: RaceLeg; winner?: "rebase" | "rederive" };
+	/** How many times it has been through a re-derive race (the R1, R2 stamp). */
+	races?: number;
 	/** Present while (and after) the Intent needs a person. `resolved` is set once someone has chosen. */
 	human?: { kind: "stalemate" | "fallback"; message: string; options: HumanOption[]; resolved?: string };
 }
@@ -175,6 +177,8 @@ export function reduce(state: ViewState, e: PremiseEvent): ViewState {
 			return updateIntent(state, e.id, (intent) => ({
 				...intent,
 				race: e.winner === undefined ? { rebase: e.rebase, rederive: e.rederive } : { rebase: e.rebase, rederive: e.rederive, winner: e.winner },
+				// Both legs pending is how a race starts.
+				races: (intent.races ?? 0) + (e.rebase === "pending" && e.rederive === "pending" ? 1 : 0),
 			}));
 
 		case "human.needed":
