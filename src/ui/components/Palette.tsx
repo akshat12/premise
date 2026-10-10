@@ -83,6 +83,11 @@ const SHORTCUTS: [string[], string][] = [
 	[["Esc"], "Close the drawer or panel"],
 	[["⌘", "K"], "Open the command palette"],
 	[["?"], "Show these shortcuts"],
+	[["Space"], "Replay: pause or resume"],
+	[["→"], "Replay: jump to the next key moment"],
+	[["1"], "Replay: normal speed"],
+	[["2"], "Replay: twice as fast"],
+	[["4"], "Replay: four times as fast"],
 ];
 
 /** The `?` sheet. */

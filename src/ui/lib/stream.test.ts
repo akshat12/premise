@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { PremiseEvent } from "../../shared/events";
-import { appendEvents, backoffMs, liveUrl, replayDelays } from "./stream";
+import { appendEvents, backoffMs, dueBy, liveUrl, replayDelays, replayOffsets } from "./stream";
 
 const marker = (seq: number, ts: number, label = "m"): PremiseEvent => ({ t: "demo.marker", label, seq, ts });
 const status = (seq: number, ts: number): PremiseEvent => ({ t: "intent.status", id: "i00000001", status: "working", seq, ts });
@@ -48,9 +48,11 @@ describe("replayDelays", () => {
 		expect(replayDelays(events, 4)).toEqual([0, 125, 500]);
 	});
 
-	it("skips the gaps on either side of a demo.marker", () => {
+	it("skips the gap before a demo.marker and plays the pause after it", () => {
+		// The marker stands for the three minutes before it. What follows it is the pause that was kept.
 		const events = [status(1, 1000), marker(2, 181_000), status(3, 181_500), status(4, 182_000)];
-		expect(replayDelays(events, 1)).toEqual([0, 0, 0, 500]);
+		expect(replayDelays(events, 1)).toEqual([0, 0, 500, 500]);
+		expect(replayDelays(events, 2)).toEqual([0, 0, 250, 250]);
 	});
 
 	it("never returns a negative delay and treats a bad speed as 1", () => {
@@ -60,5 +62,26 @@ describe("replayDelays", () => {
 
 	it("handles an empty log", () => {
 		expect(replayDelays([], 1)).toEqual([]);
+	});
+});
+
+describe("replayOffsets and dueBy", () => {
+	const events = [status(1, 1000), status(2, 1500), status(3, 1500), marker(4, 181_000), status(5, 182_000)];
+
+	it("gives each event's due time on the recording's own clock, with the cut before a marker left out", () => {
+		expect(replayOffsets(events)).toEqual([0, 500, 500, 500, 1500]);
+		expect(replayOffsets([])).toEqual([]);
+	});
+
+	it("shows everything that is due, however many that is", () => {
+		const offsets = replayOffsets(events);
+		expect(dueBy(offsets, 0, 0)).toBe(1);
+		expect(dueBy(offsets, 1, 499)).toBe(1);
+		expect(dueBy(offsets, 1, 500)).toBe(4);
+		expect(dueBy(offsets, 4, 10_000)).toBe(5);
+	});
+
+	it("never goes back, even if the clock is behind what is shown", () => {
+		expect(dueBy(replayOffsets(events), 4, 0)).toBe(4);
 	});
 });

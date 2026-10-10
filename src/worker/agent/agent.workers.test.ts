@@ -366,3 +366,30 @@ describe("runAgent: when things go wrong", () => {
 		await started.api.act({ a: "fail" }, "test cleanup");
 	}, 30_000);
 });
+
+describe("recordingTo: keeping a real model's turns", () => {
+	it("stores each turn under the script's key, numbered from where the conversation has got to", async () => {
+		const { recordingTo } = await import("./workflow");
+		const { ScriptedLlm } = await import("../ports/llm");
+		const turns: LlmTurn[] = [
+			{ blocks: [{ type: "text", text: "third" }], stop: "end_turn", usage: { input: 10, output: 2 } },
+			{ blocks: [{ type: "text", text: "fourth" }], stop: "end_turn", usage: { input: 14, output: 2 } },
+		];
+		const key = `rec-${Date.now()}`;
+		// Two turns were played before this step began (a restarted Workflow carries on from there).
+		const client = recordingTo(env, new ScriptedLlm(turns), key, 2);
+		expect(await client.turn("system", [], [])).toEqual(turns[0]);
+		expect(await client.turn("system", [], [])).toEqual(turns[1]);
+		const kept = (await hub(env).recordedTurns())[key];
+		// Indexes 2 and 3 were written; with nothing at 0 and 1, they come back as the script's two turns.
+		expect(kept).toEqual(turns);
+	});
+
+	it("still answers when the turn cannot be stored", async () => {
+		const { recordingTo } = await import("./workflow");
+		const { ScriptedLlm } = await import("../ports/llm");
+		const turn: LlmTurn = { blocks: [{ type: "text", text: "ok" }], stop: "end_turn", usage: { input: 1, output: 1 } };
+		const broken = { HUB: { idFromName: () => "id", get: () => ({ recordTurn: () => Promise.reject(new Error("hub is away")) }) } } as unknown as Pick<Env, "HUB">;
+		expect(await recordingTo(broken, new ScriptedLlm([turn]), "any", 0).turn("system", [], [])).toEqual(turn);
+	});
+});

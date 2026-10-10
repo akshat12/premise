@@ -1,7 +1,7 @@
 import { isEventBody } from "../../shared/wire";
 import { isAdminRequest } from "../admin-auth";
 import { resetDemo } from "../dispatch";
-import { currentTrunk, hub, publish } from "../hub/publish";
+import { currentTrunk, hub, publish, withChosenLlm } from "../hub/publish";
 import { getRepoStore } from "../ports";
 import { ArtifactsRepoStore } from "../ports/artifacts-repo-store";
 import { runContract } from "../ports/repo-store.contract";
@@ -138,6 +138,10 @@ export async function handleAdmin(request: Request, env: Env, url: URL): Promise
 			await hub(env).setLlm(choice);
 			return Response.json({ ok: true, llm: describeLlm(chosen) });
 		}
+		case "/api/admin/llm-turns":
+			// What a real model answered since the last reset, as scripts the scripted provider can replay.
+			// Empty when the agents were scripted: there is nothing to record.
+			return Response.json({ ok: true, llm: describeLlm(await withChosenLlm(env)), scripts: await hub(env).recordedTurns() });
 		case "/api/admin/import-trunk":
 			return importTrunk(request, env);
 		case "/api/admin/reset-demo":

@@ -56,19 +56,23 @@ function TrunkBay({ intent }: { intent: IntentView }) {
 	);
 }
 
+/** The whole scripted workload as one strip, laid out like an agent's: callsign, a word under it, then what is happening. */
 function WorkloadStrip({ workload }: { workload: NonNullable<LaneData["workload"]> }) {
-	const parts = [`${workload.landed} landed`, workload.moving > 0 ? `${workload.moving} on their way` : null, workload.stale > 0 ? `${workload.stale} stale` : null, workload.failed > 0 ? `${workload.failed} gave up` : null].filter(Boolean);
+	const parts = [`${workload.landed} landed`, workload.moving > 0 ? `${workload.moving} in flight` : null, workload.stale > 0 ? `${workload.stale} stale` : null, workload.failed > 0 ? `${workload.failed} gave up` : null].filter(Boolean);
 	return (
-		<div className="strip" data-kind="workload" style={{ ["--band" as string]: "var(--bluestamp)", gridTemplateColumns: "6px minmax(0, 1fr)" }} role="group" aria-label={`Scripted workload, ${workload.total} Intents: ${parts.join(", ")}`}>
+		<div className="strip" data-kind="workload" style={{ ["--band" as string]: "var(--bluestamp)" }} role="group" aria-label={`Scripted workload, not a model, ${workload.total} Intents: ${parts.join(", ")}`}>
 			<span className="strip-band" aria-hidden="true" />
-			<div className="flex items-center gap-4" style={{ padding: "0 12px" }}>
-				<span className="flex items-center gap-2">
-					<Stack size={18} aria-hidden="true" />
-					<span className="callsign" style={{ fontSize: 20, lineHeight: 1 }}>
-						WORKLOAD {workload.total}
-					</span>
+			<div className="flex flex-col justify-center" style={{ padding: "0 12px", gap: 2, minWidth: 0 }}>
+				<span className="callsign" style={{ fontSize: 20, lineHeight: 1, whiteSpace: "nowrap" }}>
+					WORKLOAD {workload.total}
 				</span>
-				<span style={{ fontSize: 13, color: "var(--ink-soft)" }}>Scripted, not a model. {parts.join(" · ")}</span>
+				<span className="inline-flex items-center gap-1" style={{ color: "var(--bluestamp)", fontSize: 12, fontWeight: 600, whiteSpace: "nowrap" }}>
+					<Stack size={14} weight="bold" aria-hidden="true" />
+					scripted, no model
+				</span>
+			</div>
+			<div className="flex items-center" style={{ paddingRight: 10, minWidth: 0 }}>
+				<span style={{ fontSize: 13, color: "var(--ink-soft)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{parts.join(" · ")}</span>
 			</div>
 		</div>
 	);

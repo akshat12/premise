@@ -66,7 +66,7 @@ Tracks:
 
 - [x] **T18** (D): Scripted workload agents (300 or more), rate-limited. Depends on: T15
 - [x] **T19** (D): A/B harness (baseline vs premise) and metrics. Depends on: T18, T17
-- [ ] **T23** (U/D): Demo mode (record and replay), scale view, A/B panel, time-compress marker. Depends on: T19, T22
+- [x] **T23** (U/D): Demo mode (record and replay), scale view, A/B panel, time-compress marker. Depends on: T19, T22
 
 ### Day 6 (Tue Oct 13 to Wed Oct 14): ship
 

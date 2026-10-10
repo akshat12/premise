@@ -28,15 +28,35 @@ export function liveUrl(base: string, since: number): string {
 /**
  * How long to wait before showing each event in a replay: the gap between its `ts` and the
  * previous one, divided by `speed`. A `demo.marker` stands for time that was cut out of the
- * recording, so the gaps on either side of one are skipped.
+ * recording, so the gap before one is skipped. The gap after it is played as recorded: that is
+ * the short pause the cut was reduced to, with the marker on screen.
  */
 export function replayDelays(events: readonly PremiseEvent[], speed: number): number[] {
 	const rate = speed > 0 ? speed : 1;
 	return events.map((event, index) => {
 		const previous = events[index - 1];
-		if (previous === undefined || event.t === "demo.marker" || previous.t === "demo.marker") {
+		if (previous === undefined || event.t === "demo.marker") {
 			return 0;
 		}
 		return Math.max(0, event.ts - previous.ts) / rate;
 	});
+}
+
+/**
+ * When each event of a replay is due, in ms of recorded time after the start (at 1×): the
+ * running total of `replayDelays`. The player follows a clock against these, so a burst of
+ * events is shown together and a slow frame never makes the replay fall behind.
+ */
+export function replayOffsets(events: readonly PremiseEvent[]): number[] {
+	let total = 0;
+	return replayDelays(events, 1).map((delay) => (total += delay));
+}
+
+/** How many events are due once the replay's clock reads `clock` ms, given that `from` are already shown. */
+export function dueBy(offsets: readonly number[], from: number, clock: number): number {
+	let index = Math.max(0, from);
+	while (index < offsets.length && (offsets[index] ?? Infinity) <= clock) {
+		index++;
+	}
+	return index;
 }

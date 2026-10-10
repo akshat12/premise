@@ -15,7 +15,9 @@
     "smoke": "tsx scripts/smoke.ts",
     "demo:reference": "tsx scripts/build-demo-reference.ts",
     "demo:check": "tsx scripts/check-scenario.ts",
-    "agent:scripts": "tsx scripts/build-agent-scripts.ts"
+    "agent:scripts": "tsx scripts/build-agent-scripts.ts",
+    "demo:record": "tsx scripts/record-run.ts",
+    "demo:compress": "tsx scripts/compress-run.ts"
   },
   "license": "MIT",
   "type": "module",

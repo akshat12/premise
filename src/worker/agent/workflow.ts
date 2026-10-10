@@ -1,9 +1,9 @@
 import { WorkflowEntrypoint, type WorkflowEvent, type WorkflowStep } from "cloudflare:workers";
 import { landing } from "../gate/client";
-import { withChosenLlm } from "../hub/publish";
+import { hub, withChosenLlm } from "../hub/publish";
 import { intentStub } from "../intent/client";
 import { getRepoStore } from "../ports";
-import { getLlm, type LlmClient, type LlmMessage, resolveLlmConfig, ScriptedLlm } from "../ports/llm";
+import { getLlm, type LlmClient, type LlmMessage, type LlmTurn, RecordingLlm, resolveLlmConfig, ScriptedLlm } from "../ports/llm";
 import type { Intent } from "../../shared/types";
 import { handOff } from "./handoff";
 import { type AgentOutcome, type AgentParams, runAgent, type Steps } from "./run";
@@ -14,12 +14,32 @@ import { isWorkloadParams, runWorkloadIntent, type WorkloadParams, type Workload
 export function llmFor(env: Env, params: AgentParams): (intent: Intent, messages: readonly LlmMessage[]) => LlmClient {
 	if (resolveLlmConfig(env).provider !== "scripted") {
 		const client = getLlm(env);
-		return () => client;
+		// A real model: keep each turn it returns, so the run can be saved and replayed as a script.
+		return (intent, messages) => recordingTo(env, client, scriptKey(intent, params.mode), messages.filter((message) => message.role === "assistant").length);
 	}
 	return (intent, messages) => {
 		const key = scriptKey(intent, params.mode, params.script);
 		const played = messages.filter((message) => message.role === "assistant").length;
 		return new ScriptedLlm((AGENT_SCRIPTS[key] ?? []).slice(played), key);
+	};
+}
+
+/**
+ * `client`, with each turn it returns also kept in the hub as turn `played` (then `played + 1`, ...)
+ * of `script`. Keeping a turn is for demos; failing to must never cost the agent its run.
+ */
+export function recordingTo(env: Pick<Env, "HUB">, client: LlmClient, script: string, played: number): LlmClient {
+	const sink: LlmTurn[] = [];
+	const recorder = new RecordingLlm(client, sink);
+	return {
+		async turn(system, messages, tools) {
+			const reply = await recorder.turn(system, messages, tools);
+			const index = played + sink.length - 1;
+			await hub(env)
+				.recordTurn(script, index, JSON.stringify(sink.at(-1)))
+				.catch(() => undefined);
+			return reply;
+		},
 	};
 }
 

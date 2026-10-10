@@ -37,6 +37,8 @@ export class EventHub extends DurableObject<Env> {
 			sql.exec("CREATE TABLE IF NOT EXISTS processed_commits(commit_sha TEXT PRIMARY KEY, ts INTEGER)");
 			// Intents that have recorded at least one asserted premise: the only ones invalidation has to open.
 			sql.exec("CREATE TABLE IF NOT EXISTS asserters(id TEXT PRIMARY KEY)");
+			// What a real model answered, turn by turn, so a live run can be saved and replayed as a script.
+			sql.exec("CREATE TABLE IF NOT EXISTS llm_turns(script TEXT, idx INTEGER, turn TEXT, PRIMARY KEY (script, idx))");
 		});
 		// Answers keep-alive pings without waking a hibernated object.
 		ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair(PING, PONG));
@@ -127,6 +129,7 @@ export class EventHub extends DurableObject<Env> {
 		sql.exec("DELETE FROM waiters");
 		sql.exec("DELETE FROM processed_commits");
 		sql.exec("DELETE FROM asserters");
+		sql.exec("DELETE FROM llm_turns");
 		sql.exec("DELETE FROM meta WHERE key NOT IN ('trunk', 'llm')");
 		this.broadcast(JSON.stringify({ reset: true }));
 	}
@@ -204,6 +207,29 @@ export class EventHub extends DurableObject<Env> {
 
 	async setLlm(choice: { provider: string; model?: string } | null): Promise<void> {
 		this.setMeta("llm", choice);
+	}
+
+	/**
+	 * Keeps turn number `index` (from 0) of the conversation a real model is having under `script`
+	 * ("<taskId>" for a first run, "<taskId>.rederive" for a re-derive). Turn 0 starts the script
+	 * again, so a second re-derive replaces the first instead of mixing with it; a retried step
+	 * writes the same turn twice.
+	 */
+	async recordTurn(script: string, index: number, turn: string): Promise<void> {
+		const sql = this.ctx.storage.sql;
+		if (index === 0) {
+			sql.exec("DELETE FROM llm_turns WHERE script = ?", script);
+		}
+		sql.exec("INSERT INTO llm_turns (script, idx, turn) VALUES (?, ?, ?) ON CONFLICT(script, idx) DO UPDATE SET turn = excluded.turn", script, index, turn);
+	}
+
+	/** Every recorded script since the last reset: script key -> its turns in order, in the shape ScriptedLlm replays. */
+	async recordedTurns(): Promise<Record<string, unknown[]>> {
+		const scripts: Record<string, unknown[]> = {};
+		for (const row of this.ctx.storage.sql.exec<{ script: string; turn: string }>("SELECT script, turn FROM llm_turns ORDER BY script, idx")) {
+			(scripts[row.script] ??= []).push(JSON.parse(row.turn));
+		}
+		return scripts;
 	}
 
 	/** Notes that a Workflow instance is paused until `topic` happens. */

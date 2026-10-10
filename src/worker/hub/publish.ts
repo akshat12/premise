@@ -30,6 +30,8 @@ export interface HubApi {
 	setMode(mode: RunMode): Promise<void>;
 	llm(): Promise<{ provider: string; model?: string } | null>;
 	setLlm(choice: { provider: string; model?: string } | null): Promise<void>;
+	recordTurn(script: string, index: number, turn: string): Promise<void>;
+	recordedTurns(): Promise<Record<string, unknown[]>>;
 	addWaiter(instanceId: string, topic: string): Promise<void>;
 	takeWaiters(topic: string): Promise<string[]>;
 	fetch(input: Request | string, init?: RequestInit): Promise<Response>;

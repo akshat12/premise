@@ -294,3 +294,16 @@ kbd {
 	font-size: 12px;
 	text-align: center;
 }
+
+/* The top bar gives things up as the window narrows: first the two counters the scale view also
+   shows, then trunk's sha (every landed lane's Trunk bay shows it too). */
+@media (max-width: 1559px) {
+	.wide-only {
+		display: none;
+	}
+}
+@media (max-width: 1399px) {
+	.roomy-only {
+		display: none;
+	}
+}

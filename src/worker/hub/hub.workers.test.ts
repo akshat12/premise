@@ -86,6 +86,40 @@ describe("EventHub RPC", () => {
 	});
 });
 
+describe("recorded model turns", () => {
+	const turn = (text: string) => JSON.stringify({ blocks: [{ type: "text", text }], stop: "end_turn", usage: { input: 1, output: 1 } });
+
+	it("keeps each script's turns in order", async () => {
+		const hub = freshHub();
+		await hub.recordTurn("t02-audit-expired", 0, turn("a"));
+		await hub.recordTurn("t01-null-expired", 0, turn("x"));
+		await hub.recordTurn("t02-audit-expired", 1, turn("b"));
+		expect(await hub.recordedTurns()).toEqual({
+			"t01-null-expired": [JSON.parse(turn("x"))],
+			"t02-audit-expired": [JSON.parse(turn("a")), JSON.parse(turn("b"))],
+		});
+	});
+
+	it("a retried step replaces its turn, and turn 0 starts the script again", async () => {
+		const hub = freshHub();
+		await hub.recordTurn("t02.rederive", 0, turn("first try, 0"));
+		await hub.recordTurn("t02.rederive", 1, turn("first try, 1"));
+		await hub.recordTurn("t02.rederive", 1, turn("first try, 1 again"));
+		await hub.recordTurn("t02.rederive", 2, turn("first try, 2"));
+		expect(await hub.recordedTurns()).toEqual({ "t02.rederive": [JSON.parse(turn("first try, 0")), JSON.parse(turn("first try, 1 again")), JSON.parse(turn("first try, 2"))] });
+		// The second re-derive is shorter. Nothing of the first is left behind it.
+		await hub.recordTurn("t02.rederive", 0, turn("second try, 0"));
+		expect(await hub.recordedTurns()).toEqual({ "t02.rederive": [JSON.parse(turn("second try, 0"))] });
+	});
+
+	it("is cleared by a reset", async () => {
+		const hub = freshHub();
+		await hub.recordTurn("t01", 0, turn("a"));
+		await hub.reset();
+		expect(await hub.recordedTurns()).toEqual({});
+	});
+});
+
 describe("EventHub WebSocket", () => {
 	it("sends the backlog, then live events", async () => {
 		const hub = freshHub();
