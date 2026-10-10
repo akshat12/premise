@@ -23,6 +23,8 @@ export interface StaleEntry {
 	since: number;
 	/** The trunk commit the gate has just rebased this Intent's work onto and rejected, if it has. */
 	rebaseFailedAt?: CommitSha | null;
+	/** Why it did not land, in one line, when the gate rejected it. The re-deriving agent is told. */
+	reason?: string | null;
 }
 
 export interface RunningEntry {
@@ -137,8 +139,8 @@ export class RederiveScheduler {
 export interface RaceDeps extends LandDeps {
 	store: RepoStore;
 	trunk: string;
-	/** Starts the Intent's agent on its fresh fork. `broken` is what the agent is told no longer holds. */
-	startAgent(intent: Intent, attempt: number, broken: Premise[]): Promise<void>;
+	/** Starts the Intent's agent on its fresh fork. `broken` is what the agent is told no longer holds; `reason` is why its work did not land. */
+	startAgent(intent: Intent, attempt: number, broken: Premise[], reason?: string): Promise<void>;
 }
 
 export type RaceStart =
@@ -176,6 +178,7 @@ export async function startRace(env: LandEnv, entry: StaleEntry, deps: RaceDeps)
 
 	// The rebase. Skipped when there is nothing pushed to rebase, or when the gate has just
 	// rejected exactly this rebase onto exactly this trunk.
+	let reason = entry.reason ?? undefined;
 	if (before.headCommit !== null && entry.rebaseFailedAt !== (await deps.gate.head(deps.trunk))) {
 		const outcome = await landWork(env, before, "rebase", deps);
 		if (outcome.kind === "landed") {
@@ -183,6 +186,7 @@ export async function startRace(env: LandEnv, entry: StaleEntry, deps: RaceDeps)
 			await publishMetrics(env);
 			return { kind: "landed", outcome };
 		}
+		reason = outcome.note;
 	}
 	await publish(env, { t: "rederive.race", id, rebase: "fail", rederive: "pending" });
 
@@ -191,7 +195,7 @@ export async function startRace(env: LandEnv, entry: StaleEntry, deps: RaceDeps)
 	const { head } = await deps.store.fork(deps.trunk, fork);
 	await publish(env, { t: "artifacts", type: "forked", repo: fork, detail: { source: deps.trunk, intent: id } });
 	const restarted = await api.restartOn(fork, head);
-	await deps.startAgent(restarted, attempt, before.premises.filter((premise) => premise.state === "broken"));
+	await deps.startAgent(restarted, attempt, before.premises.filter((premise) => premise.state === "broken"), reason);
 	await publishMetrics(env);
 	return { kind: "rederiving", attempt, fork };
 }

@@ -8,3 +8,6 @@ docs/vendor/
 spikes/node_modules/
 .DS_Store
 *.tsbuildinfo
+
+# Worktrees made for background agents
+.claude/worktrees/

@@ -2,6 +2,8 @@
 // the record of what it relied on complete.
 import { parseSymbolId } from "../../shared/ids";
 import type { Assertion, Claim, CommitSha, Intent, IntentId, Premise, SymbolId } from "../../shared/types";
+import { landing } from "../gate/client";
+import { judgeStanding, planStanding, type Standing, standingRequest } from "../gate/standing";
 import type { IntentApi } from "../intent/client";
 import type { ToolDef } from "../ports/llm";
 import { applyChanges } from "../ports/memory-repo-store";
@@ -10,7 +12,7 @@ import { assertionSource, normalizeImportPath, runInIsolate } from "../runner";
 import { analyze, type SurfaceMap } from "../surface";
 import { indexFile, indexRepo, isIndexedPath, type SymbolInfo } from "../symbols";
 
-export type AgentEnv = Pick<Env, "HUB" | "INTENT" | "LEDGER" | "LOADER">;
+export type AgentEnv = Pick<Env, "HUB" | "INTENT" | "LEDGER" | "LOADER"> & Partial<Pick<Env, "LANDING">>;
 export type Phase = "plan" | "work";
 
 /** The fork as it was when the Intent started: files, symbols and their type surfaces. Computed once per run. */
@@ -31,6 +33,8 @@ export interface ToolContext {
 	base(): Promise<BaseView>;
 	/** Files whose symbols were already recorded as premises in this run, so repeat reads stay quiet. */
 	recorded: Set<string>;
+	/** The checks landed Intents left behind, which the gate will run on this work too. */
+	standing(): Promise<Standing[]>;
 }
 
 export interface ToolOutcome {
@@ -316,7 +320,10 @@ export interface CheckReport {
 	text: string;
 }
 
-/** Typechecks the agent's version of the repo and runs its acceptance tests and assertions. */
+/**
+ * Typechecks the agent's version of the repo and runs its acceptance tests and assertions, and
+ * also the acceptance checks of Intents that have already landed, because the gate will.
+ */
 export async function runChecks(ctx: ToolContext, intent: Intent): Promise<CheckReport> {
 	const files = await effectiveFiles(ctx);
 	const { typecheck } = analyze(files);
@@ -325,15 +332,29 @@ export async function runChecks(ctx: ToolContext, intent: Intent): Promise<Check
 		return { ok: false, text: [`Typecheck: FAILED (${typecheck.errors.length} error${typecheck.errors.length === 1 ? "" : "s"})`, ...shown.map((error) => `  ${error}`), "Tests were not run. Fix the type errors first."].join("\n") };
 	}
 	const assertions = intent.premises.flatMap((premise) => (premise.assertion && premise.state === "holding" ? [premise.assertion] : []));
-	const run = await runInIsolate(ctx.env, { files, tests: intent.acceptance.map((check) => ({ file: check.testFile, name: check.testName })), assertions });
+	const tests = intent.acceptance.map((check) => ({ file: check.testFile, name: check.testName }));
+	const plan = planStanding(await ctx.standing(), intent, (await ctx.base()).files, files);
+	const extra = standingRequest(plan);
+	const run = await runInIsolate(ctx.env, { files, tests: [...tests, ...extra.tests], assertions: [...assertions, ...extra.assertions] });
 	const lines = ["Typecheck: passed"];
-	run.tests.forEach((test, index) => {
+	run.tests.slice(0, tests.length).forEach((test, index) => {
 		lines.push(`${test.ok ? "PASS" : "FAIL"}  ${intent.acceptance[index]?.id ?? "test"}  ${test.file} > ${JSON.stringify(test.name)}${test.ok ? "" : `\n      ${test.error ?? "failed"}`}`);
 	});
-	for (const assertion of run.assertions) {
+	const own = run.assertions.slice(0, assertions.length);
+	for (const assertion of own) {
 		lines.push(`${assertion.ok ? "HOLDS " : "BROKEN"}  premise ${assertion.id}${assertion.ok ? "" : `\n      ${assertion.error ?? "failed"}`}`);
 	}
-	const ok = run.loadError === undefined && run.tests.every((test) => test.ok) && run.assertions.every((assertion) => assertion.ok);
+	// Work that has already landed: say nothing unless this change would break it.
+	const landed = run.loadError === undefined ? judgeStanding(plan, { tests: run.tests.slice(tests.length), assertions: run.assertions.slice(assertions.length) }).failures : [];
+	for (const failure of landed) {
+		for (const test of failure.tests) {
+			lines.push(`FAIL  landed Intent ${failure.intentId}  ${JSON.stringify(test.name)}\n      ${test.error}`);
+		}
+		if (failure.relied.length > 0) {
+			lines.push(`      That Intent relied on: ${failure.relied.join("; ")}. Update the code that depended on it; do not edit its test.`);
+		}
+	}
+	const ok = run.loadError === undefined && run.tests.slice(0, tests.length).every((test) => test.ok) && own.every((assertion) => assertion.ok) && landed.length === 0;
 	lines.push(ok ? "All checks passed. You can submit." : "Not all checks pass yet.");
 	return { ok, text: lines.join("\n") };
 }
@@ -392,7 +413,7 @@ export async function callTool(ctx: ToolContext, name: string, input: Record<str
 }
 
 /** Builds the per-run context. The base snapshot is loaded and analysed on first use, then kept. */
-export function createToolContext(env: AgentEnv, store: RepoStore, intent: IntentApi, intentId: IntentId): ToolContext {
+export function createToolContext(env: AgentEnv, store: RepoStore, intent: IntentApi, intentId: IntentId, standing?: () => Promise<Standing[]>): ToolContext {
 	let base: Promise<BaseView> | undefined;
 	return {
 		env,
@@ -401,6 +422,8 @@ export function createToolContext(env: AgentEnv, store: RepoStore, intent: Inten
 		store,
 		phase: "plan",
 		recorded: new Set(),
+		// If the gate cannot be asked, the agent simply finds out at the gate instead.
+		standing: standing ?? (async () => (env.LANDING === undefined ? [] : landing({ LANDING: env.LANDING }).standing().catch(() => []))),
 		base() {
 			base ??= (async () => {
 				const record = await intent.get();

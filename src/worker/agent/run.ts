@@ -26,6 +26,8 @@ export interface AgentParams {
 	attempt?: number;
 	/** Re-derive only: the premises that broke, as they were before the Intent was pointed at its fresh fork. */
 	broken?: Premise[];
+	/** Re-derive only: why the earlier work did not land, when the gate rejected it. */
+	reason?: string;
 }
 
 /** The durable-step interface the driver needs. The Workflow provides it; tests pass a plain in-memory one. */
@@ -223,7 +225,7 @@ export async function runAgent(deps: AgentDeps, params: AgentParams, steps: Step
 		// A re-derive is told what broke. Those premises were cleared from the Intent when it was
 		// pointed at its fresh fork, so they come with the run's parameters.
 		const briefed = params.mode === "rederive" && params.broken !== undefined ? { ...loaded.intent, premises: [...loaded.intent.premises, ...params.broken] } : loaded.intent;
-		const messages: LlmMessage[] = [{ role: "user", content: briefing({ ...loaded, intent: briefed, mode: params.mode }) }];
+		const messages: LlmMessage[] = [{ role: "user", content: briefing({ ...loaded, intent: briefed, mode: params.mode, ...(params.reason === undefined ? {} : { reason: params.reason }) }) }];
 
 		/** Runs turns in one phase until the agent signals the end of it. Returns the signalling turn, or a reason it ended early. */
 		const phaseLoop = async (phase: Phase, limit: number, wanted: "claim" | "submit"): Promise<{ done: TurnResult } | { failed: string } | { stopped: string }> => {

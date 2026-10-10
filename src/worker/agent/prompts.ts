@@ -30,10 +30,12 @@ export interface Briefing {
 	/** Pre-written assertions the agent may adopt by id. */
 	adoptable: Pick<Assertion, "id" | "description">[];
 	mode: "fresh" | "rederive";
+	/** Re-derive only: why the earlier work did not land. */
+	reason?: string;
 }
 
 /** The block added for a re-derive: what broke, and what the agent thought last time. */
-export function rederiveBlock(intent: Intent): string {
+export function rederiveBlock(intent: Intent, reason?: string): string {
 	const broken = intent.premises.filter((premise) => premise.state === "broken");
 	const lines = [
 		"This is a re-derive. Trunk changed underneath you, and your earlier work no longer holds.",
@@ -43,6 +45,16 @@ export function rederiveBlock(intent: Intent): string {
 			? broken.map((premise) => `- ${premise.assertion?.description ?? premise.symbol}: ${premise.brokenBy?.reason ?? "it no longer holds"}`)
 			: ["- (none recorded)"]),
 	];
+	if (reason !== undefined && reason.trim() !== "") {
+		lines.push("", "Why your earlier work did not land:", `- ${reason.trim()}`);
+		if (reason.includes("landed Intent")) {
+			// Its own change is fine; the trouble is code already on trunk that depended on the old behaviour.
+			lines.push(
+				"Work that has already landed depends on the behaviour you changed. Keep your change, and also update the code that depended on the old behaviour so that the landed acceptance check passes again: read that test and the code it exercises, and include the symbols you need to edit in declare_changes.",
+				"You may not edit or delete that test. run_checks runs it for you.",
+			);
+		}
+	}
 	if (intent.why.length > 0) {
 		lines.push("", "Your reasoning last time:", ...intent.why.map((line) => `- ${line}`));
 	}
@@ -54,7 +66,7 @@ export function rederiveBlock(intent: Intent): string {
 }
 
 /** The first user message: the goal, the acceptance checks, and what else the agent should know. */
-export function briefing({ intent, task, adoptable, mode }: Briefing): string {
+export function briefing({ intent, task, adoptable, mode, reason }: Briefing): string {
 	const lines = [`Intent ${intent.id}${task?.title ? `: ${task.title}` : ""}`, "", `Goal: ${intent.goal}`, "", "Acceptance checks (fixed; you must add these tests and make them pass):"];
 	for (const check of intent.acceptance) {
 		lines.push(`- ${check.id}: ${check.description}`, `  test file: ${check.testFile}`, `  test name: ${JSON.stringify(check.testName)}`);
@@ -66,7 +78,7 @@ export function briefing({ intent, task, adoptable, mode }: Briefing): string {
 		lines.push("", 'Assertions you can adopt with assert_premise { "adopt": "<id>" }:', ...adoptable.map((assertion) => `- ${assertion.id}: ${assertion.description}`));
 	}
 	if (mode === "rederive") {
-		lines.push("", rederiveBlock(intent));
+		lines.push("", rederiveBlock(intent, reason));
 	}
 	lines.push("", "Start by reading the code you need.");
 	return lines.join("\n");

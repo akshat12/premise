@@ -7,6 +7,7 @@ import type { RunRequest, RunResult } from "../runner";
 import { surface, typecheck } from "../surface";
 import { demoFiles, referencePatch } from "../testing/demo";
 import { changesBetween, describeFailure, type GateDeps, gateOne, landingMessage } from "./gate";
+import type { Standing } from "./standing";
 
 // A small repo where every answer is easy to see.
 const MATH = `export interface Money {
@@ -246,6 +247,63 @@ describe("gateOne", () => {
 		const h = harness();
 		const intent = await h.intentWith({ "README.md": "# shop!\n" }, { headCommit: null });
 		await expect(gateOne(h.deps, intent, "rebase")).rejects.toThrow(/nothing pushed/);
+	});
+});
+
+describe("gateOne with standing checks", () => {
+	const landedTest = { file: "tests/label.test.ts", name: "labels items" };
+	const withLandedTest = { ...REPO, "tests/label.test.ts": "export const tests = {};\n" };
+	const standing: Standing[] = [{ intentId: "ilanded01", tests: [landedTest], assertions: [{ symbol: "src/label.ts#label", assertion: { id: "s1", description: "label starts with item", code: "", imports: ["src/label.ts"] } }] }];
+
+	it("runs the landed checks with the Intent's own, and lands when they pass", async () => {
+		const h = harness(withLandedTest);
+		const { report, standingFailures, retired } = await gateOne(h.deps, await h.intentWith({ "README.md": "# shop!\n" }), "rebase", { standing });
+		expect(report).toMatchObject({ ok: true, tests: { passed: ["adds"], failed: [] }, assertions: { passed: [], failed: [] } });
+		expect([standingFailures, retired]).toEqual([[], []]);
+		expect(h.runs[0]?.tests).toEqual([{ file: "tests/math.test.ts", name: "adds" }, landedTest]);
+		expect(h.runs[0]?.assertions.map((item) => item.id)).toEqual(["landed:ilanded01:s1"]);
+	});
+
+	it("does not land an Intent that makes a landed acceptance check fail, and says whose", async () => {
+		const h = harness(withLandedTest);
+		const before = await h.store.head("trunk");
+		h.state.runner = (req) => ({
+			tests: req.tests.map((test) => ({ ...test, ok: test.name !== "labels items", error: test.name === "labels items" ? 'expected "item a", got "thing a"' : undefined, ms: 1 })),
+			assertions: req.assertions.map((item) => ({ id: item.id, ok: false, error: "it did not", ms: 1 })),
+		});
+		const { report, standingFailures } = await gateOne(h.deps, await h.intentWith({ "src/label.ts": 'export function label(name: string): string {\n\treturn "thing " + name;\n}\n' }), "rebase", { standing });
+		expect(report).toMatchObject({ ok: false, landedCommit: null, tests: { passed: ["adds"] }, assertions: { passed: [], failed: [] } });
+		expect(report.tests.failed).toEqual([{ name: "labels items", error: '(acceptance check of landed Intent ilanded01) expected "item a", got "thing a"' }]);
+		expect(standingFailures).toEqual([{ intentId: "ilanded01", tests: [{ name: "labels items", error: 'expected "item a", got "thing a"' }], relied: ["label starts with item"] }]);
+		expect(describeFailure(report, [], standingFailures)).toBe('Breaks landed Intent ilanded01: its acceptance check "labels items" fails (expected "item a", got "thing a"). It relied on: label starts with item.');
+		expect(await h.store.head("trunk")).toBe(before);
+	});
+
+	it("does not land an Intent that edits or deletes a landed acceptance test", async () => {
+		const h = harness(withLandedTest);
+		for (const change of ['export const tests = { "labels items": () => {} };\n', null]) {
+			const { report, standingFailures } = await gateOne(h.deps, await h.intentWith({ "tests/label.test.ts": change }), "rebase", { standing });
+			expect(report.ok).toBe(false);
+			expect(standingFailures[0]?.tests[0]?.error).toContain("cannot be edited");
+		}
+		expect(h.runs.every((run) => !run.tests.some((test) => test.name === "labels items"))).toBe(true);
+	});
+
+	it("lands an Intent that changes what a landed Intent relied on but keeps its checks passing, and retires the assertion", async () => {
+		const h = harness(withLandedTest);
+		h.state.runner = (req) => ({ ...allPass(req), assertions: req.assertions.map((item) => ({ id: item.id, ok: false, error: "it did not", ms: 1 })) });
+		const { report, retired, standingFailures } = await gateOne(h.deps, await h.intentWith({ "README.md": "# shop!\n" }), "rebase", { standing });
+		expect(report).toMatchObject({ ok: true, assertions: { passed: [], failed: [] } });
+		expect(standingFailures).toEqual([]);
+		expect(retired).toEqual([{ intentId: "ilanded01", assertionId: "s1", description: "label starts with item" }]);
+	});
+
+	it("runs the landed checks even for an Intent with no checks of its own", async () => {
+		const h = harness(withLandedTest);
+		h.state.runner = (req) => ({ ...allPass(req), tests: req.tests.map((test) => ({ ...test, ok: false, error: "broken", ms: 1 })) });
+		const { report } = await gateOne(h.deps, await h.intentWith({ "README.md": "# shop!\n" }, { acceptance: [] }), "rebase", { standing, skipAssertions: true });
+		expect(report.ok).toBe(false);
+		expect(h.runs).toHaveLength(1);
 	});
 });
 

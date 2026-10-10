@@ -10,6 +10,7 @@ import { analyze, surface, type SurfaceMap } from "../surface";
 import type { QueuePath } from "./client";
 import { describeFailure, type GateDeps, gateOne } from "./gate";
 import { type Invalidate, invalidate } from "./invalidate";
+import { type StandingFailure, standingOf, type StandingStore } from "./standing";
 
 const SNAPSHOTS_KEPT = 8;
 
@@ -77,13 +78,15 @@ export interface LandDeps {
 	gate: GateDeps;
 	invalidate?: Invalidate;
 	cache?: GateCache;
+	/** The checks landed Intents left behind. Without it, landed work is not protected (see standing.ts). */
+	standing?: StandingStore;
 }
 
 export type LandOutcome =
 	/** It is on trunk. `stale` lists the other Intents this landing turned stale. */
 	| { kind: "landed"; commit: CommitSha; changedSymbols: SymbolId[]; report: GateReport; stale: IntentId[] }
-	/** It did not get through. `trunkAt` is the trunk commit it was checked against. */
-	| { kind: "stale" | "failed"; report: GateReport; note: string; trunkAt: CommitSha }
+	/** It did not get through. `trunkAt` is the trunk commit it was checked against; `standingFailures` names landed Intents it would have broken. */
+	| { kind: "stale" | "failed"; report: GateReport; note: string; trunkAt: CommitSha; standingFailures: StandingFailure[] }
 	/** The Intent was not waiting for the gate (it went stale, failed, or does not exist), so nothing was done. */
 	| { kind: "skipped"; status: Intent["status"] | null };
 
@@ -108,17 +111,29 @@ export async function settle(api: IntentApi, action: IntentAction, note?: string
  * is changed; the caller decides what a failure means. `kind` is "landed" or "failed".
  */
 export async function landWork(env: LandEnv, intent: Intent, path: QueuePath, deps: LandDeps): Promise<Exclude<LandOutcome, { kind: "skipped" }>> {
-	const { report, changedSymbols, newTrunkFiles, conflicts, trunkBefore } = await gateOne(deps.gate, intent, path);
+	const standing = (await deps.standing?.all()) ?? [];
+	const { report, changedSymbols, newTrunkFiles, conflicts, trunkBefore, standingFailures, retired } = await gateOne(deps.gate, intent, path, { standing });
 	await publish(env, { t: "gate.result", report });
 
 	if (report.landedCommit === null || newTrunkFiles === undefined) {
-		return { kind: "failed", report, note: describeFailure(report, conflicts), trunkAt: trunkBefore };
+		return { kind: "failed", report, note: describeFailure(report, conflicts, standingFailures), trunkAt: trunkBefore, standingFailures };
 	}
 	const commit = report.landedCommit;
 	if (deps.cache !== undefined) {
 		rememberSnapshot(deps.cache, commit, newTrunkFiles);
 	}
 	await settle(intentStub(env, intent.id), { a: "land", commit });
+	if (deps.standing !== undefined) {
+		// From now on this Intent's acceptance checks are trunk's to keep.
+		const left = standingOf(intent);
+		if (left.tests.length + left.assertions.length > 0) {
+			await deps.standing.add(left);
+		}
+		// What it made untrue, having kept the dependent work passing, is no longer relied on.
+		for (const intentId of new Set(retired.map((item) => item.intentId))) {
+			await deps.standing.retire(intentId, retired.filter((item) => item.intentId === intentId).map((item) => item.assertionId));
+		}
+	}
 	let stale: IntentId[] = [];
 	// An Intent whose work was already on trunk lands without moving it, so there is nothing to announce.
 	if (commit !== trunkBefore) {

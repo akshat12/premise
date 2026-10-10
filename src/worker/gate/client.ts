@@ -2,6 +2,7 @@
 import type { CommitSha, IntentId, IntentStatus } from "../../shared/types";
 import type { Enqueue } from "./checker";
 import type { RunningEntry, StaleEntry } from "./rederive";
+import type { Standing } from "./standing";
 
 export type QueuePath = "rebase" | "rederive";
 
@@ -31,6 +32,7 @@ export interface LandingApi {
 	noteStale(intentId: IntentId, rebaseFailedAt?: CommitSha | null): Promise<void>;
 	rederiveFailed(intentId: IntentId, attempt: number, reason: string): Promise<void>;
 	humanChoice(intentId: IntentId, choice: "Retry" | "Abandon"): Promise<IntentStatus | null>;
+	standing(): Promise<Standing[]>;
 	status(): Promise<LandingStatus>;
 	clear(): Promise<void>;
 }

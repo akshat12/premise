@@ -4,7 +4,7 @@
 //   - stale Intents waiting to be re-derived, a few at a time (rederive.ts).
 // All the deciding is in those two files and in gate.ts; this file is storage, ordering and wiring.
 import { DurableObject } from "cloudflare:workers";
-import type { CommitSha, IntentId, IntentStatus, Premise, TaskDef } from "../../shared/types";
+import type { Assertion, CommitSha, IntentId, IntentStatus, Premise, TaskDef } from "../../shared/types";
 import { workflowInstanceId } from "../agent/instance";
 import { currentTrunk, publish, publishMetrics } from "../hub/publish";
 import { intentStub } from "../intent/client";
@@ -13,6 +13,7 @@ import type { RepoStore } from "../ports/repo-store";
 import type { LandingStatus, QueueEntry, QueuePath } from "./client";
 import { gateDeps, landIntent, newGateCache, settle } from "./land";
 import { pickBatch, taskPriority } from "./queue";
+import type { Standing, StandingStore } from "./standing";
 import { DEFAULT_MAX_CONCURRENT, finishRederive, MAX_FAILED_REDERIVES, type RaceDeps, RederiveScheduler, type RederiveStore, type StaleEntry, type Started, startRace } from "./rederive";
 
 /** How many times the gate starts on an Intent, or tries to start its re-derive, before giving up on that attempt. */
@@ -22,7 +23,7 @@ const RETRY_DELAY_MS = 2_000;
 export const RACE_TIMEOUT_MS = 20 * 60 * 1000;
 
 type QueueRow = { intent_id: string; path: string; priority: number; enqueued_at: number; attempts: number };
-type StaleRow = { intent_id: string; priority: number; since: number; rebase_failed_at: string | null };
+type StaleRow = { intent_id: string; priority: number; since: number; rebase_failed_at: string | null; reason: string | null };
 type RunningRow = { intent_id: string; attempt: number; started: number };
 
 const toEntry = (row: QueueRow): QueueEntry => ({ intentId: row.intent_id, path: row.path === "rederive" ? "rederive" : "rebase", priority: row.priority, enqueuedAt: row.enqueued_at, attempts: row.attempts });
@@ -53,6 +54,13 @@ export class Landing extends DurableObject<Env> {
 			sql.exec("CREATE TABLE IF NOT EXISTS running(intent_id TEXT PRIMARY KEY, attempt INTEGER NOT NULL, started INTEGER NOT NULL)");
 			// Re-derives of an Intent that have failed since it last landed or a person last said Retry.
 			sql.exec("CREATE TABLE IF NOT EXISTS rederive_failures(intent_id TEXT PRIMARY KEY, failed INTEGER NOT NULL)");
+			// What landed Intents left behind for the gate to keep true (see standing.ts). The tests themselves are on trunk.
+			sql.exec("CREATE TABLE IF NOT EXISTS standing_tests(intent_id TEXT NOT NULL, file TEXT NOT NULL, name TEXT NOT NULL, PRIMARY KEY (intent_id, file, name))");
+			sql.exec("CREATE TABLE IF NOT EXISTS standing_assertions(intent_id TEXT NOT NULL, assertion_id TEXT NOT NULL, symbol TEXT NOT NULL, assertion TEXT NOT NULL, PRIMARY KEY (intent_id, assertion_id))");
+			// Added after the table first shipped.
+			if (!sql.exec<{ name: string }>("PRAGMA table_info(stale_queue)").toArray().some((column) => column.name === "reason")) {
+				sql.exec("ALTER TABLE stale_queue ADD COLUMN reason TEXT");
+			}
 		});
 	}
 
@@ -67,18 +75,55 @@ export class Landing extends DurableObject<Env> {
 		return {
 			waiting: () =>
 				sql
-					.exec<StaleRow>("SELECT intent_id, priority, since, rebase_failed_at FROM stale_queue ORDER BY since, intent_id")
+					.exec<StaleRow>("SELECT intent_id, priority, since, rebase_failed_at, reason FROM stale_queue ORDER BY since, intent_id")
 					.toArray()
-					.map((row) => ({ intentId: row.intent_id, priority: row.priority, since: row.since, rebaseFailedAt: row.rebase_failed_at })),
+					.map((row) => ({ intentId: row.intent_id, priority: row.priority, since: row.since, rebaseFailedAt: row.rebase_failed_at, reason: row.reason })),
 			running: () =>
 				sql
 					.exec<RunningRow>("SELECT intent_id, attempt, started FROM running ORDER BY started, intent_id")
 					.toArray()
 					.map((row) => ({ intentId: row.intent_id, attempt: row.attempt, started: row.started })),
-			addWaiting: (entry) => void sql.exec("INSERT OR REPLACE INTO stale_queue (intent_id, priority, since, rebase_failed_at) VALUES (?, ?, ?, ?)", entry.intentId, entry.priority, entry.since, entry.rebaseFailedAt ?? null),
+			addWaiting: (entry) => void sql.exec("INSERT OR REPLACE INTO stale_queue (intent_id, priority, since, rebase_failed_at, reason) VALUES (?, ?, ?, ?, ?)", entry.intentId, entry.priority, entry.since, entry.rebaseFailedAt ?? null, entry.reason ?? null),
 			removeWaiting: (intentId) => void sql.exec("DELETE FROM stale_queue WHERE intent_id = ?", intentId),
 			addRunning: (entry) => void sql.exec("INSERT OR REPLACE INTO running (intent_id, attempt, started) VALUES (?, ?, ?)", entry.intentId, entry.attempt, entry.started),
 			removeRunning: (intentId) => void sql.exec("DELETE FROM running WHERE intent_id = ?", intentId),
+		};
+	}
+
+	private get standingChecks(): StandingStore {
+		const sql = this.ctx.storage.sql;
+		return {
+			all: (): Standing[] => {
+				const byIntent = new Map<IntentId, Standing>();
+				const entry = (intentId: IntentId) => {
+					let standing = byIntent.get(intentId);
+					if (standing === undefined) {
+						standing = { intentId, tests: [], assertions: [] };
+						byIntent.set(intentId, standing);
+					}
+					return standing;
+				};
+				for (const row of sql.exec<{ intent_id: string; file: string; name: string }>("SELECT intent_id, file, name FROM standing_tests ORDER BY rowid")) {
+					entry(row.intent_id).tests.push({ file: row.file, name: row.name });
+				}
+				for (const row of sql.exec<{ intent_id: string; symbol: string; assertion: string }>("SELECT intent_id, symbol, assertion FROM standing_assertions ORDER BY rowid")) {
+					entry(row.intent_id).assertions.push({ symbol: row.symbol, assertion: JSON.parse(row.assertion) as Assertion });
+				}
+				return [...byIntent.values()];
+			},
+			add: (standing) => {
+				for (const test of standing.tests) {
+					sql.exec("INSERT OR IGNORE INTO standing_tests (intent_id, file, name) VALUES (?, ?, ?)", standing.intentId, test.file, test.name);
+				}
+				for (const item of standing.assertions) {
+					sql.exec("INSERT OR REPLACE INTO standing_assertions (intent_id, assertion_id, symbol, assertion) VALUES (?, ?, ?, ?)", standing.intentId, item.assertion.id, item.symbol, JSON.stringify(item.assertion));
+				}
+			},
+			retire: (intentId, assertionIds) => {
+				for (const assertionId of assertionIds) {
+					sql.exec("DELETE FROM standing_assertions WHERE intent_id = ? AND assertion_id = ?", intentId, assertionId);
+				}
+			},
 		};
 	}
 
@@ -166,13 +211,18 @@ export class Landing extends DurableObject<Env> {
 		return (await api.get().catch(() => null))?.status ?? null;
 	}
 
+	/** The checks landed Intents left behind. Agents read them so `run_checks` can run them before the gate does. */
+	async standing(): Promise<Standing[]> {
+		return this.standingChecks.all();
+	}
+
 	async status(): Promise<LandingStatus> {
 		return { queue: this.rows(), busy: this.busy, stale: this.rederives.waiting(), rederiving: this.rederives.running() };
 	}
 
 	/** Empties both queues. Used when the demo is reset. */
 	async clear(): Promise<void> {
-		for (const table of ["queue", "stale_queue", "running", "rederive_failures"]) {
+		for (const table of ["queue", "stale_queue", "running", "rederive_failures", "standing_tests", "standing_assertions"]) {
 			this.ctx.storage.sql.exec(`DELETE FROM ${table}`);
 		}
 		await this.ctx.storage.deleteAlarm();
@@ -195,7 +245,8 @@ export class Landing extends DurableObject<Env> {
 				trunk,
 				gate: gateDeps(this.env, store, trunk, this.cache),
 				cache: this.cache,
-				startAgent: (intent, attempt, broken) => this.startAgent(intent.id, attempt, broken),
+				standing: this.standingChecks,
+				startAgent: (intent, attempt, broken, reason) => this.startAgent(intent.id, attempt, broken, reason),
 			};
 			// A slot marked as taken with no attempt number is a race whose start was cut short
 			// (alarms never overlap, so none can be starting now). Put it back in the queue.
@@ -256,7 +307,7 @@ export class Landing extends DurableObject<Env> {
 					}
 				} else if (outcome.kind === "stale") {
 					// The gate has just shown that the plain rebase does not pass on this trunk.
-					await this.queueStale(id, outcome.trunkAt);
+					await this.queueStale(id, outcome.trunkAt, outcome.note);
 				}
 				if (outcome.kind === "landed") {
 					for (const other of outcome.stale) {
@@ -285,7 +336,7 @@ export class Landing extends DurableObject<Env> {
 	}
 
 	/** Adds a stale Intent to the re-derive queue. If it was mid re-derive, trunk has moved under that attempt, which is void. */
-	private async queueStale(intentId: IntentId, rebaseFailedAt: CommitSha | null = null): Promise<void> {
+	private async queueStale(intentId: IntentId, rebaseFailedAt: CommitSha | null = null, reason: string | null = null): Promise<void> {
 		const scheduler = this.scheduler();
 		const running = scheduler.isRunning(intentId);
 		if (running !== undefined) {
@@ -293,7 +344,7 @@ export class Landing extends DurableObject<Env> {
 			await this.stopAgent(intentId, running.attempt);
 			await publish(this.env, { t: "rederive.race", id: intentId, rebase: "fail", rederive: "fail" });
 		}
-		scheduler.noteStale({ intentId, priority: await this.priorityOf(intentId), since: Date.now(), rebaseFailedAt });
+		scheduler.noteStale({ intentId, priority: await this.priorityOf(intentId), since: Date.now(), rebaseFailedAt, reason });
 	}
 
 	/** Runs one race to the point where it has landed or an agent is at work. */
@@ -346,7 +397,7 @@ export class Landing extends DurableObject<Env> {
 		}
 		this.setFailures(intentId, failedBefore + 1);
 		if (end === "stale") {
-			this.scheduler().noteStale({ intentId, priority: await this.priorityOf(intentId), since: Date.now() });
+			this.scheduler().noteStale({ intentId, priority: await this.priorityOf(intentId), since: Date.now(), reason: result.landed ? null : result.reason });
 		}
 	}
 
@@ -359,8 +410,8 @@ export class Landing extends DurableObject<Env> {
 		}
 	}
 
-	private async startAgent(intentId: IntentId, attempt: number, broken: Premise[]): Promise<void> {
-		await this.env.AGENT_WORKFLOW.create({ id: workflowInstanceId(intentId, attempt), params: { intentId, mode: "rederive", attempt, broken } });
+	private async startAgent(intentId: IntentId, attempt: number, broken: Premise[], reason?: string): Promise<void> {
+		await this.env.AGENT_WORKFLOW.create({ id: workflowInstanceId(intentId, attempt), params: { intentId, mode: "rederive", attempt, broken, ...(reason === undefined ? {} : { reason }) } });
 	}
 
 	private async stopAgent(intentId: IntentId, attempt: number): Promise<void> {

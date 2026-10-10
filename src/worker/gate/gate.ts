@@ -6,6 +6,7 @@ import { type FileChanges, type FileMap, StaleHeadError } from "../ports/repo-st
 import type { RunRequest, RunResult } from "../runner";
 import { diffSurface, type SurfaceMap, type TypecheckResult } from "../surface";
 import { threeWayRebase } from "./rebase";
+import { describeStandingFailure, judgeStanding, planStanding, type Standing, type StandingFailure, standingRequest, type StandingVerdict } from "./standing";
 
 export interface GateDeps {
 	snapshot(repo: string, ref: string): Promise<FileMap>;
@@ -27,6 +28,8 @@ export interface GateOptions {
 	skipTests?: boolean;
 	/** Run every check but do not commit. `report.ok` then means "would land"; `landedCommit` stays null. */
 	dryRun?: boolean;
+	/** What landed Intents left behind. Their acceptance checks must still pass for this to land (see standing.ts). */
+	standing?: readonly Standing[];
 }
 
 export interface GateOutcome {
@@ -39,6 +42,10 @@ export interface GateOutcome {
 	conflicts: string[];
 	/** Trunk's head when the check started. Equal to `report.landedCommit` when the work was already on trunk. */
 	trunkBefore: CommitSha;
+	/** Landed Intents this would break. Non-empty means it did not land for that reason. */
+	standingFailures: StandingFailure[];
+	/** Assertions of landed Intents that this landing made untrue while keeping their acceptance checks passing. */
+	retired: StandingVerdict["retired"];
 }
 
 const DEFAULT_TRUNK = "trunk";
@@ -98,7 +105,7 @@ async function attempt(deps: GateDeps, intent: Intent, opts: GateOptions): Promi
 	const [trunkFiles, base, head] = await Promise.all([deps.snapshot(trunk, trunkHead), deps.snapshot(intent.repo, intent.baseCommit), deps.snapshot(intent.repo, intent.headCommit)]);
 
 	const rebased = threeWayRebase(base, head, trunkFiles);
-	const stopped = { changedSymbols: [], conflicts: rebased.conflicts, passed: false, landedCommit: null, trunkBefore: trunkHead };
+	const stopped = { changedSymbols: [], conflicts: rebased.conflicts, passed: false, landedCommit: null, trunkBefore: trunkHead, standingFailures: [] as StandingFailure[], retired: [] as StandingVerdict["retired"] };
 	if (rebased.conflicts.length > 0) {
 		return { ...stopped, verdict: { textConflict: true, typecheck: { ok: false, errors: [] }, ...NOT_RUN } };
 	}
@@ -112,20 +119,29 @@ async function attempt(deps: GateDeps, intent: Intent, opts: GateOptions): Promi
 
 	const tests = opts.skipTests ? [] : intent.acceptance.map((check) => ({ file: check.testFile, name: check.testName }));
 	const assertions = opts.skipAssertions ? [] : intent.premises.flatMap((premise) => (premise.source === "asserted" && premise.assertion !== undefined ? [premise.assertion] : []));
-	const ran = tests.length + assertions.length === 0 ? NOT_RUN : summarise(intent, await deps.run({ files: merged, tests, assertions }));
-	const verdict: Verdict = { textConflict: false, typecheck, ...ran };
-	if (ran.tests.failed.length > 0 || ran.assertions.failed.length > 0) {
-		return { ...stopped, verdict };
+	// The checks landed Intents left behind run in the same isolate as the lander's own.
+	const plan = planStanding(opts.standing ?? [], intent, trunkFiles, merged);
+	const extra = standingRequest(plan);
+	const nothingToRun = tests.length + assertions.length + extra.tests.length + extra.assertions.length === 0;
+	const run: RunResult = nothingToRun ? { tests: [], assertions: [] } : await deps.run({ files: merged, tests: [...tests, ...extra.tests], assertions: [...assertions, ...extra.assertions] });
+	// The report's test and assertion lists are the Intent's own; a landed check that fails is added to the failures.
+	const ownRun: RunResult = { ...run, tests: run.tests.slice(0, tests.length), assertions: run.assertions.slice(0, assertions.length) };
+	const ran = tests.length + assertions.length === 0 && run.loadError === undefined ? NOT_RUN : summarise(intent, ownRun);
+	const standing = run.loadError === undefined ? judgeStanding(plan, { tests: run.tests.slice(tests.length), assertions: run.assertions.slice(assertions.length) }) : judgeStanding({ ...plan, tests: [], assertions: [] }, { tests: [], assertions: [] });
+	const landedFailed = standing.failures.flatMap((failure) => failure.tests.map((test) => ({ name: test.name, error: `(acceptance check of landed Intent ${failure.intentId}) ${test.error}` })));
+	const verdict: Verdict = { textConflict: false, typecheck, tests: { passed: ran.tests.passed, failed: [...ran.tests.failed, ...landedFailed] }, assertions: ran.assertions };
+	if (verdict.tests.failed.length > 0 || verdict.assertions.failed.length > 0) {
+		return { ...stopped, verdict, standingFailures: standing.failures };
 	}
 
 	if (opts.dryRun) {
-		return { ...stopped, passed: true, verdict };
+		return { ...stopped, passed: true, verdict, retired: standing.retired };
 	}
 	const changes = changesBetween(trunkFiles, merged);
 	// An Intent whose work is already on trunk has nothing to commit; trunk stays where it is.
 	const landedCommit = Object.keys(changes).length === 0 ? trunkHead : await deps.commitTrunk(trunkHead, changes, landingMessage(intent));
 	const moved = diffSurface(deps.surface(trunkFiles).map, deps.surface(merged).map);
-	return { verdict, passed: true, landedCommit, changedSymbols: [...moved.changed, ...moved.removed].sort(), newTrunkFiles: merged, conflicts: [], trunkBefore: trunkHead };
+	return { verdict, passed: true, landedCommit, changedSymbols: [...moved.changed, ...moved.removed].sort(), newTrunkFiles: merged, conflicts: [], trunkBefore: trunkHead, standingFailures: [], retired: standing.retired };
 }
 
 /**
@@ -150,7 +166,7 @@ export async function gateOne(deps: GateDeps, intent: Intent, path: GatePath, op
 }
 
 /** One line saying why an Intent did not get through the gate. Shown as the note on its status change. */
-export function describeFailure(report: GateReport, conflicts: readonly string[] = []): string {
+export function describeFailure(report: GateReport, conflicts: readonly string[] = [], standingFailures: readonly StandingFailure[] = []): string {
 	if (report.textConflict) {
 		return `Text conflict with trunk in ${conflicts.join(", ") || "a file both changed"}`;
 	}
@@ -161,6 +177,10 @@ export function describeFailure(report: GateReport, conflicts: readonly string[]
 	const assertion = report.assertions.failed[0];
 	if (assertion !== undefined) {
 		return `Premise ${assertion.id} no longer holds: ${assertion.error}`;
+	}
+	// Its own checks pass; what stops it is work that has already landed.
+	if (standingFailures.length > 0 && report.tests.failed.length === standingFailures.reduce((count, failure) => count + failure.tests.length, 0)) {
+		return describeStandingFailure(standingFailures);
 	}
 	const test = report.tests.failed[0];
 	return test === undefined ? "Did not pass the gate" : `Acceptance check failed on the new trunk: "${test.name}": ${test.error}`;
