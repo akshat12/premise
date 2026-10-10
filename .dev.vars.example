@@ -1,6 +1,9 @@
 # Copy to .dev.vars (git-ignored). These override the vars in wrangler.jsonc for local dev.
 REPO_STORE=memory
-ADMIN_TOKEN=change-me
+# The admin token for LOCAL dev only. The deployed Worker has its own (a wrangler secret);
+# scripts that call the deployed Worker read that one from ADMIN_TOKEN in the environment or
+# from .env.deployed (git-ignored), never from here.
+ADMIN_TOKEN=local-admin-token
 
 # Which model provider the agents use. "scripted" replays recorded turns and needs no key.
 # Others: anthropic | openai | google | openrouter | groq | workers-ai | openai-compatible

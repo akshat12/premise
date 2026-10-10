@@ -60,7 +60,7 @@ Tracks:
 - [x] **T15** (B): Landing DO, the gate (diff3 rebase, typecheck, tests, assertions, push to trunk). Depends on: T13, T14, T07
 - [x] **T16** (B): Premise invalidation, plus the trunk `pushed` event consumer. Depends on: T15
 - [x] **T17** (B): Re-derive race, with caps and escalation. Depends on: T16
-- [ ] **T22** (U): Human cards (stalemate, fallback), dispatch panel. Depends on: T21, T12
+- [x] **T22** (U): Human cards (stalemate, fallback), dispatch panel. Depends on: T21, T12
 
 ### Day 5 (Mon Oct 12 to Tue Oct 13): scale, A/B, demo mode
 

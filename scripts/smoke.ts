@@ -1,21 +1,27 @@
 // Smoke test against a running Premise Worker (normally the DEPLOYED one).
 //   PREMISE_URL=https://premise.<subdomain>.workers.dev npm run smoke
-// The admin token comes from the ADMIN_TOKEN environment variable, or from `.dev.vars` if that is
-// not set, so the secret never has to be typed on a command line.
+// The admin token comes from the ADMIN_TOKEN environment variable, or else from `.env.deployed`
+// (the deployed Worker's token, git-ignored), or else from `.dev.vars` (the local dev token), so
+// the secret never has to be typed on a command line.
 import { existsSync, readFileSync } from "node:fs";
 
 function adminToken(): string | undefined {
 	if (process.env.ADMIN_TOKEN) {
 		return process.env.ADMIN_TOKEN;
 	}
-	if (!existsSync(".dev.vars")) {
-		return undefined;
+	for (const file of [".env.deployed", ".dev.vars"]) {
+		if (!existsSync(file)) {
+			continue;
+		}
+		const line = readFileSync(file, "utf8")
+			.split("\n")
+			.find((entry) => entry.startsWith("ADMIN_TOKEN="));
+		const value = line?.slice("ADMIN_TOKEN=".length).trim().replace(/^["']|["']$/g, "");
+		if (value) {
+			return value;
+		}
 	}
-	const line = readFileSync(".dev.vars", "utf8")
-		.split("\n")
-		.find((entry) => entry.startsWith("ADMIN_TOKEN="));
-	const value = line?.slice("ADMIN_TOKEN=".length).trim().replace(/^["']|["']$/g, "");
-	return value || undefined;
+	return undefined;
 }
 
 const base = process.env.PREMISE_URL;

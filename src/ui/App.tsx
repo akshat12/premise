@@ -3,13 +3,17 @@ import { ArrowCounterClockwise, AirplaneTakeoff } from "@phosphor-icons/react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { PremiseEvent } from "../shared/events";
 import type { IntentId, SymbolId } from "../shared/types";
+import { DispatchPanel } from "./components/DispatchPanel";
 import { Drawer } from "./components/Drawer";
+import { HumanCards } from "./components/HumanCards";
 import { Lanes } from "./components/Lanes";
 import { LedgerRail } from "./components/LedgerRail";
+import { type Command, Palette, Shortcuts } from "./components/Palette";
 import { type LiveState, TopBar } from "./components/TopBar";
 import { type StreamSource, useEventStream } from "./lib/useEventStream";
 import { useViewState } from "./lib/useViewState";
-import { sharedSymbols } from "./lib/chips";
+import { explain, loadToken, resetDemo, saveToken } from "./lib/api";
+import { openCards, sharedSymbols } from "./lib/chips";
 import { callsign, lanesOf, ledgerRows, OUTSIDE } from "./lib/view";
 
 const LIVE_URL = "/api/events/ws";
@@ -30,6 +34,14 @@ export function App() {
 	const [selected, setSelected] = useState<IntentId | null>(null);
 	const [hoverSymbol, setHoverSymbol] = useState<SymbolId | null>(null);
 	const [notice, setNotice] = useState<string | null>(null);
+	const [token, setTokenState] = useState(loadToken);
+	const [dispatching, setDispatching] = useState(false);
+	const [paletteOpen, setPaletteOpen] = useState(false);
+	const [shortcutsOpen, setShortcutsOpen] = useState(false);
+	const setToken = useCallback((value: string) => {
+		setTokenState(value);
+		saveToken(value);
+	}, []);
 	const [windowWidth, setWindowWidth] = useState(() => window.innerWidth);
 	useEffect(() => {
 		const onResize = () => setWindowWidth(window.innerWidth);
@@ -87,7 +99,17 @@ export function App() {
 	useEffect(() => {
 		const onKey = (event: KeyboardEvent) => {
 			const target = event.target as HTMLElement | null;
-			if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)) {
+			const typing = target !== null && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable);
+			if (typing && !((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k")) {
+				return;
+			}
+			if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+				event.preventDefault();
+				setPaletteOpen(true);
+				return;
+			}
+			if (event.key === "?") {
+				setShortcutsOpen(true);
 				return;
 			}
 			if (event.key === "Escape") {
@@ -135,10 +157,37 @@ export function App() {
 		</div>
 	);
 
+	const cards = useMemo(() => openCards(view), [view]);
+	const actions = useMemo<Command[]>(
+		() => [
+			{ id: "dispatch", title: "Dispatch tasks", run: () => setDispatching(true) },
+			{ id: "workload", title: "Run workload", run: () => setDispatching(true) },
+			{
+				id: "reset",
+				title: "Reset demo",
+				run: () => {
+					if (token === "") {
+						setDispatching(true);
+						return;
+					}
+					resetDemo(token).then(
+						(result) => setNotice(`Reset. Trunk is now ${result.trunk}.`),
+						(error: unknown) => setNotice(explain(error)),
+					);
+				},
+			},
+			{ id: "live", title: "Watch live", run: () => setMode("live") },
+			{ id: "replay", title: "Play the recording", run: () => setMode("replay") },
+			{ id: "shortcuts", title: "Show keyboard shortcuts", run: () => setShortcutsOpen(true) },
+		],
+		[token],
+	);
+	const jumps = useMemo<Command[]>(() => lanes.agents.map((intent) => ({ id: `jump-${intent.id}`, title: `Jump to ${callsign(intent)}`, run: () => setSelected(intent.id) })), [lanes.agents]);
+
 	const empty = !loading && lanes.agents.length === 0 && lanes.workload === null;
 	return (
 		<div className="flex h-full flex-col" style={{ minWidth: 1280 }}>
-			<TopBar metrics={view.metrics} trunk={view.trunk.commit} live={live} marker={view.markers.at(-1)} controls={controls} onDispatch={() => setNotice("Dispatching from here arrives with the dispatch panel. For now, start a run from the command line.")} />
+			<TopBar metrics={view.metrics} trunk={view.trunk.commit} live={live} marker={view.markers.at(-1)} controls={controls} onDispatch={() => setDispatching(true)} />
 			{notice ? (
 				<div role="status" className="flex items-center justify-between" style={{ padding: "6px 16px", background: "#fff", borderBottom: "1px solid var(--rule)", fontSize: 13 }}>
 					{notice}
@@ -166,7 +215,7 @@ export function App() {
 							title="No intents in flight"
 							description="Dispatch tasks to watch agents work."
 							contents={
-								<Button variant="primary" onClick={() => setNotice("Dispatching from here arrives with the dispatch panel. For now, start a run from the command line.")}>
+								<Button variant="primary" onClick={() => setDispatching(true)}>
 									Dispatch tasks
 								</Button>
 							}
@@ -177,6 +226,20 @@ export function App() {
 				</main>
 				<LedgerRail rows={rows} quiet={!empty && !loading} callsignOf={callsignOf} hoverSymbol={hoverSymbol} onHoverSymbol={setHoverSymbol} />
 			</div>
+			<HumanCards cards={cards} intents={view.intents} readOnly={mode === "replay"} token={token} named={named} onNeedToken={() => setDispatching(true)} />
+			{dispatching ? (
+				<DispatchPanel
+					token={token}
+					onToken={setToken}
+					onClose={() => setDispatching(false)}
+					onStarted={() => {
+						setSelected(null);
+						setMode("live");
+					}}
+				/>
+			) : null}
+			<Palette open={paletteOpen} onOpenChange={setPaletteOpen} actions={actions} jumps={jumps} />
+			<Shortcuts open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
 			{selectedIntent ? <Drawer intent={selectedIntent} events={events} callsignOf={callsignOf} named={named} onSelect={setSelected} onClose={() => setSelected(null)} /> : null}
 		</div>
 	);

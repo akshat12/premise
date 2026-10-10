@@ -263,3 +263,34 @@ body {
 		transition: none;
 	}
 }
+
+/* ---- The dispatch slide-over ---- */
+.drawer-left {
+	animation: drawer-left-in 160ms ease-out both;
+}
+@keyframes drawer-left-in {
+	from {
+		transform: translateX(-24px);
+		opacity: 0;
+	}
+	to {
+		transform: translateX(0);
+		opacity: 1;
+	}
+}
+@media (prefers-reduced-motion: reduce) {
+	.drawer-left {
+		animation: none;
+	}
+}
+kbd {
+	display: inline-block;
+	min-width: 22px;
+	padding: 1px 5px;
+	border: 1px solid var(--rule);
+	border-radius: 3px;
+	background: var(--board);
+	font-family: var(--font-symbol);
+	font-size: 12px;
+	text-align: center;
+}

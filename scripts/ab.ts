@@ -2,7 +2,8 @@
 //
 //   npx tsx scripts/ab.ts --url https://premise.<account>.workers.dev [--n 100] [--seed 7]
 //
-// The admin token is read from the ADMIN_TOKEN environment variable, or from .dev.vars.
+// The admin token is read from the ADMIN_TOKEN environment variable, or else from .env.deployed
+// (the deployed Worker's token), or else from .dev.vars (the local dev token).
 // Each mode resets the demo first, so do not run this while a demo you care about is on screen.
 import { readFileSync, writeFileSync } from "node:fs";
 import { buildReport, type ModeResult, renderMarkdown } from "../src/worker/ab/report";
@@ -16,15 +17,17 @@ function adminToken(): string {
 	if (process.env.ADMIN_TOKEN) {
 		return process.env.ADMIN_TOKEN;
 	}
-	try {
-		const line = readFileSync(".dev.vars", "utf8").split("\n").find((candidate) => candidate.startsWith("ADMIN_TOKEN="));
-		if (line) {
-			return line.slice("ADMIN_TOKEN=".length).trim();
+	for (const file of [".env.deployed", ".dev.vars"]) {
+		try {
+			const line = readFileSync(file, "utf8").split("\n").find((candidate) => candidate.startsWith("ADMIN_TOKEN="));
+			if (line) {
+				return line.slice("ADMIN_TOKEN=".length).trim();
+			}
+		} catch {
+			// no such file: try the next
 		}
-	} catch {
-		// fall through to the error below
 	}
-	throw new Error("Set ADMIN_TOKEN, or put it in .dev.vars");
+	throw new Error("Set ADMIN_TOKEN, or put it in .env.deployed or .dev.vars");
 }
 
 const url = (arg("url") ?? process.env.URL ?? "").replace(/\/$/, "");
