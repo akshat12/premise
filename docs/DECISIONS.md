@@ -343,3 +343,18 @@ The user asked that the architecture make it easy to switch to another model pro
 - **Retries:** 408, 409, 429 and 5xx (including Anthropic's 529), and network errors, up to three times, waiting the server's `retry-after` if given (capped at 30 s) or else 1, 2, 4 s with jitter.
 - `RecordingLlm` drops `raw` from what it records, since scripts never go back to a provider.
 - `LLM_MODEL` stays `claude-sonnet-5-5` in `wrangler.jsonc`. If `LLM` is switched and `LLM_MODEL` is left as a Claude id, the provider's default model is used, or the error says to set `LLM_MODEL`.
+
+## 2026-10-09: T10 notes (IntentDO)
+
+- **Errors cross the Durable Object boundary as values.** A method that throws inside a Durable Object reaches the caller as a plain `Error` (the class is lost), and under the vitest plugin the same rejection is also reported as an unhandled error, which fails the run even when the test expected it. So `IntentDO` exposes one RPC method, `rpc(method, args)`, which returns `{ ok, value }` or `{ ok: false, error }` (`src/worker/rpc.ts`). `intentStub(env, id)` builds the client and re-throws failures with their class: an illegal status change arrives as a real `IllegalTransition` with `from` and `action`. **Use the same pattern (`capture`, `rpcClient`) for any later Durable Object whose methods can fail in expected ways**, such as the Landing gate.
+  - `rpc()` only dispatches names listed in `INTENT_METHODS`; a compile-time check keeps that list equal to `IntentApi`.
+- **Storage** is two SQLite tables: `state` (the Intent as JSON under one key) and `overlay` (one row per path, `content` NULL for a deletion), so a large overlay is not one big value.
+- **Machine.** `fail` is allowed from every status except `landed` and `failed`. A premise break turns the Intent stale from `working`, `submitted`, `checking`, `queued`, `gating` or `rederiving` (`CAN_GO_STALE`); in any other status the premise is marked broken and the status is left alone. `IN_FLIGHT` and `TERMINAL` are exported for T16.
+- **Premises.**
+  - Identity is `(symbol, source)`, plus the assertion id for asserted premises. Observed, derived and asserted premises on one symbol are kept side by side, so a read never replaces an assertion.
+  - `breakPremise(symbol, by, scope?)` takes an optional third argument: `{ assertionId }` or `{ sources: [...] }`. **T16 should pass `{ assertionId }` for an assertion failure and `{ sources: ["observed", "derived"] }` for a surface change.** Without it every holding premise on the symbol breaks, which would wrongly mark the type-level premise red in the planted scenario.
+  - It returns `{ broken, intent }`, and is a no-op if nothing matched or the premise was already broken.
+  - Only premises with a surface hash are subscribed in the ledger, as the task says.
+- **Additions to the task's method list:** `recordPremises` (batch), `setDependsOn`, `clearOverlay`, and `restartOn(repo, baseCommit)` for T17 (new fork, no head, empty overlay, assertions kept and reset to holding, everything read cleared). `readOverlay` returns a string, `null` for a staged deletion, or `undefined` for an untouched path.
+- `act` records `headCommit` on `submit` and `land`, and releases the Intent's ledger rows on `landed` and `failed`.
+- `newIntent(fields)` in `intent/client.ts` builds a record in its starting state (`repo` defaults to the id).

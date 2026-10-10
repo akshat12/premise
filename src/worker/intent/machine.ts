@@ -1,0 +1,100 @@
+// The Intent state machine. Pure: which status an action leads to, or an error if it is not allowed.
+import type { CommitSha, IntentStatus } from "../../shared/types";
+
+export type IntentAction =
+	| { a: "claim" }
+	| { a: "granted" }
+	| { a: "wait" }
+	| { a: "resume" }
+	| { a: "work" }
+	| { a: "submit"; commit: CommitSha }
+	| { a: "check" }
+	| { a: "quarantine" }
+	| { a: "upgrade-granted" }
+	| { a: "queue" }
+	| { a: "gate" }
+	| { a: "land"; commit: CommitSha }
+	| { a: "stale" }
+	| { a: "rederive" }
+	| { a: "escalate" }
+	| { a: "fail" }
+	| { a: "human"; choice: string };
+
+export class IllegalTransition extends Error {
+	constructor(
+		readonly from: IntentStatus,
+		readonly action: IntentAction["a"],
+		detail = "",
+	) {
+		super(`illegal transition: cannot "${action}" an Intent that is ${from}${detail}`);
+		this.name = "IllegalTransition";
+	}
+}
+
+/** Statuses an Intent never leaves. */
+export const TERMINAL: readonly IntentStatus[] = ["landed", "failed"];
+
+/** Statuses in which a broken premise turns the Intent stale. */
+export const CAN_GO_STALE: readonly IntentStatus[] = ["working", "submitted", "checking", "queued", "gating", "rederiving"];
+
+/** Statuses that count as "in flight": the Intent is still on its way to trunk. */
+export const IN_FLIGHT: readonly IntentStatus[] = ["planning", "claiming", "waiting", "working", "submitted", "checking", "quarantined", "queued", "gating", "stale", "rederiving", "escalated"];
+
+type Edges = Partial<Record<IntentAction["a"], IntentStatus>>;
+
+const EDGES: Record<IntentStatus, Edges> = {
+	planning: { claim: "claiming" },
+	claiming: { granted: "working", wait: "waiting", escalate: "escalated" },
+	waiting: { resume: "claiming" },
+	working: { submit: "submitted", stale: "stale" },
+	submitted: { check: "checking", stale: "stale" },
+	checking: { queue: "queued", quarantine: "quarantined", stale: "stale" },
+	quarantined: { "upgrade-granted": "queued" },
+	queued: { gate: "gating", stale: "stale" },
+	gating: { land: "landed", stale: "stale" },
+	stale: { rederive: "rederiving" },
+	rederiving: { land: "landed", stale: "stale", escalate: "escalated" },
+	escalated: {},
+	landed: {},
+	failed: {},
+};
+
+/** What a person's choice on an escalated Intent leads to. */
+const HUMAN_CHOICES: Record<string, IntentStatus> = {
+	Wait: "claiming",
+	Split: "claiming",
+	Depend: "claiming",
+	Retry: "rederiving",
+	Abandon: "failed",
+};
+
+export function transition(from: IntentStatus, action: IntentAction): IntentStatus {
+	if (action.a === "fail") {
+		// Anything that is not already finished can fail.
+		if (TERMINAL.includes(from)) {
+			throw new IllegalTransition(from, action.a);
+		}
+		return "failed";
+	}
+	if (action.a === "human") {
+		const next = from === "escalated" ? HUMAN_CHOICES[action.choice] : undefined;
+		if (next === undefined) {
+			throw new IllegalTransition(from, action.a, from === "escalated" ? ` (unknown choice "${action.choice}")` : "");
+		}
+		return next;
+	}
+	const next = EDGES[from][action.a];
+	if (next === undefined) {
+		throw new IllegalTransition(from, action.a);
+	}
+	return next;
+}
+
+export function canTransition(from: IntentStatus, action: IntentAction): boolean {
+	try {
+		transition(from, action);
+		return true;
+	} catch {
+		return false;
+	}
+}

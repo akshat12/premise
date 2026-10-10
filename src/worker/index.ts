@@ -1,5 +1,6 @@
 import { DurableObject, WorkflowEntrypoint, type WorkflowEvent, type WorkflowStep } from "cloudflare:workers";
 import { EventHub } from "./hub/event-hub";
+import { IntentDO } from "./intent/intent-do";
 import { LedgerShard } from "./ledger/ledger-shard";
 import { healthBody } from "./health";
 import { handleAdmin } from "./routes/admin";
@@ -37,10 +38,7 @@ export default {
 // Durable Objects and Workflows must be exported from the entry module.
 // The classes below are still stubs; each gets its logic in a later task.
 
-export { EventHub, LedgerShard };
-
-/** One Intent: state machine and premise store (T10). */
-export class IntentDO extends DurableObject<Env> {}
+export { EventHub, IntentDO, LedgerShard };
 
 /** The gate: serialises landings onto trunk (T15). */
 export class Landing extends DurableObject<Env> {}
