@@ -1,4 +1,5 @@
 import { WorkflowEntrypoint, type WorkflowEvent, type WorkflowStep } from "cloudflare:workers";
+import { landing } from "../gate/client";
 import { intentStub } from "../intent/client";
 import { getRepoStore } from "../ports";
 import { getLlm, type LlmClient, type LlmMessage, resolveLlmConfig, ScriptedLlm } from "../ports/llm";
@@ -53,6 +54,8 @@ export class AgentWorkflow extends WorkflowEntrypoint<Env, AgentParams> {
 				llm: llmFor(env, params),
 				handOff: (intent, commit) => handOff(env, intent, commit),
 				instanceId: event.instanceId,
+				// A re-derive that cannot finish tells the gate, which decides between another attempt and a person.
+				giveUp: (reason) => landing(env).rederiveFailed(params.intentId, params.attempt ?? 0, reason),
 			},
 			params,
 			workflowSteps(step),
@@ -60,7 +63,4 @@ export class AgentWorkflow extends WorkflowEntrypoint<Env, AgentParams> {
 	}
 }
 
-/** The Workflow instance id for a run: the Intent id plus the attempt number (0 for the first run). */
-export function workflowInstanceId(intentId: string, attempt: number): string {
-	return `${intentId}-${attempt}`;
-}
+export { workflowInstanceId } from "./instance";

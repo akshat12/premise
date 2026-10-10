@@ -211,6 +211,21 @@ describe("gateOne", () => {
 		expect(h.runs).toEqual([]);
 	});
 
+	it("a dry run checks everything and commits nothing", async () => {
+		const h = harness();
+		const before = await h.store.head("trunk");
+		const good = await gateOne(h.deps, await h.intentWith({ "README.md": "# shop!\n" }, { premises: [asserted("a1")] }), "rebase", { dryRun: true });
+		expect(good.report).toMatchObject({ ok: true, landedCommit: null, tests: { passed: ["adds"] }, assertions: { passed: ["a1"] } });
+		expect(good.newTrunkFiles).toBeUndefined();
+		expect(good.changedSymbols).toEqual([]);
+		expect(h.messages).toEqual([]);
+		expect(await h.store.head("trunk")).toBe(before);
+
+		h.state.runner = (req) => ({ ...allPass(req), tests: req.tests.map((test) => ({ ...test, ok: false, error: "no", ms: 1 })) });
+		const bad = await gateOne(h.deps, await h.intentWith({ "README.md": "# shop?\n" }), "rebase", { dryRun: true });
+		expect(bad.report).toMatchObject({ ok: false, landedCommit: null });
+	});
+
 	it("makes no commit when the Intent's work is already on trunk", async () => {
 		const h = harness();
 		const intent = await h.intentWith({ "README.md": "# shop!\n" });

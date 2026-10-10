@@ -1,6 +1,6 @@
 // Drives one agent through plan, claim, work and submit. This is the whole of the agent's
 // control flow; the Workflow class in workflow.ts only supplies durable steps.
-import type { Assertion, Claim, CommitSha, Intent, IntentId, LedgerDecision, TaskDef } from "../../shared/types";
+import type { Assertion, Claim, CommitSha, Intent, IntentId, LedgerDecision, Premise, TaskDef } from "../../shared/types";
 import { hub, publish, waitTopic } from "../hub/publish";
 import type { IntentApi } from "../intent/client";
 import { IllegalTransition, type IntentAction } from "../intent/machine";
@@ -19,6 +19,13 @@ export interface AgentParams {
 	script?: string;
 	/** Ledger priority. Lower numbers win contested symbols. */
 	priority?: number;
+	/**
+	 * Re-derive only: which attempt this run is (the Intent's `rederiveAttempts` when it started).
+	 * If the Intent has moved on to a later attempt, this run stops.
+	 */
+	attempt?: number;
+	/** Re-derive only: the premises that broke, as they were before the Intent was pointed at its fresh fork. */
+	broken?: Premise[];
 }
 
 /** The durable-step interface the driver needs. The Workflow provides it; tests pass a plain in-memory one. */
@@ -38,6 +45,11 @@ export interface AgentDeps {
 	handOff(intent: Intent, commit: CommitSha): Promise<void>;
 	/** This run's Workflow instance id, so it can be woken while it waits. Absent in tests that drive the run directly. */
 	instanceId?: string;
+	/**
+	 * Re-derive only: called when the agent could not finish. The Intent is not failed; whoever
+	 * started the re-derive decides whether it gets another attempt.
+	 */
+	giveUp?(reason: string): Promise<void>;
 }
 
 export type AgentOutcome =
@@ -82,13 +94,28 @@ interface TurnResult {
 class Stopped extends Error {}
 
 /** One model turn: ask the model, then run the tools it called, in order. */
-async function turn(ctx: ToolContext, deps: AgentDeps, mode: AgentParams["mode"], messages: readonly LlmMessage[], phase: Phase): Promise<TurnResult> {
+/** Why this run should stop working on the Intent, or undefined if the Intent is still its to work on. */
+function takenOver(intent: Intent, params: Pick<AgentParams, "mode" | "attempt">): string | undefined {
+	if (params.mode === "rederive" && params.attempt !== undefined && intent.rederiveAttempts !== params.attempt) {
+		return `re-derive attempt ${intent.rederiveAttempts} has taken over`;
+	}
+	return RUNNABLE[params.mode].includes(intent.status) ? undefined : `the Intent is ${intent.status}`;
+}
+
+async function turn(ctx: ToolContext, deps: AgentDeps, params: Pick<AgentParams, "mode" | "attempt">, messages: readonly LlmMessage[], phase: Phase): Promise<TurnResult> {
 	const intent = await deps.intent.get();
-	if (!RUNNABLE[mode].includes(intent.status)) {
-		return { assistant: { role: "assistant", content: [] }, results: [], stop: "continue", usage: { input: 0, output: 0 }, interrupted: `the Intent is ${intent.status}` };
+	const interrupted = takenOver(intent, params);
+	if (interrupted !== undefined) {
+		return { assistant: { role: "assistant", content: [] }, results: [], stop: "continue", usage: { input: 0, output: 0 }, interrupted };
 	}
 	const reply = await deps.llm(intent, messages).turn(SYSTEM_PROMPT, [...messages], TOOLS);
 	const assistant = assistantMessage(reply) as TurnResult["assistant"];
+	// A model turn can take a minute. If the Intent was taken over meanwhile (it went stale and a
+	// re-derive started, say), the reply's tool calls must not touch files the new run is using.
+	const meanwhile = takenOver(await deps.intent.get(), params);
+	if (meanwhile !== undefined) {
+		return { assistant: { role: "assistant", content: [] }, results: [], stop: "continue", usage: reply.usage, interrupted: meanwhile };
+	}
 	if (reply.stop === "refusal") {
 		return { assistant, results: [], stop: "refusal", usage: reply.usage };
 	}
@@ -168,7 +195,20 @@ export async function runAgent(deps: AgentDeps, params: AgentParams, steps: Step
 		return steps.waitForEvent<T>(name, type, timeout);
 	};
 	const fail = async (reason: string): Promise<AgentOutcome> => {
-		await api.act({ a: "fail" }, reason).catch(() => undefined);
+		// If the Intent has been taken out of this run's hands (it went stale and is being
+		// re-derived, say), whatever went wrong here is no longer the Intent's problem.
+		const current = await api.get().catch(() => null);
+		// A first attempt is also still responsible while its push is being recorded and checked.
+		const mine = current !== null && (takenOver(current, params) === undefined || (fresh && (current.status === "submitted" || current.status === "checking")));
+		if (!mine) {
+			return { result: "stopped", reason: `${reason} (and the Intent is ${current?.status ?? "gone"})`, turns, usage };
+		}
+		if (!fresh && deps.giveUp !== undefined) {
+			// A re-derive that cannot finish is one failed attempt, not the end of the Intent.
+			await steps.do("give-up", async () => void (await deps.giveUp?.(reason)));
+		} else {
+			await api.act({ a: "fail" }, reason).catch(() => undefined);
+		}
 		return { result: "failed", reason, turns, usage };
 	};
 
@@ -180,12 +220,15 @@ export async function runAgent(deps: AgentDeps, params: AgentParams, steps: Step
 			const adoptable = (JSON.parse(assertionsJson ?? "[]") as Assertion[]).map(({ id, description }) => ({ id, description }));
 			return task === undefined ? { intent, adoptable } : { intent, task: { title: task.title, ...(task.hints ? { hints: task.hints } : {}) }, adoptable };
 		});
-		const messages: LlmMessage[] = [{ role: "user", content: briefing({ ...loaded, mode: params.mode }) }];
+		// A re-derive is told what broke. Those premises were cleared from the Intent when it was
+		// pointed at its fresh fork, so they come with the run's parameters.
+		const briefed = params.mode === "rederive" && params.broken !== undefined ? { ...loaded.intent, premises: [...loaded.intent.premises, ...params.broken] } : loaded.intent;
+		const messages: LlmMessage[] = [{ role: "user", content: briefing({ ...loaded, intent: briefed, mode: params.mode }) }];
 
 		/** Runs turns in one phase until the agent signals the end of it. Returns the signalling turn, or a reason it ended early. */
 		const phaseLoop = async (phase: Phase, limit: number, wanted: "claim" | "submit"): Promise<{ done: TurnResult } | { failed: string } | { stopped: string }> => {
 			for (let n = 1; n <= limit; n++) {
-				const result = await steps.do(`${phase}-turn-${n}`, () => turn(ctx, deps, params.mode, messages, phase));
+				const result = await steps.do(`${phase}-turn-${n}`, () => turn(ctx, deps, params, messages, phase));
 				if (result.interrupted !== undefined) {
 					return { stopped: result.interrupted };
 				}
@@ -280,28 +323,60 @@ export async function runAgent(deps: AgentDeps, params: AgentParams, steps: Step
 		}
 
 		// Push the work to the Intent's own fork.
-		const commit = await steps.do("push", async () => {
+		// These steps answer with a value rather than throwing when the Intent has been taken over,
+		// because a step that throws is retried, and what it throws does not come back as the same class.
+		const pushed = await steps.do("push", async (): Promise<{ sha: CommitSha } | { stopped: string }> => {
 			const intent = await api.get();
+			const stopped = takenOver(intent, params);
+			if (stopped !== undefined) {
+				// The fork and the staged files may by now belong to a later attempt. Leave them alone.
+				return { stopped };
+			}
 			const expected = intent.headCommit ?? intent.baseCommit;
 			const head = await store.head(intent.repo);
 			if (head !== expected) {
 				// Only this run pushes to the fork, so a moved head means an earlier attempt at this step already pushed.
-				return head;
+				return { sha: head };
 			}
 			const submitCall = worked.done.assistant.content.find((block) => block.type === "tool_use" && block.id === worked.done.signal?.toolUseId);
 			const summary = submitCall?.type === "tool_use" && typeof submitCall.input.message === "string" ? submitCall.input.message : intent.goal;
 			const sha = await store.commit(intent.repo, expected, commitChanges(intent, await api.overlay()), `intent ${intent.id}: ${summary}`);
 			await publish(env, { t: "artifacts", type: "pushed", repo: intent.repo, detail: { commit: sha, intent: intent.id } });
-			return sha;
+			return { sha };
 		});
-		await steps.do("record-push", async () => {
-			if (fresh) {
-				await act({ a: "submit", commit });
-			} else {
+		if ("stopped" in pushed) {
+			return { result: "stopped", reason: pushed.stopped, turns, usage };
+		}
+		const commit = pushed.sha;
+		const recorded = await steps.do("record-push", async (): Promise<{ stopped?: string }> => {
+			const stopped = takenOver(await api.get(), params);
+			if (stopped !== undefined) {
+				return { stopped };
+			}
+			if (!fresh) {
 				await api.setHead(commit);
+				return {};
+			}
+			try {
+				await api.act({ a: "submit", commit });
+				return {};
+			} catch (error) {
+				if (error instanceof IllegalTransition) {
+					return { stopped: `the Intent is ${error.from}` };
+				}
+				throw error;
 			}
 		});
-		await steps.do("hand-off", async () => deps.handOff(await api.get(), commit));
+		if (recorded.stopped !== undefined) {
+			return { result: "stopped", reason: recorded.stopped, turns, usage };
+		}
+		await steps.do("hand-off", async () => {
+			const intent = await api.get();
+			// Hand over only what is still this run's: a first attempt that is `submitted`, or the current re-derive.
+			if (fresh ? intent.status === "submitted" : takenOver(intent, params) === undefined) {
+				await deps.handOff(intent, commit);
+			}
+		});
 		return { result: "submitted", commit, turns, usage };
 	} catch (error) {
 		if (error instanceof Stopped) {

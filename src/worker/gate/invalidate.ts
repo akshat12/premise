@@ -40,6 +40,8 @@ export interface InvalidateResult {
 	broken: Break[];
 	/** Intents with at least one premise broken by this call. */
 	intents: IntentId[];
+	/** Of those, the ones this call turned stale. Whoever called is responsible for getting them re-derived. */
+	stale: IntentId[];
 }
 
 export type InvalidateEnv = Pick<Env, "HUB" | "INTENT" | "LEDGER" | "LOADER">;
@@ -121,24 +123,30 @@ export interface InvalidateDeps {
 	/** Ids of Intents that have ever asserted a premise. */
 	asserters(): Promise<IntentId[]>;
 	getIntent(id: IntentId): Promise<Pick<Intent, "id" | "premises"> | null>;
-	breakPremise(id: IntentId, symbol: SymbolId, by: BrokenBy, scope: BreakScope): Promise<{ broken: boolean }>;
+	/** `stale` says whether the Intent is stale after the call. */
+	breakPremise(id: IntentId, symbol: SymbolId, by: BrokenBy, scope: BreakScope): Promise<{ broken: boolean; stale?: boolean }>;
 	run(req: RunRequest): Promise<RunResult>;
 	publishMetrics(): Promise<unknown>;
 }
 
 export async function invalidateWith(deps: InvalidateDeps, landed: Landed): Promise<InvalidateResult> {
 	if (!(await deps.claimCommit(landed.commit))) {
-		return { skipped: true, broken: [], intents: [] };
+		return { skipped: true, broken: [], intents: [], stale: [] };
 	}
 	// Taken once, before anything is broken: an Intent that goes stale on a surface change in this
 	// call still has its assertions checked, so it is told everything that broke.
 	const eligible = new Set((await deps.registry()).filter((row) => !SETTLED.includes(row.status) && row.id !== landed.byIntent).map((row) => row.id));
 	const by = (reason: string): BrokenBy => ({ intentId: landed.byIntent ?? OUTSIDE_PUSH, commit: landed.commit, reason });
 	const broken: Break[] = [];
+	const stale = new Set<IntentId>();
 	const apply = async (breaks: readonly Break[]) => {
 		for (const item of breaks) {
-			if ((await deps.breakPremise(item.intentId, item.symbol, by(item.reason), item.scope)).broken) {
+			const result = await deps.breakPremise(item.intentId, item.symbol, by(item.reason), item.scope);
+			if (result.broken) {
 				broken.push(item);
+				if (result.stale) {
+					stale.add(item.intentId);
+				}
 			}
 		}
 	};
@@ -157,7 +165,7 @@ export async function invalidateWith(deps: InvalidateDeps, landed: Landed): Prom
 	}
 
 	await deps.publishMetrics();
-	return { skipped: false, broken, intents: [...new Set(broken.map((item) => item.intentId))] };
+	return { skipped: false, broken, intents: [...new Set(broken.map((item) => item.intentId))], stale: [...stale] };
 }
 
 export function invalidateDeps(env: InvalidateEnv): InvalidateDeps {
@@ -170,7 +178,10 @@ export function invalidateDeps(env: InvalidateEnv): InvalidateDeps {
 			intentStub(env, id)
 				.get()
 				.catch(() => null),
-		breakPremise: (id, symbol, by, scope) => intentStub(env, id).breakPremise(symbol, by, scope),
+		async breakPremise(id, symbol, by, scope) {
+			const result = await intentStub(env, id).breakPremise(symbol, by, scope);
+			return { broken: result.broken, stale: result.intent.status === "stale" };
+		},
 		run: (req) => runInIsolate(env, req),
 		publishMetrics: () => publishMetrics(env),
 	};

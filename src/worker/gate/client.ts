@@ -1,6 +1,7 @@
 // How the rest of the backend reaches the gate.
-import type { IntentId } from "../../shared/types";
+import type { CommitSha, IntentId, IntentStatus } from "../../shared/types";
 import type { Enqueue } from "./checker";
+import type { RunningEntry, StaleEntry } from "./rederive";
 
 export type QueuePath = "rebase" | "rederive";
 
@@ -15,13 +16,21 @@ export interface QueueEntry {
 }
 
 export interface LandingStatus {
+	/** Intents waiting to be gated. */
 	queue: QueueEntry[];
 	busy: boolean;
+	/** Stale Intents waiting for a re-derive slot. */
+	stale: StaleEntry[];
+	/** Intents whose agent is re-deriving right now. */
+	rederiving: RunningEntry[];
 }
 
 /** The Landing Durable Object's RPC surface, declared by hand so callers do not depend on generated stub types. */
 export interface LandingApi {
 	enqueue(intentId: IntentId, path?: QueuePath): Promise<void>;
+	noteStale(intentId: IntentId, rebaseFailedAt?: CommitSha | null): Promise<void>;
+	rederiveFailed(intentId: IntentId, attempt: number, reason: string): Promise<void>;
+	humanChoice(intentId: IntentId, choice: "Retry" | "Abandon"): Promise<IntentStatus | null>;
 	status(): Promise<LandingStatus>;
 	clear(): Promise<void>;
 }

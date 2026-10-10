@@ -13,7 +13,7 @@ import { demoFiles, referencePatch } from "../testing/demo";
 import { landing } from "./client";
 import { gateOne } from "./gate";
 import type { Landed } from "./invalidate";
-import { gateDeps, landIntent, newGateCache } from "./landing";
+import { gateDeps, landIntent, newGateCache } from "./land";
 
 const VERIFY = "src/auth/session.ts#verifySession";
 const LOGIN = "src/auth/login.ts#handleLogin";
@@ -97,11 +97,11 @@ describe("landIntent", () => {
 
 		const outcome = await landIntent(env, intent.id, "rebase", { gate: gateDeps(env, store, "trunk", cache), cache, invalidate: async (_env, landed) => {
 				invalidated.push(landed);
-				return { skipped: false, broken: [], intents: [] };
+				return { skipped: false, broken: [], intents: [], stale: [] };
 			},
 		});
 		const head = await store.head("trunk");
-		expect(outcome).toMatchObject({ kind: "landed", commit: head, changedSymbols: [] });
+		expect(outcome).toMatchObject({ kind: "landed", commit: head, changedSymbols: [], stale: [] });
 
 		const after = await intent.api.get();
 		expect(after).toMatchObject({ status: "landed", headCommit: head });
@@ -146,7 +146,7 @@ describe("landIntent", () => {
 		await intent.api.act({ a: "fail" }, "test cleanup");
 	});
 
-	it("fails an Intent whose acceptance check does not pass on the new trunk, and says why", async () => {
+	it("turns stale an Intent whose acceptance check does not pass on the new trunk, and says why", async () => {
 		const store = seededStore();
 		const deps = { gate: gateDeps(env, store, "trunk") };
 		const t01 = await queuedTask(store, "t01-null-expired", "t01");
@@ -155,11 +155,31 @@ describe("landIntent", () => {
 		const trunkHead = await store.head("trunk");
 
 		const outcome = await landIntent(env, t02.id, "rebase", deps);
-		expect(outcome.kind).toBe("failed");
+		// Not failed: stale. The work was right for the trunk it was written on; it gets re-derived.
+		expect(outcome).toMatchObject({ kind: "stale", trunkAt: trunkHead });
 		expect(await store.head("trunk")).toBe(trunkHead);
 		const events = await eventsFor(t02.id);
-		expect(events.at(-1)).toMatchObject({ t: "intent.status", status: "failed", note: expect.stringContaining('Acceptance check failed on the new trunk: "an expired session writes an audit entry and returns expired"') });
+		expect(events.at(-1)).toMatchObject({ t: "intent.status", status: "stale", note: expect.stringContaining('Acceptance check failed on the new trunk: "an expired session writes an audit entry and returns expired"') });
 		expect(events.some((event) => event.t === "trunk.advanced")).toBe(false);
+		await t02.api.act({ a: "fail" }, "test cleanup");
+	});
+
+	it("reports a failed re-derived attempt without changing the Intent, so the race can decide", async () => {
+		const store = seededStore();
+		const deps = { gate: gateDeps(env, store, "trunk") };
+		const t01 = await queuedTask(store, "t01-null-expired", "t01");
+		expect((await landIntent(env, t01.id, "rebase", deps)).kind).toBe("landed");
+		// A "re-derived" t02 that still has the old logic.
+		const again = await startIntent(env, store, "t02-audit-expired");
+		for (const action of [{ a: "claim" }, { a: "granted" }, { a: "stale" }, { a: "rederive" }] as const) {
+			await again.api.act(action);
+		}
+		await again.api.setHead(await store.commit(again.id, again.intent.baseCommit, referencePatch("t02"), "same as before"));
+		const outcome = await landIntent(env, again.id, "rederive", deps);
+		expect(outcome.kind).toBe("failed");
+		expect((await again.api.get()).status).toBe("rederiving");
+		expect((await eventsFor(again.id)).at(-1)).toMatchObject({ t: "gate.result", report: { path: "rederive", ok: false } });
+		await again.api.act({ a: "fail" }, "test cleanup");
 	});
 
 	it("leaves alone an Intent that is not waiting for the gate", async () => {
@@ -247,7 +267,7 @@ describe("the Landing Durable Object", () => {
 			expect(statusesOf(events).slice(-3)).toEqual(["queued", "gating", "landed"]);
 			expect(events.find((event) => event.t === "gate.result")).toMatchObject({ report: { path: "rebase", textConflict: false, typecheck: { ok: true }, tests: { passed: ["the marker is exported"], failed: [] }, ok: true } });
 		}
-		expect(await landing(env).status()).toEqual({ queue: [], busy: false });
+		expect(await landing(env).status()).toEqual({ queue: [], busy: false, stale: [], rederiving: [] });
 	});
 
 	it("orders its queue by task order and shows it in status()", async () => {
@@ -280,6 +300,6 @@ describe("the Landing Durable Object", () => {
 	it("clear() empties the queue", async () => {
 		await drained();
 		await landing(env).clear();
-		expect(await landing(env).status()).toEqual({ queue: [], busy: false });
+		expect(await landing(env).status()).toEqual({ queue: [], busy: false, stale: [], rederiving: [] });
 	});
 });

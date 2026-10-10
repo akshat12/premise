@@ -2,7 +2,7 @@ import { env } from "cloudflare:workers";
 import { describe, expect, it } from "vitest";
 import { newIntentId } from "../../shared/ids";
 import type { Assertion } from "../../shared/types";
-import { gateDeps, landIntent } from "../gate/landing";
+import { gateDeps, landIntent } from "../gate/land";
 import { OUTSIDE_PUSH } from "../gate/invalidate";
 import { currentTrunk, hub } from "../hub/publish";
 import { intentStub, newIntent } from "../intent/client";

@@ -4,7 +4,7 @@ import { isAdminRequest } from "../admin-auth";
 import { wakeHumanWaiters } from "../agent/wake";
 import { DispatchFailed, dispatchTasks, UnknownTasks } from "../dispatch";
 import { settleQuarantine } from "../gate/checker";
-import { gateEnqueue } from "../gate/client";
+import { gateEnqueue, landing } from "../gate/client";
 import { intentStub } from "../intent/client";
 import { publish } from "../hub/publish";
 
@@ -55,6 +55,10 @@ export async function handleDispatch(request: Request, env: Env, url: URL): Prom
 	if (intent?.status === "quarantined" && (choice === "Wait" || choice === "Split" || choice === "Depend")) {
 		// The Intent edited symbols someone else holds. The choice settles who gets them.
 		status = (await settleQuarantine(env, id, choice, { enqueue: gateEnqueue(env) })).status;
+	} else if (intent?.status === "escalated" && (choice === "Retry" || choice === "Abandon")) {
+		// Its re-derives kept failing. Retry gives it one more; Abandon ends it. The gate owns both.
+		status = await landing(env).humanChoice(id, choice);
+		woken = await wakeHumanWaiters(env, id, choice);
 	} else {
 		// The Intent's agent is paused on a stalemate and takes it from here.
 		woken = await wakeHumanWaiters(env, id, choice);

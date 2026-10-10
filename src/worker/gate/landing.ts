@@ -1,202 +1,123 @@
-// The gate's Durable Object. There is one instance (named "trunk"), so trunk has a single writer:
-// queued Intents are taken a batch at a time and each is rebased, checked and landed in turn.
-// The checking itself is gateOne() in gate.ts; this file is the queue around it.
+// The gate's Durable Object. There is one instance (named "trunk"), so trunk has a single writer.
+// It holds two queues:
+//   - Intents waiting to be gated, taken a batch at a time and landed in turn (land.ts);
+//   - stale Intents waiting to be re-derived, a few at a time (rederive.ts).
+// All the deciding is in those two files and in gate.ts; this file is storage, ordering and wiring.
 import { DurableObject } from "cloudflare:workers";
-import type { CommitSha, GateReport, Intent, IntentId, SymbolId, TaskDef } from "../../shared/types";
+import type { CommitSha, IntentId, IntentStatus, Premise, TaskDef } from "../../shared/types";
+import { workflowInstanceId } from "../agent/instance";
 import { currentTrunk, publish, publishMetrics } from "../hub/publish";
 import { intentStub } from "../intent/client";
-import { IllegalTransition } from "../intent/machine";
 import { getRepoStore } from "../ports";
-import { type FileMap, isCommitSha, type RepoStore } from "../ports/repo-store";
-import { runInIsolate } from "../runner";
-import { analyze, surface, type SurfaceMap } from "../surface";
+import type { RepoStore } from "../ports/repo-store";
 import type { LandingStatus, QueueEntry, QueuePath } from "./client";
-import { describeFailure, type GateDeps, gateOne } from "./gate";
-import { type Invalidate, invalidate } from "./invalidate";
+import { gateDeps, landIntent, newGateCache, settle } from "./land";
 import { pickBatch, taskPriority } from "./queue";
+import { DEFAULT_MAX_CONCURRENT, finishRederive, MAX_FAILED_REDERIVES, type RaceDeps, RederiveScheduler, type RederiveStore, type StaleEntry, type Started, startRace } from "./rederive";
 
-/** How many times the gate starts on an Intent before giving up on it. */
+/** How many times the gate starts on an Intent, or tries to start its re-derive, before giving up on that attempt. */
 export const MAX_ATTEMPTS = 3;
 const RETRY_DELAY_MS = 2_000;
-const SNAPSHOTS_KEPT = 8;
-
-/**
- * What the gate remembers between Intents so it does not repeat work. A commit's files never
- * change, and the files trunk has after one landing are the files the next Intent rebases onto,
- * so most Intents cost one compiler run instead of three.
- */
-export interface GateCache {
-	snapshots: Map<CommitSha, FileMap>;
-	surfaces: WeakMap<FileMap, SurfaceMap>;
-}
-
-export function newGateCache(): GateCache {
-	return { snapshots: new Map(), surfaces: new WeakMap() };
-}
-
-export function rememberSnapshot(cache: GateCache, commit: CommitSha, files: FileMap): void {
-	cache.snapshots.delete(commit);
-	cache.snapshots.set(commit, files);
-	for (const oldest of cache.snapshots.keys()) {
-		if (cache.snapshots.size <= SNAPSHOTS_KEPT) {
-			break;
-		}
-		cache.snapshots.delete(oldest);
-	}
-}
-
-/** The real gate dependencies: the repo store, the TypeScript compiler, and the isolate runner. */
-export function gateDeps(env: Pick<Env, "LOADER">, store: RepoStore, trunk: string, cache: GateCache = newGateCache()): GateDeps {
-	return {
-		trunk,
-		head: (repo) => store.head(repo),
-		async snapshot(repo, ref) {
-			const kept = cache.snapshots.get(ref);
-			if (kept !== undefined) {
-				return kept;
-			}
-			const files = await store.snapshot(repo, ref);
-			if (isCommitSha(ref)) {
-				rememberSnapshot(cache, ref, files);
-			}
-			return files;
-		},
-		commitTrunk: (expectedHead, changes, message) => store.commit(trunk, expectedHead, changes, message),
-		typecheck(files) {
-			// One compiler program gives both answers; keep the surface for the diff that follows a landing.
-			const result = analyze(files);
-			cache.surfaces.set(files, result.surface);
-			return result.typecheck;
-		},
-		surface(files) {
-			let map = cache.surfaces.get(files);
-			if (map === undefined) {
-				map = surface(files).map;
-				cache.surfaces.set(files, map);
-			}
-			return { map };
-		},
-		run: (req) => runInIsolate(env, req),
-	};
-}
-
-export interface LandDeps {
-	gate: GateDeps;
-	invalidate?: Invalidate;
-	cache?: GateCache;
-}
-
-export type LandOutcome =
-	| { kind: "landed"; commit: CommitSha; changedSymbols: SymbolId[]; report: GateReport }
-	| { kind: "stale" | "failed"; report: GateReport; note: string }
-	/** The Intent was not waiting for the gate (it went stale, failed, or does not exist), so nothing was done. */
-	| { kind: "skipped"; status: Intent["status"] | null };
-
-type LandEnv = Pick<Env, "HUB" | "INTENT" | "LEDGER" | "LOADER">;
-
-/** Changes an Intent's status, unless something else has already moved it on. */
-async function settle(api: ReturnType<typeof intentStub>, action: Parameters<ReturnType<typeof intentStub>["act"]>[0], note?: string): Promise<void> {
-	try {
-		await api.act(action, note);
-	} catch (error) {
-		if (!(error instanceof IllegalTransition)) {
-			throw error;
-		}
-	}
-}
-
-/**
- * Takes one Intent through the gate and deals with the result: it lands, or goes stale (a text
- * conflict, which a re-derive can fix), or fails. Publishes `gate.result`, and `trunk.advanced`
- * when trunk moved.
- */
-export async function landIntent(env: LandEnv, intentId: IntentId, path: QueuePath, deps: LandDeps): Promise<LandOutcome> {
-	const api = intentStub(env, intentId);
-	let intent = await api.get().catch(() => null);
-	if (intent === null) {
-		return { kind: "skipped", status: null };
-	}
-	if (path === "rebase" && intent.status === "queued") {
-		intent = await api.act({ a: "gate" });
-	}
-	// `gating` without the step above means an earlier attempt was cut short: carry on from there.
-	if (intent.status !== (path === "rebase" ? "gating" : "rederiving")) {
-		return { kind: "skipped", status: intent.status };
-	}
-
-	const { report, changedSymbols, newTrunkFiles, conflicts, trunkBefore } = await gateOne(deps.gate, intent, path);
-	await publish(env, { t: "gate.result", report });
-
-	if (report.landedCommit !== null && newTrunkFiles !== undefined) {
-		const commit = report.landedCommit;
-		if (deps.cache !== undefined) {
-			rememberSnapshot(deps.cache, commit, newTrunkFiles);
-		}
-		await settle(api, { a: "land", commit });
-		// An Intent whose work was already on trunk lands without moving it, so there is nothing to announce.
-		if (commit !== trunkBefore) {
-			// Our own code is what pushed, so it reports the push; the platform's event is only relayed (see events/consumer.ts).
-			await publish(env, { t: "artifacts", type: "pushed", repo: deps.gate.trunk ?? "trunk", detail: { commit, intent: intentId } });
-			await publish(env, { t: "trunk.advanced", commit, byIntent: intentId, changedSymbols });
-			await (deps.invalidate ?? invalidate)(env, { commit, byIntent: intentId, changedSymbols, newTrunkFiles });
-		}
-		await publishMetrics(env);
-		return { kind: "landed", commit, changedSymbols, report };
-	}
-
-	const note = describeFailure(report, conflicts);
-	// A text conflict on the plain rebase is not the end: the Intent is stale and can be re-derived.
-	const kind = report.textConflict && path === "rebase" ? "stale" : "failed";
-	await settle(api, { a: kind === "stale" ? "stale" : "fail" }, note);
-	await publishMetrics(env);
-	return { kind, report, note };
-}
+/** A re-derive whose agent has not come back in this long is counted as failed. */
+export const RACE_TIMEOUT_MS = 20 * 60 * 1000;
 
 type QueueRow = { intent_id: string; path: string; priority: number; enqueued_at: number; attempts: number };
+type StaleRow = { intent_id: string; priority: number; since: number; rebase_failed_at: string | null };
+type RunningRow = { intent_id: string; attempt: number; started: number };
 
 const toEntry = (row: QueueRow): QueueEntry => ({ intentId: row.intent_id, path: row.path === "rederive" ? "rederive" : "rebase", priority: row.priority, enqueuedAt: row.enqueued_at, attempts: row.attempts });
 
 /**
  * The gate. Reach it through `landing()` in gate/client.ts.
  *
- * `enqueue` adds an Intent and sets an alarm for now; the alarm takes one batch through the gate
- * and sets itself again while Intents remain. An alarm survives the object being evicted, so a
- * queued Intent is never forgotten, and alarms never overlap, so two batches never run at once.
+ * Every method that adds work sets an alarm for now; the alarm gates one batch, starts whatever
+ * re-derives there is room for, and sets itself again while work remains. An alarm survives the
+ * object being evicted, so nothing queued is forgotten, and alarms never overlap, so two batches
+ * never run at once.
  */
 export class Landing extends DurableObject<Env> {
 	private busy = false;
 	private cache = newGateCache();
 	private taskOrder: { trunk: string; tasks: Pick<TaskDef, "id">[] } | undefined;
+	/** Stale Intents whose race could not be started just now; they go back in the queue after the current pass. */
+	private deferred: StaleEntry[] = [];
+	/** How many times in a row starting each Intent's race has thrown. */
+	private startErrors = new Map<IntentId, number>();
 
 	constructor(ctx: DurableObjectState, env: Env) {
 		super(ctx, env);
 		ctx.blockConcurrencyWhile(async () => {
-			ctx.storage.sql.exec("CREATE TABLE IF NOT EXISTS queue(intent_id TEXT PRIMARY KEY, path TEXT NOT NULL, priority INTEGER NOT NULL, enqueued_at INTEGER NOT NULL, attempts INTEGER NOT NULL DEFAULT 0)");
+			const sql = ctx.storage.sql;
+			sql.exec("CREATE TABLE IF NOT EXISTS queue(intent_id TEXT PRIMARY KEY, path TEXT NOT NULL, priority INTEGER NOT NULL, enqueued_at INTEGER NOT NULL, attempts INTEGER NOT NULL DEFAULT 0)");
+			sql.exec("CREATE TABLE IF NOT EXISTS stale_queue(intent_id TEXT PRIMARY KEY, priority INTEGER NOT NULL, since INTEGER NOT NULL, rebase_failed_at TEXT)");
+			sql.exec("CREATE TABLE IF NOT EXISTS running(intent_id TEXT PRIMARY KEY, attempt INTEGER NOT NULL, started INTEGER NOT NULL)");
+			// Re-derives of an Intent that have failed since it last landed or a person last said Retry.
+			sql.exec("CREATE TABLE IF NOT EXISTS rederive_failures(intent_id TEXT PRIMARY KEY, failed INTEGER NOT NULL)");
 		});
 	}
+
+	// ---- storage ----
 
 	private rows(): QueueEntry[] {
 		return this.ctx.storage.sql.exec<QueueRow>("SELECT intent_id, path, priority, enqueued_at, attempts FROM queue ORDER BY enqueued_at, intent_id").toArray().map(toEntry);
 	}
 
-	/** The task list from trunk, which decides the order Intents are gated in. Read once per trunk. */
+	private get rederives(): RederiveStore {
+		const sql = this.ctx.storage.sql;
+		return {
+			waiting: () =>
+				sql
+					.exec<StaleRow>("SELECT intent_id, priority, since, rebase_failed_at FROM stale_queue ORDER BY since, intent_id")
+					.toArray()
+					.map((row) => ({ intentId: row.intent_id, priority: row.priority, since: row.since, rebaseFailedAt: row.rebase_failed_at })),
+			running: () =>
+				sql
+					.exec<RunningRow>("SELECT intent_id, attempt, started FROM running ORDER BY started, intent_id")
+					.toArray()
+					.map((row) => ({ intentId: row.intent_id, attempt: row.attempt, started: row.started })),
+			addWaiting: (entry) => void sql.exec("INSERT OR REPLACE INTO stale_queue (intent_id, priority, since, rebase_failed_at) VALUES (?, ?, ?, ?)", entry.intentId, entry.priority, entry.since, entry.rebaseFailedAt ?? null),
+			removeWaiting: (intentId) => void sql.exec("DELETE FROM stale_queue WHERE intent_id = ?", intentId),
+			addRunning: (entry) => void sql.exec("INSERT OR REPLACE INTO running (intent_id, attempt, started) VALUES (?, ?, ?)", entry.intentId, entry.attempt, entry.started),
+			removeRunning: (intentId) => void sql.exec("DELETE FROM running WHERE intent_id = ?", intentId),
+		};
+	}
+
+	private failures(intentId: IntentId): number {
+		return this.ctx.storage.sql.exec<{ failed: number }>("SELECT failed FROM rederive_failures WHERE intent_id = ?", intentId).toArray()[0]?.failed ?? 0;
+	}
+
+	private setFailures(intentId: IntentId, failed: number): void {
+		this.ctx.storage.sql.exec("INSERT OR REPLACE INTO rederive_failures (intent_id, failed) VALUES (?, ?)", intentId, failed);
+	}
+
+	/** The task list from trunk, which decides the order Intents are gated and re-derived in. Read once per trunk. */
 	private async tasks(trunk: string, store: RepoStore): Promise<Pick<TaskDef, "id">[]> {
 		if (this.taskOrder?.trunk !== trunk) {
 			let tasks: Pick<TaskDef, "id">[] = [];
 			try {
 				tasks = JSON.parse((await store.readFile(trunk, "main", "premise/tasks.json")) ?? "[]") as TaskDef[];
 			} catch {
-				// No readable task list: every Intent gets the same priority and the queue is first in, first out.
+				// No readable task list: every Intent gets the same priority and the queues are first in, first out.
 			}
 			this.taskOrder = { trunk, tasks };
 		}
 		return this.taskOrder.tasks;
 	}
 
-	async enqueue(intentId: IntentId, path: QueuePath = "rebase"): Promise<void> {
+	private async priorityOf(intentId: IntentId): Promise<number> {
 		const intent = await intentStub(this.env, intentId).get().catch(() => null);
 		const tasks = await this.tasks(await currentTrunk(this.env), getRepoStore(this.env));
-		const priority = taskPriority(tasks, intent?.taskId ?? "");
+		return taskPriority(tasks, intent?.taskId ?? "");
+	}
+
+	private wake(delayMs = 0): Promise<void> {
+		return this.ctx.storage.setAlarm(Date.now() + delayMs);
+	}
+
+	// ---- what other parts of the system call ----
+
+	async enqueue(intentId: IntentId, path: QueuePath = "rebase"): Promise<void> {
+		const priority = await this.priorityOf(intentId);
 		// Asking again for an Intent that is already queued keeps its place and takes the newer path.
 		this.ctx.storage.sql.exec(
 			"INSERT INTO queue (intent_id, path, priority, enqueued_at, attempts) VALUES (?, ?, ?, ?, 0) ON CONFLICT(intent_id) DO UPDATE SET path = excluded.path, attempts = 0",
@@ -205,63 +126,250 @@ export class Landing extends DurableObject<Env> {
 			priority,
 			Date.now(),
 		);
-		await this.ctx.storage.setAlarm(Date.now());
+		await this.wake();
+	}
+
+	/** An Intent went stale: get it re-derived. Whoever made it stale calls this (invalidation, or the gate itself). */
+	async noteStale(intentId: IntentId, rebaseFailedAt: CommitSha | null = null): Promise<void> {
+		await this.queueStale(intentId, rebaseFailedAt);
+		await this.wake();
+	}
+
+	/** The agent re-deriving an Intent could not finish. Counts as a failed attempt. */
+	async rederiveFailed(intentId: IntentId, attempt: number, reason: string): Promise<void> {
+		const running = this.scheduler().isRunning(intentId);
+		if (running === undefined || running.attempt !== attempt) {
+			return; // an old attempt reporting late
+		}
+		await this.endRederive(intentId, { landed: false, reason });
+		await this.wake();
+	}
+
+	/** A person answered the "Retry / Abandon" card of an Intent whose re-derives kept failing. Returns its status afterwards. */
+	async humanChoice(intentId: IntentId, choice: "Retry" | "Abandon"): Promise<IntentStatus | null> {
+		const api = intentStub(this.env, intentId);
+		if (choice === "Abandon") {
+			const running = this.scheduler().isRunning(intentId);
+			this.scheduler().drop(intentId);
+			this.ctx.storage.sql.exec("DELETE FROM queue WHERE intent_id = ?", intentId);
+			if (running !== undefined) {
+				await this.stopAgent(intentId, running.attempt);
+			}
+			await settle(api, { a: "human", choice }, "Abandoned");
+		} else if (await settle(api, { a: "human", choice }, "Trying once more")) {
+			// One more attempt, then back to a person.
+			this.setFailures(intentId, MAX_FAILED_REDERIVES - 1);
+			this.scheduler().noteStale({ intentId, priority: await this.priorityOf(intentId), since: Date.now() });
+		}
+		await publishMetrics(this.env);
+		await this.wake();
+		return (await api.get().catch(() => null))?.status ?? null;
 	}
 
 	async status(): Promise<LandingStatus> {
-		return { queue: this.rows(), busy: this.busy };
+		return { queue: this.rows(), busy: this.busy, stale: this.rederives.waiting(), rederiving: this.rederives.running() };
 	}
 
-	/** Empties the queue. Used when the demo is reset. */
+	/** Empties both queues. Used when the demo is reset. */
 	async clear(): Promise<void> {
-		this.ctx.storage.sql.exec("DELETE FROM queue");
+		for (const table of ["queue", "stale_queue", "running", "rederive_failures"]) {
+			this.ctx.storage.sql.exec(`DELETE FROM ${table}`);
+		}
 		await this.ctx.storage.deleteAlarm();
 		this.cache = newGateCache();
 		this.taskOrder = undefined;
+		this.deferred = [];
+		this.startErrors.clear();
 	}
+
+	// ---- the work ----
 
 	async alarm(): Promise<void> {
 		this.busy = true;
 		let retry = false;
 		try {
-			retry = await this.processBatch();
+			const trunk = await currentTrunk(this.env);
+			const store = getRepoStore(this.env);
+			const deps: RaceDeps = {
+				store,
+				trunk,
+				gate: gateDeps(this.env, store, trunk, this.cache),
+				cache: this.cache,
+				startAgent: (intent, attempt, broken) => this.startAgent(intent.id, attempt, broken),
+			};
+			// A slot marked as taken with no attempt number is a race whose start was cut short
+			// (alarms never overlap, so none can be starting now). Put it back in the queue.
+			for (const orphan of this.rederives.running().filter((entry) => entry.attempt === 0)) {
+				this.rederives.removeRunning(orphan.intentId);
+				this.scheduler().noteStale({ intentId: orphan.intentId, priority: await this.priorityOf(orphan.intentId), since: orphan.started });
+			}
+			retry = await this.processBatch(deps);
+			await this.sweep();
+			await this.scheduler(deps).pump();
+			retry = this.requeueDeferred() || retry;
 		} catch (error) {
 			// Never let the alarm itself fail: the platform would re-run it on its own schedule.
-			console.error("gate: batch failed", error);
+			console.error("gate: pass failed", error);
 			retry = true;
 		} finally {
 			this.busy = false;
 		}
-		if (this.rows().length > 0 && (await this.ctx.storage.getAlarm()) === null) {
-			await this.ctx.storage.setAlarm(Date.now() + (retry ? RETRY_DELAY_MS : 0));
+		if ((await this.ctx.storage.getAlarm()) !== null) {
+			return; // more work arrived while this pass ran
+		}
+		const running = this.rederives.running();
+		if (this.rows().length > 0 || retry) {
+			await this.wake(retry ? RETRY_DELAY_MS : 0);
+		} else if (running.length > 0) {
+			// Nothing to do until an agent comes back. Look again when the oldest one would be overdue.
+			await this.ctx.storage.setAlarm(Math.min(...running.map((entry) => entry.started)) + RACE_TIMEOUT_MS + 1);
 		}
 	}
 
+	private scheduler(deps?: RaceDeps): RederiveScheduler {
+		const configured = Number(this.env.MAX_CONCURRENT_REDERIVES);
+		return new RederiveScheduler(this.rederives, configured > 0 ? configured : DEFAULT_MAX_CONCURRENT, async (entry): Promise<Started> => {
+			if (deps === undefined) {
+				throw new Error("races are only started from the alarm");
+			}
+			return this.race(entry, deps);
+		});
+	}
+
 	/** Gates one batch, in order. Returns true if an Intent hit an error and is still queued for another try. */
-	private async processBatch(): Promise<boolean> {
+	private async processBatch(deps: RaceDeps): Promise<boolean> {
 		const sql = this.ctx.storage.sql;
-		const store = getRepoStore(this.env);
-		const trunk = await currentTrunk(this.env);
-		const deps: LandDeps = { gate: gateDeps(this.env, store, trunk, this.cache), cache: this.cache };
 		let retry = false;
 
 		for (const entry of pickBatch(this.rows())) {
+			const id = entry.intentId;
 			try {
-				await landIntent(this.env, entry.intentId, entry.path, deps);
-				sql.exec("DELETE FROM queue WHERE intent_id = ?", entry.intentId);
+				const outcome = await landIntent(this.env, id, entry.path, deps);
+				sql.exec("DELETE FROM queue WHERE intent_id = ?", id);
+				if (entry.path === "rederive") {
+					if (outcome.kind === "landed") {
+						await this.endRederive(id, { landed: true });
+					} else if (outcome.kind === "failed") {
+						await this.endRederive(id, { landed: false, reason: outcome.note });
+					} else if (outcome.kind === "skipped" && outcome.status !== "stale") {
+						this.scheduler().finished(id); // abandoned, or gone: free its slot
+					}
+				} else if (outcome.kind === "stale") {
+					// The gate has just shown that the plain rebase does not pass on this trunk.
+					await this.queueStale(id, outcome.trunkAt);
+				}
+				if (outcome.kind === "landed") {
+					for (const other of outcome.stale) {
+						await this.queueStale(other);
+					}
+				}
 			} catch (error) {
 				const message = error instanceof Error ? error.message : String(error);
-				console.error(`gate: could not check ${entry.intentId} (attempt ${entry.attempts + 1})`, message);
+				console.error(`gate: could not check ${id} (attempt ${entry.attempts + 1})`, message);
 				if (entry.attempts + 1 < MAX_ATTEMPTS) {
-					sql.exec("UPDATE queue SET attempts = attempts + 1 WHERE intent_id = ?", entry.intentId);
+					sql.exec("UPDATE queue SET attempts = attempts + 1 WHERE intent_id = ?", id);
 					retry = true;
 					continue;
 				}
-				sql.exec("DELETE FROM queue WHERE intent_id = ?", entry.intentId);
-				await settle(intentStub(this.env, entry.intentId), { a: "fail" }, `The gate could not check this Intent: ${message}`).catch(() => undefined);
+				sql.exec("DELETE FROM queue WHERE intent_id = ?", id);
+				const reason = `The gate could not check this Intent: ${message}`;
+				if (entry.path === "rederive" && this.scheduler().isRunning(id) !== undefined) {
+					await this.endRederive(id, { landed: false, reason }).catch(() => undefined);
+				} else {
+					await settle(intentStub(this.env, id), { a: "fail" }, reason).catch(() => undefined);
+				}
 				await publishMetrics(this.env).catch(() => undefined);
 			}
 		}
 		return retry;
+	}
+
+	/** Adds a stale Intent to the re-derive queue. If it was mid re-derive, trunk has moved under that attempt, which is void. */
+	private async queueStale(intentId: IntentId, rebaseFailedAt: CommitSha | null = null): Promise<void> {
+		const scheduler = this.scheduler();
+		const running = scheduler.isRunning(intentId);
+		if (running !== undefined) {
+			scheduler.finished(intentId);
+			await this.stopAgent(intentId, running.attempt);
+			await publish(this.env, { t: "rederive.race", id: intentId, rebase: "fail", rederive: "fail" });
+		}
+		scheduler.noteStale({ intentId, priority: await this.priorityOf(intentId), since: Date.now(), rebaseFailedAt });
+	}
+
+	/** Runs one race to the point where it has landed or an agent is at work. */
+	private async race(entry: StaleEntry, deps: RaceDeps): Promise<Started> {
+		const id = entry.intentId;
+		try {
+			const result = await startRace(this.env, entry, deps);
+			this.startErrors.delete(id);
+			if (result.kind === "landed") {
+				this.setFailures(id, 0);
+				for (const other of result.outcome.stale) {
+					await this.queueStale(other);
+				}
+				return { kind: "done" };
+			}
+			return result.kind === "rederiving" ? { kind: "running", attempt: result.attempt } : { kind: "done" };
+		} catch (error) {
+			const message = error instanceof Error ? error.message : String(error);
+			const errors = (this.startErrors.get(id) ?? 0) + 1;
+			console.error(`gate: could not start the re-derive of ${id} (attempt ${errors})`, message);
+			if (errors < MAX_ATTEMPTS) {
+				// Put it back after this pass, so one stubborn Intent cannot spin the loop.
+				this.startErrors.set(id, errors);
+				this.deferred.push(entry);
+			} else {
+				this.startErrors.delete(id);
+				await this.endRederive(id, { landed: false, reason: `The re-derive could not be started: ${message}` }).catch(() => undefined);
+			}
+			return { kind: "done" };
+		}
+	}
+
+	private requeueDeferred(): boolean {
+		const entries = this.deferred;
+		this.deferred = [];
+		for (const entry of entries) {
+			this.scheduler().noteStale({ ...entry, since: Date.now() });
+		}
+		return entries.length > 0;
+	}
+
+	/** Closes a re-derive: frees its slot, then lands, requeues, or hands the Intent to a person. */
+	private async endRederive(intentId: IntentId, result: { landed: true } | { landed: false; reason: string }): Promise<void> {
+		this.scheduler().finished(intentId);
+		const failedBefore = this.failures(intentId);
+		const end = await finishRederive(this.env, intentId, result, failedBefore);
+		if (end === "landed") {
+			this.setFailures(intentId, 0);
+			return;
+		}
+		this.setFailures(intentId, failedBefore + 1);
+		if (end === "stale") {
+			this.scheduler().noteStale({ intentId, priority: await this.priorityOf(intentId), since: Date.now() });
+		}
+	}
+
+	/** Counts a re-derive whose agent never came back as failed. */
+	private async sweep(): Promise<void> {
+		const overdue = this.rederives.running().filter((entry) => entry.attempt > 0 && Date.now() - entry.started > RACE_TIMEOUT_MS);
+		for (const entry of overdue) {
+			await this.stopAgent(entry.intentId, entry.attempt);
+			await this.endRederive(entry.intentId, { landed: false, reason: "the re-derive did not finish in time" });
+		}
+	}
+
+	private async startAgent(intentId: IntentId, attempt: number, broken: Premise[]): Promise<void> {
+		await this.env.AGENT_WORKFLOW.create({ id: workflowInstanceId(intentId, attempt), params: { intentId, mode: "rederive", attempt, broken } });
+	}
+
+	private async stopAgent(intentId: IntentId, attempt: number): Promise<void> {
+		try {
+			const instance = await this.env.AGENT_WORKFLOW.get(workflowInstanceId(intentId, attempt));
+			await instance.terminate();
+		} catch {
+			// It has already finished, or never started. Either way it will not write anything more:
+			// a run stops by itself once the Intent has moved on to a later attempt.
+		}
 	}
 }

@@ -37,7 +37,8 @@ function fake(world: World) {
 		getIntent: async (id) => world.intents[id] ?? null,
 		async breakPremise(id, symbol, by, scope) {
 			breaks.push({ id, symbol, by, scope });
-			return { broken: true };
+			// As IntentDO does: an Intent that is at work goes stale; one still planning only has the premise marked.
+			return { broken: true, stale: ["working", "submitted", "checking", "queued", "gating", "rederiving"].includes(world.statuses[id] ?? "") };
 		},
 		async run(req): Promise<RunResult> {
 			runs.push(req);
@@ -67,7 +68,7 @@ describe("invalidateWith", () => {
 		expect(h.breaks.map((item) => [item.id, item.symbol])).toEqual([["ireader01", SESSION], ["ireader02", VERIFY]]);
 		expect(h.breaks[0]).toMatchObject({ by: { intentId: "ilander01", commit: COMMIT, reason: "type surface of Session changed in intent ilander01" }, scope: { sources: ["observed", "derived"] } });
 		expect(h.breaks[1]?.by.reason).toBe("type surface of verifySession changed in intent ilander01");
-		expect(result).toMatchObject({ skipped: false, intents: ["ireader01", "ireader02"] });
+		expect(result).toMatchObject({ skipped: false, intents: ["ireader01", "ireader02"], stale: ["ireader01", "ireader02"] });
 		expect(h.runs).toEqual([]); // nobody asserted anything
 		expect(h.metricsPublished()).toBe(1);
 	});
@@ -98,6 +99,7 @@ describe("invalidateWith", () => {
 		]);
 		expect(h.breaks[0]?.by).toEqual({ intentId: "ilander01", commit: COMMIT, reason: "assertion 'premise a1' no longer holds after intent ilander01" });
 		expect(result.intents).toEqual(["iasserts1", "iasserts3"]);
+		expect(result.stale).toEqual(["iasserts1", "iasserts3"]);
 	});
 
 	it("never breaks an Intent that has landed or failed, is already stale, or is the one that landed", async () => {
@@ -119,7 +121,7 @@ describe("invalidateWith", () => {
 		const h = fake(world);
 		expect((await invalidateWith(h.deps, landed({ changedSymbols: [SESSION] }))).skipped).toBe(false);
 		expect(h.breaks).toHaveLength(2);
-		expect(await invalidateWith(h.deps, landed({ changedSymbols: [SESSION] }))).toEqual({ skipped: true, broken: [], intents: [] });
+		expect(await invalidateWith(h.deps, landed({ changedSymbols: [SESSION] }))).toEqual({ skipped: true, broken: [], intents: [], stale: [] });
 		expect(h.breaks).toHaveLength(2);
 		expect(h.runs).toHaveLength(1);
 		expect(h.metricsPublished()).toBe(1);

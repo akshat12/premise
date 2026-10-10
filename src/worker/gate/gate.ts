@@ -25,6 +25,8 @@ export interface GateOptions {
 	skipAssertions?: boolean;
 	/** Do not run the acceptance tests (the A/B baseline lands on typecheck alone). */
 	skipTests?: boolean;
+	/** Run every check but do not commit. `report.ok` then means "would land"; `landedCommit` stays null. */
+	dryRun?: boolean;
 }
 
 export interface GateOutcome {
@@ -87,7 +89,7 @@ function summarise(intent: Intent, run: RunResult): Pick<GateReport, "tests" | "
 	return { tests, assertions };
 }
 
-async function attempt(deps: GateDeps, intent: Intent, opts: GateOptions): Promise<Omit<GateOutcome, "report"> & { verdict: Verdict; landedCommit: CommitSha | null }> {
+async function attempt(deps: GateDeps, intent: Intent, opts: GateOptions): Promise<Omit<GateOutcome, "report"> & { verdict: Verdict; passed: boolean; landedCommit: CommitSha | null }> {
 	if (intent.headCommit === null) {
 		throw new Error(`Intent ${intent.id} has nothing pushed to land`);
 	}
@@ -96,7 +98,7 @@ async function attempt(deps: GateDeps, intent: Intent, opts: GateOptions): Promi
 	const [trunkFiles, base, head] = await Promise.all([deps.snapshot(trunk, trunkHead), deps.snapshot(intent.repo, intent.baseCommit), deps.snapshot(intent.repo, intent.headCommit)]);
 
 	const rebased = threeWayRebase(base, head, trunkFiles);
-	const stopped = { changedSymbols: [], conflicts: rebased.conflicts, landedCommit: null, trunkBefore: trunkHead };
+	const stopped = { changedSymbols: [], conflicts: rebased.conflicts, passed: false, landedCommit: null, trunkBefore: trunkHead };
 	if (rebased.conflicts.length > 0) {
 		return { ...stopped, verdict: { textConflict: true, typecheck: { ok: false, errors: [] }, ...NOT_RUN } };
 	}
@@ -116,24 +118,28 @@ async function attempt(deps: GateDeps, intent: Intent, opts: GateOptions): Promi
 		return { ...stopped, verdict };
 	}
 
+	if (opts.dryRun) {
+		return { ...stopped, passed: true, verdict };
+	}
 	const changes = changesBetween(trunkFiles, merged);
 	// An Intent whose work is already on trunk has nothing to commit; trunk stays where it is.
 	const landedCommit = Object.keys(changes).length === 0 ? trunkHead : await deps.commitTrunk(trunkHead, changes, landingMessage(intent));
 	const moved = diffSurface(deps.surface(trunkFiles).map, deps.surface(merged).map);
-	return { verdict, landedCommit, changedSymbols: [...moved.changed, ...moved.removed].sort(), newTrunkFiles: merged, conflicts: [], trunkBefore: trunkHead };
+	return { verdict, passed: true, landedCommit, changedSymbols: [...moved.changed, ...moved.removed].sort(), newTrunkFiles: merged, conflicts: [], trunkBefore: trunkHead };
 }
 
 /**
  * Runs one Intent through the gate. It lands (`report.ok`, `report.landedCommit`) only if the
  * rebase is clean, the result typechecks, and every acceptance test and asserted premise passes.
  * If trunk moves while it is being checked, the whole thing runs once more against the new trunk.
+ * With `opts.dryRun` nothing is committed and `report.ok` says whether it would have landed.
  */
 export async function gateOne(deps: GateDeps, intent: Intent, path: GatePath, opts: GateOptions = {}): Promise<GateOutcome> {
 	const started = Date.now();
 	for (let tries = 0; ; tries++) {
 		try {
-			const { verdict, landedCommit, ...rest } = await attempt(deps, intent, opts);
-			const report: GateReport = { intentId: intent.id, path, ...verdict, ok: landedCommit !== null, landedCommit, durationMs: Date.now() - started };
+			const { verdict, passed, landedCommit, ...rest } = await attempt(deps, intent, opts);
+			const report: GateReport = { intentId: intent.id, path, ...verdict, ok: passed, landedCommit, durationMs: Date.now() - started };
 			return { report, ...rest };
 		} catch (error) {
 			if (!(error instanceof StaleHeadError) || tries >= 1) {

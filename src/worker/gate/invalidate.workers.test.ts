@@ -9,7 +9,7 @@ import type { LlmTurn } from "../ports/llm";
 import { memorySteps, scriptFor, seededStore, startIntent } from "../testing/agent";
 import { demoFiles, referencePatch } from "../testing/demo";
 import { invalidate } from "./invalidate";
-import { gateDeps, landIntent } from "./landing";
+import { gateDeps, landIntent } from "./land";
 
 type Store = ReturnType<typeof seededStore>;
 const VERIFY = "src/auth/session.ts#verifySession";
@@ -28,8 +28,7 @@ async function waitFor(api: IntentApi, status: Intent["status"], timeoutMs = 10_
 
 /**
  * Runs a task's recorded agent through its plan (reading, asserting, declaring its changes) and
- * then holds it there: status `working`, premises recorded, nothing written yet. `release()` ends
- * the run, which fails the Intent and so frees its claims.
+ * then holds it there: status `working`, premises recorded, nothing written yet.
  */
 async function frozenInWorking(store: Store, taskId: string) {
 	const started = await startIntent(env, store, taskId);
@@ -51,9 +50,13 @@ async function frozenInWorking(store: Store, taskId: string) {
 	return {
 		...started,
 		intent,
+		/** Ends the run, then the Intent, which frees its claims for other tests. Returns how the run ended and the status it left. */
 		async release() {
 			stop(new Error("test over"));
-			await run;
+			const outcome = await run;
+			const left = (await started.api.get()).status;
+			await started.api.act({ a: "fail" }, "test cleanup").catch(() => undefined);
+			return { result: outcome.result, left };
 		},
 	};
 }
@@ -79,15 +82,19 @@ describe("invalidation, on the demo scenario", () => {
 		const t02 = await frozenInWorking(store, "t02-audit-expired");
 		const t03 = await frozenInWorking(store, "t03-expired-metrics");
 		const t04 = await frozenInWorking(store, "t04-session-ttl-header");
+		let ends: Awaited<ReturnType<Frozen["release"]>>[] = [];
 		try {
 			await scenario(store, t02, t03, t04);
 		} finally {
-			// Ending the runs fails the Intents, which frees their claims for other tests.
-			for (const intent of [t02, t03, t04]) {
-				await intent.release();
-			}
+			ends = [await t02.release(), await t03.release(), await t04.release()];
 		}
-		expect((await t04.api.get()).status).toBe("failed");
+		// When their runs end, the stale Intents are not failed: they are waiting to be re-derived and
+		// keep their claims for it. The one that was still its run's to work on is failed as before.
+		expect(ends).toEqual([
+			{ result: "stopped", left: "stale" },
+			{ result: "stopped", left: "stale" },
+			{ result: "failed", left: "failed" },
+		]);
 	}, 60_000);
 
 	type Frozen = Awaited<ReturnType<typeof frozenInWorking>>;
@@ -131,7 +138,7 @@ describe("invalidation, on the demo scenario", () => {
 		const metricsEvents = (await hub(env).since(0, 5000)).filter((event) => event.t === "metrics");
 		expect(metricsEvents.at(-1)).toMatchObject({ metrics: { premisesBroken: brokenAfter } });
 		// The same commit reported again (the platform's push event, say) changes nothing.
-		expect(await invalidate(env, { commit, byIntent: t01.id, changedSymbols: [], newTrunkFiles: await store.snapshot("trunk", "main") })).toEqual({ skipped: true, broken: [], intents: [] });
+		expect(await invalidate(env, { commit, byIntent: t01.id, changedSymbols: [], newTrunkFiles: await store.snapshot("trunk", "main") })).toEqual({ skipped: true, broken: [], intents: [], stale: [] });
 		expect((await hub(env).metrics()).premisesBroken).toBe(brokenAfter);
 	}
 

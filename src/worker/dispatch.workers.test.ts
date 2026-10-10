@@ -268,7 +268,7 @@ describe("POST /api/admin/reset-demo", () => {
 		expect(await get<RegistryRow[]>("/api/intents")).toEqual([]);
 		expect(await get<LedgerSnapshot>("/api/ledger")).toEqual({ claims: [], readers: [] });
 		expect(await get<Metrics>("/api/metrics")).toMatchObject({ agentsActive: 0, intentsLanded: 0, forksCreated: 0, pushes: 0 });
-		expect(await get<LandingStatus>("/api/gate")).toEqual({ queue: [], busy: false });
+		expect(await get<LandingStatus>("/api/gate")).toEqual({ queue: [], busy: false, stale: [], rederiving: [] });
 
 		// And it can be dispatched against straight away.
 		const { intents: fresh } = (await (await post("/api/dispatch", { taskIds: ["t12-password-policy"] })).json()) as { intents: string[] };

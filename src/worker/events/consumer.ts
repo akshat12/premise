@@ -5,6 +5,7 @@
 //     flight are checked against it here, exactly as if an Intent had landed.
 import type { PremiseEventBody } from "../../shared/events";
 import type { CommitSha, IntentId, SymbolId } from "../../shared/types";
+import { landing } from "../gate/client";
 import { type Invalidate, invalidate } from "../gate/invalidate";
 import { currentTrunk, hub, publishMany } from "../hub/publish";
 import { getRepoStore } from "../ports";
@@ -96,9 +97,11 @@ export function interpret(body: unknown, trunk: string): Interpreted {
 export interface ConsumerDeps {
 	store?: RepoStore;
 	invalidate?: Invalidate;
+	/** What to do with an Intent the push turned stale. Defaults to handing it to the gate for a re-derive. */
+	noteStale?(intentId: IntentId): Promise<void>;
 }
 
-type ConsumerEnv = Pick<Env, "HUB" | "INTENT" | "LEDGER" | "LOADER" | "REPO_STORE" | "ARTIFACTS" | "TRUNK_REPO">;
+type ConsumerEnv = Pick<Env, "HUB" | "INTENT" | "LEDGER" | "LOADER" | "LANDING" | "REPO_STORE" | "ARTIFACTS" | "TRUNK_REPO">;
 
 /** Which symbols' type surface differs between two versions of trunk. */
 export function changedBetween(before: FileMap, after: FileMap): SymbolId[] {
@@ -120,6 +123,9 @@ export async function handleArtifactsEvent(env: ConsumerEnv, body: unknown, deps
 	const store = deps.store ?? getRepoStore(env);
 	const [before, after] = await Promise.all([store.snapshot(trunk, trunkPush.before), store.snapshot(trunk, trunkPush.after)]);
 	const result = await (deps.invalidate ?? invalidate)(env, { commit: trunkPush.after, byIntent: trunkPush.byIntent, changedSymbols: changedBetween(before, after), newTrunkFiles: after });
+	for (const intentId of result.stale) {
+		await (deps.noteStale ?? ((id) => landing(env).noteStale(id)))(intentId);
+	}
 	return { published: publish.length, invalidated: !result.skipped };
 }
 
