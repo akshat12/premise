@@ -4,7 +4,9 @@ import { hub, publish } from "../hub/publish";
 import { getRepoStore } from "../ports";
 import { ArtifactsRepoStore } from "../ports/artifacts-repo-store";
 import { runContract } from "../ports/repo-store.contract";
+import { runInIsolate } from "../runner";
 import { analyze } from "../surface";
+import type { Assertion } from "../../shared/types";
 import { importTrunk } from "./import-trunk";
 
 const SMOKE_PREFIX = "smoke";
@@ -46,16 +48,27 @@ export async function handleAdmin(request: Request, env: Env, url: URL): Promise
 		case "/api/admin/smoke":
 			return smoke(env);
 		case "/api/admin/analyze": {
-			// Typechecks trunk and counts its symbols with the TypeScript compiler, inside this Worker.
+			// A health check of the two things that run repo code inside this Worker: the TypeScript
+			// compiler (typecheck and symbol surfaces) and the Dynamic Worker runner (tests and assertions).
 			const files = await getRepoStore(env).snapshot(env.TRUNK_REPO, "main");
 			const result = analyze(files);
+			const assertions = JSON.parse(files["premise/assertions.json"] ?? "[]") as Assertion[];
+			const testFile = "tests/session.test.ts";
+			const tests = [...(files[testFile] ?? "").matchAll(/^\t"([^"]+)": (?:async )?\(\) =>/gm)].map((match) => ({ file: testFile, name: match[1] ?? "" }));
+			const run = await runInIsolate(env, { files, tests, assertions });
 			return Response.json({
-				ok: result.typecheck.ok,
+				ok: result.typecheck.ok && run.loadError === undefined,
 				errors: result.typecheck.errors.slice(0, 20),
 				files: Object.keys(files).length,
 				symbols: result.surface.size,
 				verifySession: result.surface.get("src/auth/session.ts#verifySession") ?? null,
 				ms: result.ms,
+				runner: {
+					loadError: run.loadError ?? null,
+					testsPassed: run.tests.filter((test) => test.ok).length,
+					testsFailed: run.tests.filter((test) => !test.ok),
+					assertions: run.assertions,
+				},
 			});
 		}
 		case "/api/admin/import-trunk":

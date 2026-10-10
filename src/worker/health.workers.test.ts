@@ -54,7 +54,8 @@ describe("admin routes with the token", () => {
 	it("analyze typechecks trunk with the compiler running in the Worker", async () => {
 		const response = await exports.default.fetch("http://premise.test/api/admin/analyze", admin);
 		expect(response.status).toBe(200);
-		const body = (await response.json()) as { ok: boolean; errors: string[]; symbols: number; verifySession: { decl: string } | null };
+		const body = (await response.json()) as { ok: boolean; errors: string[]; symbols: number; verifySession: { decl: string } | null; runner: { loadError: string | null; testsPassed: number; testsFailed: unknown[]; assertions: { id: string; ok: boolean }[] } };
+		expect(body.runner).toMatchObject({ loadError: null, testsPassed: 8, testsFailed: [], assertions: [{ id: "a-session-throws", ok: true }] });
 		expect(body.errors).toEqual([]);
 		expect(body.ok).toBe(true);
 		expect(body.symbols).toBeGreaterThanOrEqual(200);
