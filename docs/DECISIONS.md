@@ -261,3 +261,9 @@ A third LLM option, after the Anthropic key and the Workers AI fallback. Nothing
 - **Re-exports from another module** (`export { x } from "./y.js"`, `export * as ns from ...`) are not symbols of the re-exporting file. `demo-repo/src/index.ts` is all re-exports, so it contributes only `VERSION`.
 - The demo-repo test reads the repo through `DEMO_REPO_FILES` (Vite's `import.meta.glob`) rather than `node:fs`, because the Worker tsconfig has no Node types.
 - On the demo repo, the planted `t01` edit is reported as a **body** touch on `verifySession` and nothing else.
+
+## 2026-10-09: T03 closed, admin token set
+
+- **H5 is done.** At the user's request I generated a random `ADMIN_TOKEN`, saved it in `.dev.vars` (git-ignored) and set the same value as the deployed Worker's secret with `wrangler secret put`. The value was never printed.
+- **T03's last acceptance step passed:** `npm run smoke` against the deployed Worker ran the RepoStore contract on real Artifacts, 8 of 8, in about 10 s (the same run took 16 to 19 s through local dev).
+- **Public demo repo:** the user is creating `akshat12/acme-accounts` themselves and asked that nothing pushed there mention the competition. `demo-repo/` never did; its README no longer names Cloudflare either, and `scripts/publish-demo-repo.sh` now pushes to an existing (even empty) repo and uses neutral commit messages and description.
