@@ -1,0 +1,157 @@
+[
+	{
+		"blocks": [
+			{
+				"type": "text",
+				"text": "Reading the code this touches."
+			},
+			{
+				"type": "tool_use",
+				"id": "toolu_0001",
+				"name": "read_file",
+				"input": {
+					"path": "src/api/handlers.ts"
+				}
+			},
+			{
+				"type": "tool_use",
+				"id": "toolu_0002",
+				"name": "read_file",
+				"input": {
+					"path": "src/auth/session.ts"
+				}
+			}
+		],
+		"stop": "tool_use",
+		"usage": {
+			"input": 0,
+			"output": 0
+		}
+	},
+	{
+		"blocks": [
+			{
+				"type": "text",
+				"text": "verifySession now returns null on expiry; recording that."
+			},
+			{
+				"type": "tool_use",
+				"id": "toolu_0003",
+				"name": "assert_premise",
+				"input": {
+					"description": "verifySession returns null for an expired session",
+					"imports": [
+						"src/auth/session.ts",
+						"src/store/memory-store.ts"
+					],
+					"code": "const store = createMemorySessionStore([{ id: 's1', userId: 'u1', expiresAt: 0 }]); assert.eq(verifySession('s1', store, () => 10), null);"
+				}
+			}
+		],
+		"stop": "tool_use",
+		"usage": {
+			"input": 0,
+			"output": 0
+		}
+	},
+	{
+		"blocks": [
+			{
+				"type": "text",
+				"text": "Declaring what I will change."
+			},
+			{
+				"type": "tool_use",
+				"id": "toolu_0004",
+				"name": "declare_changes",
+				"input": {
+					"claims": [
+						{
+							"symbol": "src/api/handlers.ts#authenticate",
+							"mode": "body"
+						}
+					],
+					"why": [
+						"Same goal after t01: detect expiry from the stored session."
+					]
+				}
+			}
+		],
+		"stop": "tool_use",
+		"usage": {
+			"input": 0,
+			"output": 0
+		}
+	},
+	{
+		"blocks": [
+			{
+				"type": "text",
+				"text": "Writing the change and its acceptance tests."
+			},
+			{
+				"type": "tool_use",
+				"id": "toolu_0005",
+				"name": "write_file",
+				"input": {
+					"path": "src/api/handlers.ts",
+					"content": "import { isExpired, type Session, type SessionStore, verifySession } from \"../auth/session.js\";\nimport { computeTotal } from \"../billing/invoice.js\";\nimport { type InvoiceRepository, paginate, type UserRepository } from \"../store/repo.js\";\nimport { applyProfileUpdate, defaultProfile, type Profile, type ProfileUpdate, validateProfile } from \"../users/profile.js\";\nimport { displayName, publicUser } from \"../users/user.js\";\nimport { NotFoundError } from \"../util/errors.js\";\nimport type { Clock } from \"../util/time.js\";\nimport { countRoute, increment, type Metrics } from \"./metrics.js\";\nimport * as responses from \"./responses.js\";\nimport type { ApiResponse } from \"./responses.js\";\nimport { matchRoute, type Method, routeKey } from \"./routes.js\";\nimport { isPlainObject } from \"./validate.js\";\n\nexport interface ApiRequest {\n\tmethod: Method;\n\tpath: string;\n\t/** The session token from the Authorization header, if any. */\n\ttoken?: string;\n\tbody?: unknown;\n}\n\nexport interface HandlerDeps {\n\tsessions: SessionStore;\n\tusers: UserRepository;\n\tinvoices: InvoiceRepository;\n\tprofiles: Map<string, Profile>;\n\tmetrics: Metrics;\n\tnow: Clock;\n}\n\nexport type AuthResult = { kind: \"ok\"; session: Session } | { kind: \"anonymous\" } | { kind: \"expired\" };\n\n/** Works out who is calling: a signed-in user, nobody, or someone whose session has run out. */\nexport function authenticate(request: ApiRequest, deps: HandlerDeps): AuthResult {\n\tconst session = verifySession(request.token, deps.sessions, deps.now);\n\tif (session !== null) {\n\t\treturn { kind: \"ok\", session };\n\t}\n\t// verifySession reports an expired session as null, so check the stored session ourselves.\n\tconst stored = request.token === undefined ? undefined : deps.sessions.get(request.token);\n\tif (stored !== undefined && isExpired(stored, deps.now)) {\n\t\tincrement(deps.metrics, \"sessionsExpired\");\n\t\treturn { kind: \"expired\" };\n\t}\n\treturn { kind: \"anonymous\" };\n}\n\nfunction profileOf(session: Session, deps: HandlerDeps): Profile {\n\tconst existing = deps.profiles.get(session.userId);\n\tif (existing !== undefined) {\n\t\treturn existing;\n\t}\n\tconst user = deps.users.get(session.userId);\n\tif (user === undefined) {\n\t\tthrow new NotFoundError(\"user\");\n\t}\n\treturn defaultProfile(user.id, displayName(user));\n}\n\nexport function handleGetProfile(session: Session, deps: HandlerDeps): ApiResponse {\n\tconst user = deps.users.get(session.userId);\n\tif (user === undefined) {\n\t\tthrow new NotFoundError(\"user\");\n\t}\n\treturn responses.ok({ user: publicUser(user), profile: profileOf(session, deps) });\n}\n\nexport function handleUpdateProfile(session: Session, body: unknown, deps: HandlerDeps): ApiResponse {\n\tif (!isPlainObject(body)) {\n\t\treturn responses.badRequest(\"body must be an object\");\n\t}\n\tconst update = body as ProfileUpdate;\n\tconst problems = validateProfile(update);\n\tif (problems.length > 0) {\n\t\treturn responses.badRequest(problems[0]?.message ?? \"invalid profile\", problems.map((problem) => problem.field));\n\t}\n\tconst updated = applyProfileUpdate(profileOf(session, deps), update);\n\tdeps.profiles.set(session.userId, updated);\n\treturn responses.ok({ profile: updated });\n}\n\nexport function handleListInvoices(session: Session, deps: HandlerDeps): ApiResponse {\n\tconst invoices = deps.invoices.forUser(session.userId).map((invoice) => ({\n\t\tid: invoice.id,\n\t\tnumber: invoice.number,\n\t\tstatus: invoice.status,\n\t\ttotals: computeTotal(invoice),\n\t}));\n\treturn responses.ok(paginate(invoices));\n}\n\nexport function handleGetInvoice(session: Session, id: string, deps: HandlerDeps): ApiResponse {\n\tconst invoice = deps.invoices.get(id);\n\t// Someone else's invoice is reported as missing, so ids cannot be probed.\n\tif (invoice === undefined || invoice.userId !== session.userId) {\n\t\tthrow new NotFoundError(\"invoice\");\n\t}\n\treturn responses.ok({ invoice, totals: computeTotal(invoice) });\n}\n\n/** The single entry point: routes a request, authenticates it, and turns failures into responses. */\nexport function handleRequest(request: ApiRequest, deps: HandlerDeps): ApiResponse {\n\tincrement(deps.metrics, \"requests\");\n\tconst match = matchRoute(request.method, request.path);\n\tif (match === null) {\n\t\treturn responses.notFound(\"route\");\n\t}\n\tcountRoute(deps.metrics, routeKey(match.route));\n\n\tconst auth = authenticate(request, deps);\n\tif (match.route.name === \"session.resume\") {\n\t\treturn auth.kind === \"ok\" ? responses.ok({ userId: auth.session.userId }) : auth.kind === \"expired\" ? responses.expired() : responses.unauthorized();\n\t}\n\tif (auth.kind !== \"ok\") {\n\t\tincrement(deps.metrics, \"unauthorized\");\n\t\treturn auth.kind === \"expired\" ? responses.expired() : responses.unauthorized();\n\t}\n\n\ttry {\n\t\tconst response = dispatch(match.route.name, auth.session, match.params, request, deps);\n\t\treturn responses.withSessionHeaders(response, auth.session, deps.now);\n\t} catch (error) {\n\t\tincrement(deps.metrics, \"errors\");\n\t\treturn responses.fromError(error);\n\t}\n}\n\nfunction dispatch(name: string, session: Session, params: Record<string, string>, request: ApiRequest, deps: HandlerDeps): ApiResponse {\n\tswitch (name) {\n\t\tcase \"profile.get\":\n\t\t\treturn handleGetProfile(session, deps);\n\t\tcase \"profile.update\":\n\t\t\treturn handleUpdateProfile(session, request.body, deps);\n\t\tcase \"invoices.list\":\n\t\t\treturn handleListInvoices(session, deps);\n\t\tcase \"invoices.get\":\n\t\t\treturn handleGetInvoice(session, params.id ?? \"\", deps);\n\t\tdefault:\n\t\t\treturn responses.notFound(\"route\");\n\t}\n}\n"
+				}
+			},
+			{
+				"type": "tool_use",
+				"id": "toolu_0006",
+				"name": "write_file",
+				"input": {
+					"path": "tests/expired-metrics.test.ts",
+					"content": "import * as assert from \"../premise/assert.js\";\nimport type { Tests } from \"../premise/assert.js\";\nimport { authenticate } from \"../src/api/handlers.js\";\nimport { makeDeps, makeSession, T0 } from \"./support.js\";\n\nexport const tests: Tests = {\n\t\"a request with an expired session is counted\": () => {\n\t\tconst deps = makeDeps({ sessions: [makeSession({ expiresAt: T0 - 1 })] });\n\t\tassert.deepEq(authenticate({ method: \"GET\", path: \"/profile\", token: \"ses_000001\" }, deps), { kind: \"expired\" });\n\t\tassert.eq(deps.metrics.sessionsExpired, 1);\n\t\tauthenticate({ method: \"GET\", path: \"/profile\", token: \"ses_000001\" }, deps);\n\t\tassert.eq(deps.metrics.sessionsExpired, 2);\n\t},\n\t\"valid and anonymous requests are not counted as expired\": () => {\n\t\tconst deps = makeDeps();\n\t\tassert.eq(authenticate({ method: \"GET\", path: \"/profile\", token: \"ses_000001\" }, deps).kind, \"ok\");\n\t\tassert.eq(authenticate({ method: \"GET\", path: \"/profile\" }, deps).kind, \"anonymous\");\n\t\tassert.eq(authenticate({ method: \"GET\", path: \"/profile\", token: \"ses_424242\" }, deps).kind, \"anonymous\");\n\t\tassert.eq(deps.metrics.sessionsExpired, 0);\n\t},\n};\n"
+				}
+			}
+		],
+		"stop": "tool_use",
+		"usage": {
+			"input": 0,
+			"output": 0
+		}
+	},
+	{
+		"blocks": [
+			{
+				"type": "text",
+				"text": "Checking."
+			},
+			{
+				"type": "tool_use",
+				"id": "toolu_0007",
+				"name": "run_checks",
+				"input": {}
+			}
+		],
+		"stop": "tool_use",
+		"usage": {
+			"input": 0,
+			"output": 0
+		}
+	},
+	{
+		"blocks": [
+			{
+				"type": "text",
+				"text": "Done."
+			},
+			{
+				"type": "tool_use",
+				"id": "toolu_0008",
+				"name": "submit",
+				"input": {
+					"message": "Count expired sessions in metrics"
+				}
+			}
+		],
+		"stop": "tool_use",
+		"usage": {
+			"input": 0,
+			"output": 0
+		}
+	}
+]

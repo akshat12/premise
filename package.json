@@ -14,7 +14,8 @@
     "types": "wrangler types --strict-vars false",
     "smoke": "tsx scripts/smoke.ts",
     "demo:reference": "tsx scripts/build-demo-reference.ts",
-    "demo:check": "tsx scripts/check-scenario.ts"
+    "demo:check": "tsx scripts/check-scenario.ts",
+    "agent:scripts": "tsx scripts/build-agent-scripts.ts"
   },
   "license": "MIT",
   "type": "module",

@@ -177,8 +177,9 @@ describe("markBroken", () => {
 });
 
 describe("premisesForRederive", () => {
-	it("keeps assertions, reset to holding, and drops what was read", () => {
-		const broken = markBroken([observed(VERIFY), asserted(VERIFY)], VERIFY, BY).premises;
-		expect(premisesForRederive(broken)).toEqual([asserted(VERIFY)]);
+	it("keeps assertions that still hold and drops broken ones and everything that was read", () => {
+		const premises = [observed(VERIFY), asserted(VERIFY, "a1"), asserted(VERIFY, "a2")];
+		const broken = markBroken(premises, VERIFY, BY, { assertionId: "a1" }).premises;
+		expect(premisesForRederive(broken)).toEqual([asserted(VERIFY, "a2")]);
 	});
 });

@@ -1,4 +1,5 @@
-import { DurableObject, WorkflowEntrypoint, type WorkflowEvent, type WorkflowStep } from "cloudflare:workers";
+import { DurableObject } from "cloudflare:workers";
+import { AgentWorkflow } from "./agent/workflow";
 import { EventHub } from "./hub/event-hub";
 import { IntentDO } from "./intent/intent-do";
 import { LedgerShard } from "./ledger/ledger-shard";
@@ -38,14 +39,8 @@ export default {
 // Durable Objects and Workflows must be exported from the entry module.
 // The classes below are still stubs; each gets its logic in a later task.
 
-export { EventHub, IntentDO, LedgerShard };
+export { AgentWorkflow, EventHub, IntentDO, LedgerShard };
 
 /** The gate: serialises landings onto trunk (T15). */
 export class Landing extends DurableObject<Env> {}
 
-/** Drives one agent through plan, claim, work and submit (T11). */
-export class AgentWorkflow extends WorkflowEntrypoint<Env, unknown> {
-	async run(_event: WorkflowEvent<unknown>, step: WorkflowStep): Promise<string> {
-		return step.do("stub", async () => "ok");
-	}
-}

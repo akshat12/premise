@@ -210,7 +210,7 @@ describe("IntentDO: record fields", () => {
 		expect(await ledgerShard(env, shard).snapshot()).toEqual({ claims: [], readers: [] });
 	});
 
-	it("restartOn points at a fresh fork, keeps assertions and clears the rest", async () => {
+	it("restartOn points at a fresh fork, keeps holding assertions and clears the rest", async () => {
 		const { stub, symbol } = await setup();
 		await stub.recordPremises([observed(symbol("verifySession")), asserted(symbol("verifySession"))]);
 		await stub.writeOverlay("src/auth/login.ts", "old work");

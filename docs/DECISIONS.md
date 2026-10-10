@@ -375,3 +375,35 @@ The user asked that the architecture make it easy to switch to another model pro
 - `RunResult.loadError` is also set when the run as a whole fails after loading (timeout, CPU limit): every item is then failed with that message.
 - Extra exports: `planRun` (modules, runnable items and per-item failures), `transpile`, `normalizeSpecifiers`, `assertionSource`, `normalizeImportPath`, `startFailureModule`, `moduleKey`.
 - The planted scenario reproduces in the isolate: on `t01` plus `t02`, the acceptance test fails with `expected {"error":"session_expired"}, got {"error":"unauthorized"}`, and `a-session-throws` fails with "expected the function to throw SessionExpiredError, but it returned".
+
+## 2026-10-09: T11 notes (agent tools and workflow)
+
+- **One conversation, one system prompt, one tool list.** The task file describes separate `PLAN_PROMPT` and `WORK_PROMPT` and different tools per phase. That would change the system prompt and tool list inside one conversation, which current Claude models reject on new accounts (see the T09 notes) and which defeats prompt caching on every provider. Instead:
+  - `SYSTEM_PROMPT` covers both phases. All nine tools are always offered.
+  - Phases are enforced by the handlers: `write_file`, `run_checks` and `submit` return an error in the plan phase; `declare_changes` returns one in the work phase.
+  - The phase change is announced in the result of the `declare_changes` call ("Granted. ... You are now in the work phase").
+  - The history is only ever appended to.
+- **The logic is in `agent/run.ts` (`runAgent`), not in the Workflow class.** `runAgent(deps, params, steps)` takes a small `Steps` interface (`do`, `waitForEvent`). `AgentWorkflow` in `agent/workflow.ts` adapts real Workflow steps to it; tests pass in-memory steps (`memorySteps()` in `testing/agent.ts`). The end-to-end tests call `runAgent` directly in the workers pool; the real Workflow is first exercised in T12.
+- **Step names:** `load`, `plan-turn-<n>`, `claim-<round>`, `accept-split-<round>`, `work-turn-<n>`, `push`, `record-push`, `hand-off`, plus `wait-ledger-<round>`, `ask-human-<round>` and `human-choice-<round>` when the ledger says no. Each turn step makes the model call and runs the tools it asked for; it returns only that turn's messages, and the driver rebuilds the conversation from step results.
+- **`declare_changes` and the ledger.** The handler stores the claims, `why` and rejected alternatives and signals the driver. The driver asks the ledger in a `claim-<round>` step and supplies the tool result itself.
+  - Granted: carry on.
+  - Split: the Intent's claims are cut down to the ledger's `mine` list and the agent is told which symbols the other Intent keeps.
+  - Split for the second time between the same pair (a stalemate): `human.needed` is published with options Wait / Split / Depend, and the run waits for a `human-choice` event.
+  - Wait or Depend: status `waiting`, then `waitForEvent("ledger-free", 30 minutes)`, then ask again. After 6 rounds the Intent fails.
+  - **Nothing sends `ledger-free` yet.** T12 or T15 must send it to waiting Intents' workflow instances when an Intent lands or fails, or a waiting agent sits for the full 30 minutes.
+- **Re-derive mode** (`params.mode === "rederive"`): the same driver, but it makes no status changes (the Intent stays `rederiving`), records the push with `setHead`, and the briefing gains the block describing what broke, the earlier `why`, and the rejected alternatives.
+- **A run stops quietly if the Intent is no longer its own.** Each turn first checks the status; if a premise broke and the Intent went `stale` mid-work, the run returns `stopped` and pushes nothing.
+- **Tool details.**
+  - `read_file`, `search_symbols` and `read_symbol` record observed premises with the symbol's surface hash at the Intent's base commit. A file is recorded once per run. Files the agent created, and test files, record nothing.
+  - Hidden from every tool: `premise/` (except `premise/assert.ts`, which tests import), `.intent/`, `tests/hidden*`. `premise/` and `tests/` symbols cannot be claimed.
+  - `assert_premise` runs the assertion immediately and refuses it if it does not hold: a premise has to be true when recorded. It accepts an optional `symbol`; otherwise the symbol is the first function from its imports that the code calls.
+  - `run_checks` typechecks base plus overlay, then runs the Intent's acceptance tests and its holding assertions in the runner.
+  - **`submit` runs the same checks and refuses if they fail**, so nothing that fails its own checks is ever pushed.
+  - Tool results are capped at 60,000 characters; `write_file` at 200,000.
+- **Turn limits:** 12 plan turns, 20 work turns. A turn with no tool call gets "Continue by calling a tool." A refusal fails the Intent.
+- **The push step is safe to retry:** if the fork's head is no longer the expected one, an earlier attempt already pushed, and that head is used.
+- **`premisesForRederive` changed from the T10 note:** broken assertions are now dropped, not reset to holding. A kept "verifySession throws" would fail the gate for the re-derived work, which has to rely on the new behaviour.
+- **Recorded agent runs for every task.** `npm run agent:scripts` generates `src/worker/agent/__scripts__/<taskId>.json` for all 12 tasks, and `<taskId>.rederive.json` for `t02`, `t03` and `t11`, from the reference solutions. Each plays: read the files it changes (the three relying tasks and `t04` also read `session.ts`), adopt `a-session-throws` if it relies on the throw, declare, write, check, submit. Claims are computed with `touchedSymbols`. The `t06` script also claims `computeTotal`, which produces the Split with `t05`. With `LLM=scripted` the whole pipeline therefore runs with no model key. Regenerate after `npm run demo:reference`.
+  - In a scripted run the client is rebuilt each turn from the number of assistant messages so far, so a restarted Workflow replays from the right place.
+- `agent/handoff.ts` is the seam for what follows a push. For now it moves a submitted Intent to `checking` then `queued`; T13 and T15 extend it.
+- Tests that use real symbol names end by failing their Intent, because the ledger is shared across the test run.

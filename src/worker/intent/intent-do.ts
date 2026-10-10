@@ -170,7 +170,7 @@ export class IntentDO extends DurableObject<Env> {
 
 	/**
 	 * Points the Intent at a fresh fork for a re-derive: new repo and base commit, no head, an
-	 * empty overlay, assertions kept and reset to holding, everything it read cleared.
+	 * empty overlay, holding assertions kept, broken ones and everything it read cleared.
 	 */
 	async restartOn(repo: string, baseCommit: CommitSha): Promise<Intent> {
 		const intent = this.load();

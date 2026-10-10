@@ -52,9 +52,12 @@ export function markBroken(premises: readonly Premise[], symbol: SymbolId, by: B
 	return { premises: next, changed };
 }
 
-/** For a re-derive: assertions are kept and reset to holding; what the agent read or used is cleared, because it will read again. */
+/**
+ * For a re-derive. Assertions that still hold are kept. Broken ones are dropped: they are why
+ * the Intent is being re-derived, the agent is told about them, and the gate must not go on
+ * demanding something that is no longer true. Everything the agent read or used is cleared,
+ * because it will read again on the new trunk.
+ */
 export function premisesForRederive(premises: readonly Premise[]): Premise[] {
-	return premises
-		.filter((premise) => premise.source === "asserted")
-		.map(({ brokenBy: _brokenBy, ...premise }) => ({ ...premise, state: "holding" as const }));
+	return premises.filter((premise) => premise.source === "asserted" && premise.state === "holding");
 }

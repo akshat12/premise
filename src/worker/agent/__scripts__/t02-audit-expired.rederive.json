@@ -1,0 +1,157 @@
+[
+	{
+		"blocks": [
+			{
+				"type": "text",
+				"text": "Reading the code this touches."
+			},
+			{
+				"type": "tool_use",
+				"id": "toolu_0001",
+				"name": "read_file",
+				"input": {
+					"path": "src/auth/login.ts"
+				}
+			},
+			{
+				"type": "tool_use",
+				"id": "toolu_0002",
+				"name": "read_file",
+				"input": {
+					"path": "src/auth/session.ts"
+				}
+			}
+		],
+		"stop": "tool_use",
+		"usage": {
+			"input": 0,
+			"output": 0
+		}
+	},
+	{
+		"blocks": [
+			{
+				"type": "text",
+				"text": "verifySession now returns null on expiry; recording that."
+			},
+			{
+				"type": "tool_use",
+				"id": "toolu_0003",
+				"name": "assert_premise",
+				"input": {
+					"description": "verifySession returns null for an expired session",
+					"imports": [
+						"src/auth/session.ts",
+						"src/store/memory-store.ts"
+					],
+					"code": "const store = createMemorySessionStore([{ id: 's1', userId: 'u1', expiresAt: 0 }]); assert.eq(verifySession('s1', store, () => 10), null);"
+				}
+			}
+		],
+		"stop": "tool_use",
+		"usage": {
+			"input": 0,
+			"output": 0
+		}
+	},
+	{
+		"blocks": [
+			{
+				"type": "text",
+				"text": "Declaring what I will change."
+			},
+			{
+				"type": "tool_use",
+				"id": "toolu_0004",
+				"name": "declare_changes",
+				"input": {
+					"claims": [
+						{
+							"symbol": "src/auth/login.ts#handleLogin",
+							"mode": "body"
+						}
+					],
+					"why": [
+						"Same goal after t01: verifySession returns null, so look the token up to tell expired from missing."
+					]
+				}
+			}
+		],
+		"stop": "tool_use",
+		"usage": {
+			"input": 0,
+			"output": 0
+		}
+	},
+	{
+		"blocks": [
+			{
+				"type": "text",
+				"text": "Writing the change and its acceptance tests."
+			},
+			{
+				"type": "tool_use",
+				"id": "toolu_0005",
+				"name": "write_file",
+				"input": {
+					"path": "src/auth/login.ts",
+					"content": "import * as responses from \"../api/responses.js\";\nimport type { ApiResponse } from \"../api/responses.js\";\nimport type { UserRepository } from \"../store/repo.js\";\nimport type { IdGenerator } from \"../util/ids.js\";\nimport { normalizeEmail } from \"../util/strings.js\";\nimport type { Clock } from \"../util/time.js\";\nimport { type AuditLog, record } from \"./audit.js\";\nimport { verifyPassword } from \"./password.js\";\nimport type { RateLimiter } from \"./rate-limit.js\";\nimport { createSession, isExpired, revokeSession, type SessionStore, verifySession } from \"./session.js\";\n\nexport interface LoginDeps {\n\tstore: SessionStore;\n\taudit: AuditLog;\n\tnow: Clock;\n}\n\n/** Resumes a login from a session token: who the caller is, or why we cannot say. */\nexport function handleLogin(token: string | undefined, deps: LoginDeps): ApiResponse {\n\tconst session = verifySession(token, deps.store, deps.now);\n\tif (session === null) {\n\t\t// verifySession reports an expired session as null, so look the token up to tell\n\t\t// \"expired\" from \"never signed in\".\n\t\tconst stored = token === undefined ? undefined : deps.store.get(token);\n\t\tif (stored !== undefined && isExpired(stored, deps.now)) {\n\t\t\trecord(deps.audit, \"session.expired\", deps.now());\n\t\t\treturn responses.expired();\n\t\t}\n\t\treturn responses.unauthorized();\n\t}\n\trecord(deps.audit, \"session.resumed\", deps.now(), session.userId);\n\treturn responses.ok({ userId: session.userId, expiresAt: session.expiresAt });\n}\n\nexport interface PasswordLoginDeps extends LoginDeps {\n\tusers: UserRepository;\n\tlimiter: RateLimiter;\n\tids: IdGenerator;\n}\n\n/** Signs a user in with email and password, and starts a session. */\nexport function startLogin(email: string, password: string, deps: PasswordLoginDeps): ApiResponse {\n\tconst address = normalizeEmail(email);\n\tconst attempt = deps.limiter.hit(address, deps.now());\n\tif (!attempt.allowed) {\n\t\trecord(deps.audit, \"login.rate_limited\", deps.now(), address);\n\t\treturn responses.tooManyRequests(attempt.retryAfterMs);\n\t}\n\n\tconst user = deps.users.findByEmail(address);\n\tif (user === undefined || user.status !== \"active\" || !verifyPassword(password, user.password)) {\n\t\trecord(deps.audit, \"login.failed\", deps.now(), address);\n\t\treturn responses.unauthorized();\n\t}\n\n\tdeps.limiter.reset(address);\n\tconst session = createSession(user.id, deps.store, deps.now, deps.ids);\n\trecord(deps.audit, \"login.succeeded\", deps.now(), user.id);\n\treturn responses.created({ token: session.id, userId: user.id, expiresAt: session.expiresAt });\n}\n\n/** Ends the session behind `token`. Succeeds whether or not there was one. */\nexport function logout(token: string | undefined, deps: LoginDeps): ApiResponse {\n\tif (token !== undefined && revokeSession(token, deps.store)) {\n\t\trecord(deps.audit, \"logout\", deps.now());\n\t}\n\treturn responses.ok({ signedOut: true });\n}\n"
+				}
+			},
+			{
+				"type": "tool_use",
+				"id": "toolu_0006",
+				"name": "write_file",
+				"input": {
+					"path": "tests/audit-expired.test.ts",
+					"content": "import * as assert from \"../premise/assert.js\";\nimport type { Tests } from \"../premise/assert.js\";\nimport { createAuditLog, entriesFor } from \"../src/auth/audit.js\";\nimport { handleLogin } from \"../src/auth/login.js\";\nimport { createMemorySessionStore } from \"../src/store/memory-store.js\";\n\nfunction deps() {\n\treturn {\n\t\tstore: createMemorySessionStore([\n\t\t\t{ id: \"expired\", userId: \"u1\", expiresAt: 0 },\n\t\t\t{ id: \"valid\", userId: \"u2\", expiresAt: 1000 },\n\t\t]),\n\t\taudit: createAuditLog(),\n\t\tnow: () => 10,\n\t};\n}\n\nexport const tests: Tests = {\n\t\"an expired session writes an audit entry and returns expired\": () => {\n\t\tconst d = deps();\n\t\tconst response = handleLogin(\"expired\", d);\n\t\tassert.eq(response.status, 401);\n\t\tassert.deepEq(response.body, { error: \"session_expired\" });\n\t\tconst entries = entriesFor(d.audit, \"session.expired\");\n\t\tassert.eq(entries.length, 1);\n\t\tassert.eq(entries[0]?.at, 10);\n\t},\n\t\"a missing or unknown session writes no expired entry\": () => {\n\t\tconst d = deps();\n\t\tassert.deepEq(handleLogin(undefined, d).body, { error: \"unauthorized\" });\n\t\tassert.deepEq(handleLogin(\"never-issued\", d).body, { error: \"unauthorized\" });\n\t\tassert.eq(entriesFor(d.audit, \"session.expired\").length, 0);\n\t},\n\t\"a valid session writes no expired entry\": () => {\n\t\tconst d = deps();\n\t\tassert.eq(handleLogin(\"valid\", d).status, 200);\n\t\tassert.eq(entriesFor(d.audit, \"session.expired\").length, 0);\n\t},\n};\n"
+				}
+			}
+		],
+		"stop": "tool_use",
+		"usage": {
+			"input": 0,
+			"output": 0
+		}
+	},
+	{
+		"blocks": [
+			{
+				"type": "text",
+				"text": "Checking."
+			},
+			{
+				"type": "tool_use",
+				"id": "toolu_0007",
+				"name": "run_checks",
+				"input": {}
+			}
+		],
+		"stop": "tool_use",
+		"usage": {
+			"input": 0,
+			"output": 0
+		}
+	},
+	{
+		"blocks": [
+			{
+				"type": "text",
+				"text": "Done."
+			},
+			{
+				"type": "tool_use",
+				"id": "toolu_0008",
+				"name": "submit",
+				"input": {
+					"message": "Audit expired-session logins"
+				}
+			}
+		],
+		"stop": "tool_use",
+		"usage": {
+			"input": 0,
+			"output": 0
+		}
+	}
+]

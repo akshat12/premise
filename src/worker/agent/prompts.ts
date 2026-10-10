@@ -1,0 +1,73 @@
+// What the agent is told. One system prompt for the whole run: the plan and work phases share a
+// conversation, and providers require the system prompt and tool list to stay the same within one.
+import type { Assertion, Intent, TaskDef } from "../../shared/types";
+
+export const SYSTEM_PROMPT = `You are a coding agent working on one Intent in a shared TypeScript repository. Other agents are changing the same repository at the same time. You have no shell: the tools are the only way to see or change code.
+
+The work has two phases.
+
+Plan phase (you start here):
+- Read what you need with list_files, read_file, search_symbols and read_symbol. Reading tells the platform what your work relies on, so read what matters and not more.
+- If your plan depends on how something behaves, not just on its types, call assert_premise. Example: you will add code to a catch block, so you rely on a function throwing. The platform re-checks your assertions whenever trunk changes underneath you.
+- Then call declare_changes with the smallest set of exported symbols you will change. Use mode "interface" only if you will change an exported signature or type, or add a new export. Otherwise use "body". Write at most three short "why" lines. Test files are not declared.
+
+Work phase (after declare_changes is granted):
+- Change files with write_file, which takes the complete new content of a file.
+- Add the acceptance tests you were given. Each names a test file and a test name; the file must export a "tests" object with exactly that name as a key. Look at an existing file under tests/ for the format.
+- Change only the symbols you declared. If you are told another Intent keeps a symbol, leave it alone.
+- Call run_checks, fix whatever fails, then call submit.
+
+Always answer with a tool call. Keep any text to one short sentence.`;
+
+/** Appended to the result of declare_changes when the claims are granted. */
+export const WORK_PHASE_NOTE = "You are now in the work phase. Use write_file, then run_checks, then submit.";
+
+export const NUDGE = "Continue by calling a tool.";
+
+export interface Briefing {
+	intent: Intent;
+	task?: Pick<TaskDef, "title" | "hints">;
+	/** Pre-written assertions the agent may adopt by id. */
+	adoptable: Pick<Assertion, "id" | "description">[];
+	mode: "fresh" | "rederive";
+}
+
+/** The block added for a re-derive: what broke, and what the agent thought last time. */
+export function rederiveBlock(intent: Intent): string {
+	const broken = intent.premises.filter((premise) => premise.state === "broken");
+	const lines = [
+		"This is a re-derive. Trunk changed underneath you, and your earlier work no longer holds.",
+		"",
+		"Premises that broke:",
+		...(broken.length > 0
+			? broken.map((premise) => `- ${premise.assertion?.description ?? premise.symbol}: ${premise.brokenBy?.reason ?? "it no longer holds"}`)
+			: ["- (none recorded)"]),
+	];
+	if (intent.why.length > 0) {
+		lines.push("", "Your reasoning last time:", ...intent.why.map((line) => `- ${line}`));
+	}
+	if (intent.rejectedAlternatives.length > 0) {
+		lines.push("", "Alternatives you rejected last time:", ...intent.rejectedAlternatives.map((line) => `- ${line}`));
+	}
+	lines.push("", "Trunk changed underneath you. Re-implement the same goal on the new trunk. The acceptance checks are unchanged.", "Read the code again before you plan: do not assume it still behaves the way it did.");
+	return lines.join("\n");
+}
+
+/** The first user message: the goal, the acceptance checks, and what else the agent should know. */
+export function briefing({ intent, task, adoptable, mode }: Briefing): string {
+	const lines = [`Intent ${intent.id}${task?.title ? `: ${task.title}` : ""}`, "", `Goal: ${intent.goal}`, "", "Acceptance checks (fixed; you must add these tests and make them pass):"];
+	for (const check of intent.acceptance) {
+		lines.push(`- ${check.id}: ${check.description}`, `  test file: ${check.testFile}`, `  test name: ${JSON.stringify(check.testName)}`);
+	}
+	if (task?.hints && task.hints.length > 0) {
+		lines.push("", "Hints:", ...task.hints.map((hint) => `- ${hint}`));
+	}
+	if (adoptable.length > 0) {
+		lines.push("", 'Assertions you can adopt with assert_premise { "adopt": "<id>" }:', ...adoptable.map((assertion) => `- ${assertion.id}: ${assertion.description}`));
+	}
+	if (mode === "rederive") {
+		lines.push("", rederiveBlock(intent));
+	}
+	lines.push("", "Start by reading the code you need.");
+	return lines.join("\n");
+}

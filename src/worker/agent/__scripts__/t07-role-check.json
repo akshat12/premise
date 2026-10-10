@@ -1,0 +1,131 @@
+[
+	{
+		"blocks": [
+			{
+				"type": "text",
+				"text": "Reading the code this touches."
+			},
+			{
+				"type": "tool_use",
+				"id": "toolu_0001",
+				"name": "read_file",
+				"input": {
+					"path": "src/users/roles.ts"
+				}
+			}
+		],
+		"stop": "tool_use",
+		"usage": {
+			"input": 0,
+			"output": 0
+		}
+	},
+	{
+		"blocks": [
+			{
+				"type": "text",
+				"text": "Declaring what I will change."
+			},
+			{
+				"type": "tool_use",
+				"id": "toolu_0002",
+				"name": "declare_changes",
+				"input": {
+					"claims": [
+						{
+							"symbol": "src/users/roles.ts#RESOURCE_MINIMUM",
+							"mode": "interface"
+						},
+						{
+							"symbol": "src/users/roles.ts#Resource",
+							"mode": "interface"
+						},
+						{
+							"symbol": "src/users/roles.ts#canAccess",
+							"mode": "interface"
+						}
+					],
+					"why": [
+						"Adds canAccess and the resource-to-minimum-role table."
+					]
+				}
+			}
+		],
+		"stop": "tool_use",
+		"usage": {
+			"input": 0,
+			"output": 0
+		}
+	},
+	{
+		"blocks": [
+			{
+				"type": "text",
+				"text": "Writing the change and its acceptance tests."
+			},
+			{
+				"type": "tool_use",
+				"id": "toolu_0003",
+				"name": "write_file",
+				"input": {
+					"path": "src/users/roles.ts",
+					"content": "export type Role = \"viewer\" | \"member\" | \"billing\" | \"admin\";\n\n/** Every role, from least to most privileged. */\nexport const ROLES: readonly Role[] = [\"viewer\", \"member\", \"billing\", \"admin\"];\n\nexport const ROLE_RANK: Record<Role, number> = { viewer: 0, member: 1, billing: 2, admin: 3 };\n\nexport const DEFAULT_ROLE: Role = \"member\";\n\nexport function isRole(value: string): value is Role {\n\treturn (ROLES as readonly string[]).includes(value);\n}\n\nexport function hasRole(roles: readonly Role[], role: Role): boolean {\n\treturn roles.includes(role);\n}\n\n/** True when any of `roles` is `minimum` or higher. */\nexport function isAtLeast(roles: readonly Role[], minimum: Role): boolean {\n\treturn roles.some((role) => ROLE_RANK[role] >= ROLE_RANK[minimum]);\n}\n\n/** The most privileged of `roles`, or undefined for an empty list. */\nexport function highestRole(roles: readonly Role[]): Role | undefined {\n\treturn [...roles].sort((a, b) => ROLE_RANK[b] - ROLE_RANK[a])[0];\n}\n\nexport type Resource = \"profile\" | \"invoices\" | \"billing\" | \"members\";\n\n/** The least privileged role that may open each resource. */\nexport const RESOURCE_MINIMUM: Record<Resource, Role> = {\n\tprofile: \"viewer\",\n\tinvoices: \"member\",\n\tbilling: \"billing\",\n\tmembers: \"admin\",\n};\n\n/** True when any of `roles` may open `resource`. */\nexport function canAccess(roles: readonly Role[], resource: Resource): boolean {\n\treturn isAtLeast(roles, RESOURCE_MINIMUM[resource]);\n}\n\n/** Adds a role. The result is de-duplicated and ordered by rank. */\nexport function grantRole(roles: readonly Role[], role: Role): Role[] {\n\treturn ROLES.filter((candidate) => candidate === role || roles.includes(candidate));\n}\n\n/** Removes a role. A user always keeps at least `viewer`. */\nexport function revokeRole(roles: readonly Role[], role: Role): Role[] {\n\tconst remaining = roles.filter((candidate) => candidate !== role);\n\treturn remaining.length === 0 ? [\"viewer\"] : remaining;\n}\n"
+				}
+			},
+			{
+				"type": "tool_use",
+				"id": "toolu_0004",
+				"name": "write_file",
+				"input": {
+					"path": "tests/can-access.test.ts",
+					"content": "import * as assert from \"../premise/assert.js\";\nimport type { Tests } from \"../premise/assert.js\";\nimport { canAccess } from \"../src/users/roles.js\";\n\nexport const tests: Tests = {\n\t\"each resource has a minimum role\": () => {\n\t\tassert.ok(canAccess([\"viewer\"], \"profile\"));\n\t\tassert.ok(!canAccess([\"viewer\"], \"invoices\"));\n\t\tassert.ok(canAccess([\"member\"], \"invoices\"));\n\t\tassert.ok(!canAccess([\"member\"], \"billing\"));\n\t\tassert.ok(canAccess([\"billing\"], \"billing\"));\n\t\tassert.ok(!canAccess([\"billing\"], \"members\"));\n\t\tassert.ok(canAccess([\"admin\"], \"members\"));\n\t},\n\t\"a higher role can open everything below it\": () => {\n\t\tfor (const resource of [\"profile\", \"invoices\", \"billing\", \"members\"] as const) {\n\t\t\tassert.ok(canAccess([\"admin\"], resource));\n\t\t}\n\t},\n\t\"any one of several roles is enough, and no roles means no access\": () => {\n\t\tassert.ok(canAccess([\"viewer\", \"billing\"], \"billing\"));\n\t\tassert.ok(!canAccess([], \"profile\"));\n\t},\n};\n"
+				}
+			}
+		],
+		"stop": "tool_use",
+		"usage": {
+			"input": 0,
+			"output": 0
+		}
+	},
+	{
+		"blocks": [
+			{
+				"type": "text",
+				"text": "Checking."
+			},
+			{
+				"type": "tool_use",
+				"id": "toolu_0005",
+				"name": "run_checks",
+				"input": {}
+			}
+		],
+		"stop": "tool_use",
+		"usage": {
+			"input": 0,
+			"output": 0
+		}
+	},
+	{
+		"blocks": [
+			{
+				"type": "text",
+				"text": "Done."
+			},
+			{
+				"type": "tool_use",
+				"id": "toolu_0006",
+				"name": "submit",
+				"input": {
+					"message": "Add a canAccess role check"
+				}
+			}
+		],
+		"stop": "tool_use",
+		"usage": {
+			"input": 0,
+			"output": 0
+		}
+	}
+]
