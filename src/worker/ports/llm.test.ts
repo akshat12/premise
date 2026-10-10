@@ -16,7 +16,7 @@ import {
 	type ToolDef,
 } from "./llm";
 import { fromAnthropicResponse, toAnthropicMessages } from "./llm-anthropic";
-import { isRetryable, retryDelayMs } from "./llm-http";
+import { isRetryable, retryDelayMs, retryHintSeconds } from "./llm-http";
 import { fromChatCompletion, toChatMessages, toChatTools } from "./llm-openai";
 
 const ECHO: ToolDef = { name: "echo", description: "Echo the text back.", input_schema: { type: "object", properties: { text: { type: "string" } }, required: ["text"] } };
@@ -94,14 +94,42 @@ describe("HTTP retry policy", () => {
 		expect([400, 401, 402, 403, 404, 413, 422].some(isRetryable)).toBe(false);
 	});
 
-	it("backs off 1, 2, 4 seconds with jitter, or as long as the server asks", () => {
+	it("backs off 1, 2, 4 seconds with jitter, or as long as the server asks, up to a minute", () => {
 		expect([0, 1, 2, 3].map((attempt) => retryDelayMs(attempt, null, () => 1))).toEqual([1000, 2000, 4000, 4000]);
 		expect(retryDelayMs(0, null, () => 0)).toBe(500);
-		expect(retryDelayMs(0, "7", () => 0)).toBe(7000);
-		expect(retryDelayMs(0, "600", () => 0)).toBe(30_000);
-		expect(retryDelayMs(1, "soon", () => 1)).toBe(2000);
+		expect(retryDelayMs(0, 7, () => 0)).toBe(7000);
+		expect(retryDelayMs(2, 36, () => 1)).toBe(36_000);
+		expect(retryDelayMs(0, 600, () => 0)).toBe(60_000);
+	});
+
+	it("reads the wait from the retry-after header, or from a RetryInfo detail in the body", () => {
+		expect(retryHintSeconds("7", "")).toBe(7);
+		expect(retryHintSeconds(null, JSON.stringify(geminiQuotaError("GenerateRequestsPerMinutePerProjectPerModel-FreeTier", "5", "35s")))).toBe(36);
+		// Google pretty-prints its error bodies.
+		expect(retryHintSeconds(null, JSON.stringify(geminiQuotaError("GenerateRequestsPerDayPerProjectPerModel-FreeTier", "20", "67863s"), null, 2))).toBe(67864);
+		expect(retryHintSeconds("3", '{"retryDelay": "35s"}')).toBe(3);
+		expect(retryHintSeconds(null, '{"retryDelay": "0.4s"}')).toBe(2);
+		expect(retryHintSeconds("soon", "{}")).toBeNull();
+		expect(retryHintSeconds(null, "busy")).toBeNull();
 	});
 });
+
+/** The body of a Gemini 429, as seen on 2026-10-09: an array, with the wait in a RetryInfo detail and no retry-after header. */
+function geminiQuotaError(quotaId: string, quotaValue: string, retryDelay: string): unknown {
+	return [
+		{
+			error: {
+				code: 429,
+				message: "You exceeded your current quota, please check your plan and billing details.",
+				status: "RESOURCE_EXHAUSTED",
+				details: [
+					{ "@type": "type.googleapis.com/google.rpc.QuotaFailure", violations: [{ quotaMetric: "generativelanguage.googleapis.com/generate_content_free_tier_requests", quotaId, quotaDimensions: { location: "global", model: "gemini-x" }, quotaValue }] },
+					{ "@type": "type.googleapis.com/google.rpc.RetryInfo", retryDelay },
+				],
+			},
+		},
+	];
+}
 
 const ANTHROPIC_TOOL_REPLY = {
 	id: "msg_1",
@@ -332,6 +360,25 @@ describe("OpenAiCompatibleLlm", () => {
 		expect(reply("length")).toBe("max_tokens");
 		expect(reply("content_filter")).toBe("refusal");
 		expect(() => fromChatCompletion({ error: { message: "bad" } })).toThrow("unexpected chat-completions response");
+	});
+
+	it("waits as long as a per-minute rate limit asks in its body, then carries on", async () => {
+		const sleeps: number[] = [];
+		const { llm, calls } = make([json(geminiQuotaError("GenerateRequestsPerMinutePerProjectPerModel-FreeTier", "5", "35s"), 429), json(CHAT_TOOL_REPLY)], { sleep: async (ms: number) => void sleeps.push(ms) });
+		expect((await llm.turn("s", [{ role: "user", content: "hi" }], [ECHO])).stop).toBe("tool_use");
+		expect(calls).toHaveLength(2);
+		expect(sleeps).toEqual([36_000]);
+	});
+
+	it("does not retry when the wait asked for is longer than a minute, as for a used-up daily quota", async () => {
+		const sleeps: number[] = [];
+		const { llm, calls } = make([json(geminiQuotaError("GenerateRequestsPerDayPerProjectPerModel-FreeTier", "20", "67863s"), 429), json(CHAT_TOOL_REPLY)], { sleep: async (ms: number) => void sleeps.push(ms) });
+		const error = await llm.turn("s", [{ role: "user", content: "hi" }], [ECHO]).catch((e: unknown) => e);
+		expect(error).toBeInstanceOf(LlmHttpError);
+		expect((error as LlmHttpError).status).toBe(429);
+		expect((error as LlmHttpError).message).toContain("GenerateRequestsPerDayPerProjectPerModel-FreeTier");
+		expect(calls).toHaveLength(1);
+		expect(sleeps).toEqual([]);
 	});
 
 	it("uses the same retry policy", async () => {
