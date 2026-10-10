@@ -534,3 +534,17 @@ The user asked that the architecture make it easy to switch to another model pro
 - **`GET /api/gate`** now returns `{ queue, busy, stale, rederiving }`. The two new fields are a quick way to tell that the Landing object is running the new code after a deploy.
 - **Tests changed.** In `gate.workers.test.ts` the acceptance-failure case now expects `stale`. `invalidate.workers.test.ts` ends its frozen Intents explicitly, because a stale Intent's run no longer fails it. The escalation test logs "ScriptedLlm has no turns" several times: that is the failing re-derive it is testing.
 - **Still open:** the product question recorded under T16 (work that has already landed is not protected). The live run above depends on `t01` being dispatched first.
+
+## 2026-10-09: Free model options on OpenRouter and Google AI Studio (looked at, not tested)
+
+The user asked for a free model to use in place of an Anthropic key. Nothing here was run: there is still no key of any kind.
+
+- **Source for OpenRouter:** its public model list (`GET https://openrouter.ai/api/v1/models`, fetched today). Of 458 models, 19 are free and 16 of those accept `tools`.
+- **OpenRouter's free limits** (its docs, "Limits"): 20 requests a minute on `:free` models; **50 requests a day** if the account has bought fewer than 10 credits, **1,000 a day** once it has bought at least 10 (a one-off purchase; free models do not spend them).
+  - One agent run is roughly 8 to 32 model requests, and a 12-agent run with re-derives is 150 to 450. So 50 a day is not enough for anything but a single-agent check; 1,000 a day is two to six full runs.
+  - 20 a minute is below what 12 agents ask for at once. `llm-http.ts` retries a 429 three times with backoff, which will not be enough on its own: a small limiter in front of the provider will be needed.
+- **Suggested model: `poolside/laguna-s-2.1:free`.** Built as a coding agent, tool calling and `tool_choice`, 262K context, 32K output. Poolside reports 70.2% on Terminal-Bench 2.1 with its own harness; no independent test was found. **The free listing expires 2026-10-31.** Poolside may train on free-tier inputs (the demo repo is public). Serving guidance says to send the model's earlier reasoning back in the history; `llm-openai.ts` currently rebuilds the assistant message from `content` and `tool_calls` only, so it needs to carry the reasoning fields through `raw` before this model is used.
+- **Fallback with no expiry: `nvidia/nemotron-3-ultra-550b-a55b:free`** (550B/55B active, 1M context, described as for agent orchestration and coding agents; third-party indices put it mid-table). Smaller code-specific option: `cohere/north-mini-code:free`.
+- **Google AI Studio:** the free daily limit for Flash models still cannot be confirmed from outside. Reports range from about 20 a day (a September 2026 guide, for 3.5 to 3.8 Flash) to 1,500, and 500 a day for Flash-Lite. The real number is per project at `aistudio.google.com/rate-limit`.
+- **If a little money is acceptable:** on OpenRouter today `anthropic/claude-haiku-5.5` is $0.10 / $0.50 per million tokens in / out, which puts a full 12-agent run at roughly half a dollar, with no daily cap. The $10 that lifts the free limit to 1,000 a day would also pay for about twenty such runs.
+- **To switch, no code change is needed:** `LLM=openrouter`, `LLM_MODEL=<id>`, and the key as `OPENROUTER_API_KEY` in `.dev.vars` and `wrangler secret put OPENROUTER_API_KEY`. `LIVE_LLM=openrouter npm test -- llm` runs the live adapter check.
