@@ -36,12 +36,12 @@ Tracks:
 - [x] **T02** (B): Shared types and event schema. Depends on: T01
 - [x] **T03** (B): RepoStore port, with a memory implementation and an Artifacts implementation. Depends on: T02
 - [x] **T04** (B/U): EventHub DO with a WebSocket, an event log and replay, plus the UI hook. Depends on: T02
-- [ ] **T05** (D): Demo target repo, 12 tasks, the planted behavioural scenario, publish and import. Depends on: T01
+- [x] **T05** (D): Demo target repo, 12 tasks, the planted behavioural scenario, publish and import. Depends on: T01
 
 ### Day 2 (Fri Oct 9 to Sat Oct 10): symbols, premises, ledger; UI starts
 
 - [x] **T06** (B): Symbol index, and mapping a diff to symbols. Depends on: T02
-- [ ] **T07** (B): Type-surface hashing and surface diff, using the TS program in the Worker. Depends on: T06
+- [x] **T07** (B): Type-surface hashing and surface diff, using the TS program in the Worker. Depends on: T06
 - [ ] **T08** (B): LedgerShard DO and the Wait/Split/Depend decision logic. Depends on: T06
 - [ ] **T20** (U): App shell, counters, and Kumo Flow lanes driven by a replay fixture. Depends on: T04
 

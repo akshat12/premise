@@ -267,3 +267,29 @@ A third LLM option, after the Anthropic key and the Workers AI fallback. Nothing
 - **H5 is done.** At the user's request I generated a random `ADMIN_TOKEN`, saved it in `.dev.vars` (git-ignored) and set the same value as the deployed Worker's secret with `wrangler secret put`. The value was never printed.
 - **T03's last acceptance step passed:** `npm run smoke` against the deployed Worker ran the RepoStore contract on real Artifacts, 8 of 8, in about 10 s (the same run took 16 to 19 s through local dev).
 - **Public demo repo:** the user is creating `akshat12/acme-accounts` themselves and asked that nothing pushed there mention the competition. `demo-repo/` never did; its README no longer names Cloudflare either, and `scripts/publish-demo-repo.sh` now pushes to an existing (even empty) repo and uses neutral commit messages and description.
+
+## 2026-10-09: T05 closed (published and imported)
+
+- **Published:** `https://github.com/akshat12/acme-accounts` (public), created with `scripts/publish-demo-repo.sh akshat12/acme-accounts` after the user said to go ahead. Its commit message, description and README do not mention the competition or Cloudflare.
+- **Imported:** `POST /api/admin/import-trunk` on the deployed Worker returned `{"ok":true,"store":"artifacts","repo":"trunk","status":"ready","head":"5dff7900…","files":81,"ms":3416}`. `wrangler artifacts repos list --namespace premise` shows `trunk` as `ready`.
+- **To republish after changing `demo-repo/`:** run the publish script again, then call import-trunk with `{"replace": true}`. Replacing trunk deletes and re-creates the repo, so the trunk push subscription below may need re-creating afterwards (not tested).
+- **Still open, HUMAN:** the two event subscriptions. T16 needs them; nothing before T16 does.
+  ```
+  npx wrangler queues subscription create premise-events --source artifacts --events repo.created,repo.forked,repo.imported,repo.deleted --name premise-account
+  npx wrangler queues subscription create premise-events --source artifacts.repo --events pushed --source-namespace premise --source-repo-name trunk --name premise-trunk-push
+  ```
+
+## 2026-10-09: T07 notes (type surface)
+
+- **Import the compiler from `src/worker/ts`, never from `"typescript"` directly.** On load, the compiler decides whether it is in Node by checking `process.nextTick`, `require` and `!process.browser`. Under `nodejs_compat` a Worker passes, and the compiler then builds its Node "system" object, which calls `os.platform()`, `fs` and `__filename`. In the vitest workers pool that crashed workerd outright ("Worker exited unexpectedly"), and after pre-bundling it failed with `_os.platform is not a function`. The wrapper sets `process.browser = true` for the instant the compiler module loads and then restores it, so `ts.sys` is `undefined` everywhere (Node tests included) and nothing touches `os`, `fs` or `__filename`. We always pass an in-memory host, so nothing is lost.
+  - The `__filename`/`__dirname` `define` from T00 is therefore no longer needed. It is still in `vite.config.ts` and `vitest.config.ts` and is harmless.
+  - The workers vitest project also has `deps.optimizer.ssr.include: ["typescript"]`; without pre-bundling, loading the 9 MB compiler module by module crashes the runtime.
+- **Verified in the deployed Worker on the real Artifacts trunk** with the new route `POST /api/admin/analyze`: 81 files, 317 symbols, no type errors, 2.5 to 4.6 s per request including the Artifacts snapshot. Deployed bundle: 9008 KiB, 1665 KiB gzip, startup 39 ms.
+- **Libs.** `surface/libs.ts` bundles the es2022 lib files with `import.meta.glob` straight from `node_modules/typescript/lib`, so there is no generated file and no `scripts/gen-ts-libs.ts`. They always match the installed compiler.
+- **API additions:** `analyze(files)` returns typecheck and surface from one program (use it when you need both); `fnv1a64`; and each surface entry has `refs` (the exported symbols its declaration mentions) next to `hash` and `decl`.
+- **`hash` covers the symbol's own declaration only.** Transitive changes are found by `diffSurface` following `refs`: a symbol is `changed` if its own hash differs or it mentions a symbol that changed, was added or was removed. A stored `Premise.surfaceHash` therefore does not change when only a dependency changes; rely on `diffSurface`, not on comparing stored hashes.
+- Private (non-exported) declarations have no id; their text is folded into the `decl` of each export that mentions them.
+- Root files are every `*.ts` outside `tests/` and `premise/` (`isIndexedPath` from T06), which for the demo repo is `src/**`. Test files are never typechecked here.
+- **The planted scenario holds at the type level:** applying `t01` gives an empty `diffSurface`, and `t01` plus `t02` still typechecks.
+- `src/worker/testing/demo.ts` gives tests `demoFiles()`, `referencePatch(id)` and `demoWith(...ids)`.
+- Timing: `analyze` on the demo repo takes about 0.6 s in Node and in local workerd. In a deployed Worker `ms` reads 0, as found in T00.

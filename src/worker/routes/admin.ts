@@ -1,8 +1,10 @@
 import { isEventBody } from "../../shared/wire";
 import { isAdminRequest } from "../admin-auth";
 import { hub, publish } from "../hub/publish";
+import { getRepoStore } from "../ports";
 import { ArtifactsRepoStore } from "../ports/artifacts-repo-store";
 import { runContract } from "../ports/repo-store.contract";
+import { analyze } from "../surface";
 import { importTrunk } from "./import-trunk";
 
 const SMOKE_PREFIX = "smoke";
@@ -43,6 +45,19 @@ export async function handleAdmin(request: Request, env: Env, url: URL): Promise
 	switch (url.pathname) {
 		case "/api/admin/smoke":
 			return smoke(env);
+		case "/api/admin/analyze": {
+			// Typechecks trunk and counts its symbols with the TypeScript compiler, inside this Worker.
+			const files = await getRepoStore(env).snapshot(env.TRUNK_REPO, "main");
+			const result = analyze(files);
+			return Response.json({
+				ok: result.typecheck.ok,
+				errors: result.typecheck.errors.slice(0, 20),
+				files: Object.keys(files).length,
+				symbols: result.surface.size,
+				verifySession: result.surface.get("src/auth/session.ts#verifySession") ?? null,
+				ms: result.ms,
+			});
+		}
 		case "/api/admin/import-trunk":
 			return importTrunk(request, env);
 		case "/api/admin/events/reset":

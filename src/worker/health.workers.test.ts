@@ -51,6 +51,16 @@ describe("admin routes with the token", () => {
 		expect(body.files).toBeGreaterThan(60);
 	});
 
+	it("analyze typechecks trunk with the compiler running in the Worker", async () => {
+		const response = await exports.default.fetch("http://premise.test/api/admin/analyze", admin);
+		expect(response.status).toBe(200);
+		const body = (await response.json()) as { ok: boolean; errors: string[]; symbols: number; verifySession: { decl: string } | null };
+		expect(body.errors).toEqual([]);
+		expect(body.ok).toBe(true);
+		expect(body.symbols).toBeGreaterThanOrEqual(200);
+		expect(body.verifySession?.decl).toContain("Session | null");
+	});
+
 	it("events/fake publishes a valid body and rejects an unknown type", async () => {
 		const good = await exports.default.fetch("http://premise.test/api/admin/events/fake", { ...admin, body: JSON.stringify({ t: "demo.marker", label: "from a test" }) });
 		expect(good.status).toBe(200);

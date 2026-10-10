@@ -36,6 +36,8 @@ export default defineConfig({
 					isolate: false,
 					// Projects with different maxWorkers must be in different groups.
 					sequence: { groupOrder: 1 },
+					// Pre-bundle the TypeScript compiler for workerd. Loaded unbundled it crashes the runtime.
+					deps: { optimizer: { ssr: { enabled: true, include: ["typescript"] } } },
 				},
 			},
 		],

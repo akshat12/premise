@@ -1,7 +1,7 @@
 // Symbol index: which exported symbols a file has, which of them an edit touched, and which
 // symbols a piece of code refers to. Uses the TypeScript parser only (no Program, no type
 // information), so it is fast and has no dependencies between files.
-import ts from "typescript";
+import ts from "../ts";
 import { symbolId } from "../../shared/ids";
 import type { SymbolId } from "../../shared/types";
 import type { FileMap } from "../ports/repo-store";
