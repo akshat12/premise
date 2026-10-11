@@ -531,6 +531,12 @@ export class Landing extends DurableObject<Env> {
 	/** Runs one race to the point where it has landed or an agent is at work. */
 	private async race(entry: StaleEntry, deps: RaceDeps): Promise<Started> {
 		const id = entry.intentId;
+		// A run's choreography (see `hold`) orders landings. A held Intent that went stale early must not
+		// get round it: its rebase is a landing too, so it waits like the queue does.
+		if ((await this.held()).has(id)) {
+			this.deferred.push(entry);
+			return { kind: "done" };
+		}
 		try {
 			const result = await startRace(this.env, entry, deps);
 			this.startErrors.delete(id);

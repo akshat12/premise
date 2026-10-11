@@ -129,6 +129,13 @@ export class IntentDO extends DurableObject<Env> {
 	 */
 	async breakPremise(symbol: SymbolId, by: BrokenBy, scope?: BreakScope): Promise<{ broken: boolean; intent: Intent }> {
 		const intent = this.load();
+		// A re-derive is already redoing the work on a newer trunk, and the gate checks the result against
+		// trunk as it is by then (rebase, typecheck, every test). A type-surface change meanwhile is not
+		// worth throwing the attempt away for: most are harmless, and under steady churn the Intent would
+		// never finish. A behaviour it asserted is different, and still stops it.
+		if (intent.status === "rederiving" && scope !== undefined && "sources" in scope) {
+			return { broken: false, intent };
+		}
 		const marked = markBroken(intent.premises, symbol, by, scope);
 		if (!marked.changed) {
 			return { broken: false, intent };

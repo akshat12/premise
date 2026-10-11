@@ -1,184 +1,606 @@
 {
-	"date": "2026-10-10",
-	"url": "https://premise.akshatdivekar.workers.dev",
+	"date": "2026-10-11",
+	"url": "http://localhost:5173",
 	"n": 100,
-	"seed": 7,
-	"headline": "Baseline shipped 3 behavioural regressions and needed 11 human merges; Premise shipped 0 behavioural regressions and needed 0 human merges.",
+	"seeds": [
+		7,
+		11,
+		23
+	],
+	"headline": "A queue that only typechecks shipped 3 behavioural regressions and sent 0 of 12 tasks back to a person; a queue that also runs the tests shipped 1 behavioural regression and sent 2 of 12 tasks back to a person; Premise shipped 0 behavioural regressions and sent 0 of 12 tasks back to a person.",
 	"table": [
 		{
 			"metric": "Behavioural regressions that reached trunk",
 			"baseline": "3",
+			"queue": "1",
 			"premise": "0",
-			"note": "Reference tests of landed tasks that went red after a landing."
+			"note": "Reference checks and end-to-end probes of landed tasks that went red after a landing. No rule runs the probes before landing; they stand for what the running system does."
 		},
 		{
-			"metric": "Human merges",
-			"baseline": "11",
-			"premise": "0",
-			"note": "Baseline: text conflicts someone has to merge by hand. Premise: Intents that could not move without a person, plus stalemate cards a person answered. A stalemate card that resolved by itself is not counted."
+			"metric": "Demo tasks sent back to a person",
+			"baseline": "0 of 12",
+			"queue": "2 of 12",
+			"premise": "0 of 12",
+			"note": "Tasks whose work did not land and that nothing will pick up again. The two queues turn the work away and stop there. Premise re-derives it, and asks a person only after two re-derives have failed."
+		},
+		{
+			"metric": "Stale Intents redone and landed with nobody involved",
+			"baseline": "0",
+			"queue": "0",
+			"premise": "3",
+			"note": "Re-derives that landed. The two queues have no such step."
 		},
 		{
 			"metric": "Broken builds on trunk",
 			"baseline": "0",
+			"queue": "0",
 			"premise": "0",
-			"note": "Typecheck failures after a landing. Both rules typecheck before landing."
+			"note": "Typecheck failures after a landing. All three rules typecheck before landing."
 		},
 		{
-			"metric": "Demo tasks landed",
-			"baseline": "12 of 12",
-			"premise": "12 of 12"
+			"metric": "Scripted workload Intents that did not land",
+			"baseline": "5 to 8",
+			"queue": "7 to 9",
+			"premise": "9 to 12",
+			"note": "The workload aims one edit in ten at a function another edit touches, on purpose. In the two queues that becomes a text conflict for a person to merge. In Premise the ledger makes the later Intent wait, and a scripted Intent gives up after three more tries. Either way the work is not on trunk."
+		},
+		{
+			"metric": "Human merges",
+			"baseline": "5 to 8",
+			"queue": "7 to 9",
+			"premise": "0",
+			"note": "Text conflicts someone has to merge by hand (the two queues), or Intents that ended with a person (Premise). A scripted Intent that gave up on a claim is not a merge, and is counted in the row above."
 		},
 		{
 			"metric": "Intents landed",
-			"baseline": "100 of 111",
-			"premise": "97 of 112",
+			"baseline": "104 of 112 to 107 of 112",
+			"queue": "101 of 112 to 103 of 112",
+			"premise": "100 of 112 to 103 of 112",
 			"note": "Agents and scripted workload together."
-		},
-		{
-			"metric": "Landings per minute",
-			"baseline": "50.8",
-			"premise": "42.1"
-		},
-		{
-			"metric": "Wall time",
-			"baseline": "118.1 s",
-			"premise": "138.2 s"
 		},
 		{
 			"metric": "Premises broken",
 			"baseline": "0",
-			"premise": "27",
-			"note": "Baseline has no premises, so nobody is told."
-		},
-		{
-			"metric": "Stale Intents settled by re-derive",
-			"baseline": "0",
-			"premise": "3"
+			"queue": "0",
+			"premise": "22 to 44",
+			"note": "The two queues have no premises, so nobody is told."
 		},
 		{
 			"metric": "Stale Intents a plain rebase settled",
 			"baseline": "0",
-			"premise": "16"
+			"queue": "0",
+			"premise": "13 to 22"
 		},
 		{
-			"metric": "False-positive rate",
+			"metric": "False positives: agents",
 			"baseline": "n/a",
-			"premise": "76%",
-			"note": "Share of stale Intents whose plain rebase passed anyway: the premise break cost time and changed nothing."
+			"queue": "n/a",
+			"premise": "0% (0 of 5) to 50% (3 of 6)",
+			"note": "Of the agents' Intents that went stale, the share whose plain rebase then passed the whole gate: the broken premise cost time and changed nothing."
+		},
+		{
+			"metric": "False positives: scripted workload",
+			"baseline": "n/a",
+			"queue": "n/a",
+			"premise": "94% (16 of 17) to 100% (21 of 21)",
+			"note": "The same for the scripted workload. These Intents have no tests or assertions of their own, so a stale one whose rebase is clean and passes trunk's suite always counts here. Read it as the cost of treating every type-surface change as a broken premise."
 		},
 		{
 			"metric": "Turned away at the gate",
-			"baseline": "11 text, 0 type, 0 checks",
-			"premise": "0 text, 0 type, 3 checks",
-			"note": "Text conflicts, type errors after rebase, and (Premise only) failed acceptance checks or assertions."
+			"baseline": "5 text, 0 type, 0 checks to 8 text, 0 type, 0 checks",
+			"queue": "7 text, 0 type, 2 checks to 9 text, 0 type, 2 checks",
+			"premise": "3 text, 0 type, 3 checks to 4 text, 0 type, 2 checks",
+			"note": "Text conflicts, type errors after rebase, and failed tests or assertions (the first rule runs neither)."
 		},
 		{
 			"metric": "Gave up waiting for a claim",
 			"baseline": "0",
-			"premise": "15",
-			"note": "Scripted workload Intents that wanted a symbol another Intent was changing, asked three more times, and stopped. In the baseline the same collisions show up as text conflicts for a person."
+			"queue": "0",
+			"premise": "5 to 9",
+			"note": "Premise only: the two queues have no ledger."
 		},
 		{
-			"metric": "Reference tests red at the end",
+			"metric": "Landings per minute",
+			"baseline": "790.7 to 816.9",
+			"queue": "625.5 to 652.2",
+			"premise": "481.0 to 497.5"
+		},
+		{
+			"metric": "Wall time",
+			"baseline": "7.8 s to 7.9 s",
+			"queue": "9.5 s to 9.7 s",
+			"premise": "12.1 s to 12.5 s"
+		},
+		{
+			"metric": "Reference checks and probes red at the end",
 			"baseline": "3",
+			"queue": "1",
 			"premise": "0"
 		},
 		{
 			"metric": "Forks created",
-			"baseline": "111",
-			"premise": "115"
+			"baseline": "112",
+			"queue": "112",
+			"premise": "115 to 117"
 		}
 	],
-	"baseline": {
-		"brokenBuildsOnTrunk": 0,
-		"behaviouralRegressionsOnTrunk": 3,
-		"humanMerges": 11,
-		"premisesBroken": 0,
-		"rederives": {
-			"started": 0,
-			"succeeded": 0,
-			"failed": 0
+	"trials": [
+		{
+			"seed": 7,
+			"baseline": {
+				"brokenBuildsOnTrunk": 0,
+				"behaviouralRegressionsOnTrunk": 3,
+				"humanMerges": 6,
+				"premisesBroken": 0,
+				"rederives": {
+					"started": 0,
+					"succeeded": 0,
+					"failed": 0
+				},
+				"forksCreated": 112,
+				"pushes": 135,
+				"agentsActive": 0,
+				"intentsLanded": 106,
+				"mode": "baseline",
+				"n": 100,
+				"seed": 7,
+				"trunk": "trunk-mv42wdfu",
+				"wallTimeMs": 7786,
+				"landingsPerMinute": 816.8507577703571,
+				"tasksLanded": 12,
+				"tasksDispatched": 12,
+				"ends": {
+					"landed": 106,
+					"failed": 6,
+					"escalated": 0,
+					"other": 0
+				},
+				"races": {
+					"started": 0,
+					"rebaseWon": 0,
+					"rederiveWon": 0,
+					"failed": 0
+				},
+				"agentRaces": {
+					"started": 0,
+					"rebaseWon": 0,
+					"rederiveWon": 0,
+					"failed": 0
+				},
+				"falsePositiveRate": 0,
+				"rejected": {
+					"textConflicts": 6,
+					"typecheck": 0,
+					"checks": 0
+				},
+				"claimsLost": 0,
+				"redReferenceTests": [
+					"premise/hidden-tests/t02-audit-expired.test.ts#an expired session writes an audit entry and returns expired",
+					"premise/hidden-tests/t03-expired-metrics.test.ts#a request with an expired session is counted",
+					"premise/probes/t11-expired-rate-limit.test.ts#a client replaying an expired session is turned away on the fourth request"
+				],
+				"finalTypecheckOk": true
+			},
+			"queue": {
+				"brokenBuildsOnTrunk": 0,
+				"behaviouralRegressionsOnTrunk": 1,
+				"humanMerges": 8,
+				"premisesBroken": 0,
+				"rederives": {
+					"started": 0,
+					"succeeded": 0,
+					"failed": 0
+				},
+				"forksCreated": 112,
+				"pushes": 133,
+				"agentsActive": 0,
+				"intentsLanded": 102,
+				"mode": "queue",
+				"n": 100,
+				"seed": 7,
+				"trunk": "trunk-mv42wn6i",
+				"wallTimeMs": 9511,
+				"landingsPerMinute": 643.4654610451057,
+				"tasksLanded": 10,
+				"tasksDispatched": 12,
+				"ends": {
+					"landed": 102,
+					"failed": 10,
+					"escalated": 0,
+					"other": 0
+				},
+				"races": {
+					"started": 0,
+					"rebaseWon": 0,
+					"rederiveWon": 0,
+					"failed": 0
+				},
+				"agentRaces": {
+					"started": 0,
+					"rebaseWon": 0,
+					"rederiveWon": 0,
+					"failed": 0
+				},
+				"falsePositiveRate": 0,
+				"rejected": {
+					"textConflicts": 8,
+					"typecheck": 0,
+					"checks": 2
+				},
+				"claimsLost": 0,
+				"redReferenceTests": [
+					"premise/probes/t11-expired-rate-limit.test.ts#a client replaying an expired session is turned away on the fourth request"
+				],
+				"finalTypecheckOk": true
+			},
+			"premise": {
+				"brokenBuildsOnTrunk": 0,
+				"behaviouralRegressionsOnTrunk": 0,
+				"humanMerges": 0,
+				"premisesBroken": 22,
+				"rederives": {
+					"started": 16,
+					"succeeded": 16,
+					"failed": 0
+				},
+				"forksCreated": 115,
+				"pushes": 128,
+				"agentsActive": 0,
+				"intentsLanded": 100,
+				"mode": "premise",
+				"n": 100,
+				"seed": 7,
+				"trunk": "trunk-mv42wx1w",
+				"wallTimeMs": 12081,
+				"landingsPerMinute": 496.64762850757387,
+				"tasksLanded": 12,
+				"tasksDispatched": 12,
+				"ends": {
+					"landed": 100,
+					"failed": 12,
+					"escalated": 0,
+					"other": 0
+				},
+				"races": {
+					"started": 16,
+					"rebaseWon": 13,
+					"rederiveWon": 3,
+					"failed": 0
+				},
+				"agentRaces": {
+					"started": 6,
+					"rebaseWon": 3,
+					"rederiveWon": 3,
+					"failed": 0
+				},
+				"falsePositiveRate": 0.8125,
+				"rejected": {
+					"textConflicts": 3,
+					"typecheck": 0,
+					"checks": 3
+				},
+				"claimsLost": 9,
+				"redReferenceTests": [],
+				"finalTypecheckOk": true
+			}
 		},
-		"forksCreated": 111,
-		"pushes": 134,
-		"agentsActive": 0,
-		"intentsLanded": 100,
-		"mode": "baseline",
-		"n": 100,
-		"seed": 7,
-		"trunk": "trunk-mv1zuocn",
-		"wallTimeMs": 118096,
-		"landingsPerMinute": 50.80612383145915,
-		"tasksLanded": 12,
-		"tasksDispatched": 12,
-		"ends": {
-			"landed": 100,
-			"failed": 11,
-			"escalated": 0,
-			"other": 0
+		{
+			"seed": 11,
+			"baseline": {
+				"brokenBuildsOnTrunk": 0,
+				"behaviouralRegressionsOnTrunk": 3,
+				"humanMerges": 5,
+				"premisesBroken": 0,
+				"rederives": {
+					"started": 0,
+					"succeeded": 0,
+					"failed": 0
+				},
+				"forksCreated": 112,
+				"pushes": 135,
+				"agentsActive": 0,
+				"intentsLanded": 107,
+				"mode": "baseline",
+				"n": 100,
+				"seed": 11,
+				"trunk": "trunk-mv42x73l",
+				"wallTimeMs": 7863,
+				"landingsPerMinute": 816.4822586798932,
+				"tasksLanded": 12,
+				"tasksDispatched": 12,
+				"ends": {
+					"landed": 107,
+					"failed": 5,
+					"escalated": 0,
+					"other": 0
+				},
+				"races": {
+					"started": 0,
+					"rebaseWon": 0,
+					"rederiveWon": 0,
+					"failed": 0
+				},
+				"agentRaces": {
+					"started": 0,
+					"rebaseWon": 0,
+					"rederiveWon": 0,
+					"failed": 0
+				},
+				"falsePositiveRate": 0,
+				"rejected": {
+					"textConflicts": 5,
+					"typecheck": 0,
+					"checks": 0
+				},
+				"claimsLost": 0,
+				"redReferenceTests": [
+					"premise/hidden-tests/t02-audit-expired.test.ts#an expired session writes an audit entry and returns expired",
+					"premise/hidden-tests/t03-expired-metrics.test.ts#a request with an expired session is counted",
+					"premise/probes/t11-expired-rate-limit.test.ts#a client replaying an expired session is turned away on the fourth request"
+				],
+				"finalTypecheckOk": true
+			},
+			"queue": {
+				"brokenBuildsOnTrunk": 0,
+				"behaviouralRegressionsOnTrunk": 1,
+				"humanMerges": 7,
+				"premisesBroken": 0,
+				"rederives": {
+					"started": 0,
+					"succeeded": 0,
+					"failed": 0
+				},
+				"forksCreated": 112,
+				"pushes": 133,
+				"agentsActive": 0,
+				"intentsLanded": 103,
+				"mode": "queue",
+				"n": 100,
+				"seed": 11,
+				"trunk": "trunk-mv42xgw2",
+				"wallTimeMs": 9475,
+				"landingsPerMinute": 652.2427440633245,
+				"tasksLanded": 10,
+				"tasksDispatched": 12,
+				"ends": {
+					"landed": 103,
+					"failed": 9,
+					"escalated": 0,
+					"other": 0
+				},
+				"races": {
+					"started": 0,
+					"rebaseWon": 0,
+					"rederiveWon": 0,
+					"failed": 0
+				},
+				"agentRaces": {
+					"started": 0,
+					"rebaseWon": 0,
+					"rederiveWon": 0,
+					"failed": 0
+				},
+				"falsePositiveRate": 0,
+				"rejected": {
+					"textConflicts": 7,
+					"typecheck": 0,
+					"checks": 2
+				},
+				"claimsLost": 0,
+				"redReferenceTests": [
+					"premise/probes/t11-expired-rate-limit.test.ts#a client replaying an expired session is turned away on the fourth request"
+				],
+				"finalTypecheckOk": true
+			},
+			"premise": {
+				"brokenBuildsOnTrunk": 0,
+				"behaviouralRegressionsOnTrunk": 0,
+				"humanMerges": 0,
+				"premisesBroken": 44,
+				"rederives": {
+					"started": 27,
+					"succeeded": 25,
+					"failed": 2
+				},
+				"forksCreated": 117,
+				"pushes": 131,
+				"agentsActive": 0,
+				"intentsLanded": 103,
+				"mode": "premise",
+				"n": 100,
+				"seed": 11,
+				"trunk": "trunk-mv42xqre",
+				"wallTimeMs": 12421,
+				"landingsPerMinute": 497.54448112068275,
+				"tasksLanded": 12,
+				"tasksDispatched": 12,
+				"ends": {
+					"landed": 103,
+					"failed": 9,
+					"escalated": 0,
+					"other": 0
+				},
+				"races": {
+					"started": 27,
+					"rebaseWon": 22,
+					"rederiveWon": 3,
+					"failed": 2
+				},
+				"agentRaces": {
+					"started": 6,
+					"rebaseWon": 1,
+					"rederiveWon": 3,
+					"failed": 2
+				},
+				"falsePositiveRate": 0.8148148148148148,
+				"rejected": {
+					"textConflicts": 4,
+					"typecheck": 0,
+					"checks": 2
+				},
+				"claimsLost": 5,
+				"redReferenceTests": [],
+				"finalTypecheckOk": true
+			}
 		},
-		"races": {
-			"started": 0,
-			"rebaseWon": 0,
-			"rederiveWon": 0,
-			"failed": 0
-		},
-		"falsePositiveRate": 0,
-		"rejected": {
-			"textConflicts": 11,
-			"typecheck": 0,
-			"checks": 0
-		},
-		"claimsLost": 0,
-		"redReferenceTests": [
-			"premise/hidden-tests/t02-audit-expired.test.ts#an expired session writes an audit entry and returns expired",
-			"premise/hidden-tests/t03-expired-metrics.test.ts#a request with an expired session is counted",
-			"premise/hidden-tests/t11-expired-rate-limit.test.ts#requests with an expired session count against the limit"
-		],
-		"finalTypecheckOk": true
-	},
-	"premise": {
-		"brokenBuildsOnTrunk": 0,
-		"behaviouralRegressionsOnTrunk": 0,
-		"humanMerges": 0,
-		"premisesBroken": 27,
-		"rederives": {
-			"started": 21,
-			"succeeded": 19,
-			"failed": 0
-		},
-		"forksCreated": 115,
-		"pushes": 122,
-		"agentsActive": 0,
-		"intentsLanded": 97,
-		"mode": "premise",
-		"n": 100,
-		"seed": 7,
-		"trunk": "trunk-mv1zxqnv",
-		"wallTimeMs": 138169,
-		"landingsPerMinute": 42.12232845283674,
-		"tasksLanded": 12,
-		"tasksDispatched": 12,
-		"ends": {
-			"landed": 97,
-			"failed": 15,
-			"escalated": 0,
-			"other": 0
-		},
-		"races": {
-			"started": 21,
-			"rebaseWon": 16,
-			"rederiveWon": 3,
-			"failed": 0
-		},
-		"falsePositiveRate": 0.7619047619047619,
-		"rejected": {
-			"textConflicts": 0,
-			"typecheck": 0,
-			"checks": 3
-		},
-		"claimsLost": 15,
-		"redReferenceTests": [],
-		"finalTypecheckOk": true
-	}
+		{
+			"seed": 23,
+			"baseline": {
+				"brokenBuildsOnTrunk": 0,
+				"behaviouralRegressionsOnTrunk": 3,
+				"humanMerges": 8,
+				"premisesBroken": 0,
+				"rederives": {
+					"started": 0,
+					"succeeded": 0,
+					"failed": 0
+				},
+				"forksCreated": 112,
+				"pushes": 135,
+				"agentsActive": 0,
+				"intentsLanded": 104,
+				"mode": "baseline",
+				"n": 100,
+				"seed": 23,
+				"trunk": "trunk-mv42y0s0",
+				"wallTimeMs": 7892,
+				"landingsPerMinute": 790.6741003547896,
+				"tasksLanded": 12,
+				"tasksDispatched": 12,
+				"ends": {
+					"landed": 104,
+					"failed": 8,
+					"escalated": 0,
+					"other": 0
+				},
+				"races": {
+					"started": 0,
+					"rebaseWon": 0,
+					"rederiveWon": 0,
+					"failed": 0
+				},
+				"agentRaces": {
+					"started": 0,
+					"rebaseWon": 0,
+					"rederiveWon": 0,
+					"failed": 0
+				},
+				"falsePositiveRate": 0,
+				"rejected": {
+					"textConflicts": 8,
+					"typecheck": 0,
+					"checks": 0
+				},
+				"claimsLost": 0,
+				"redReferenceTests": [
+					"premise/hidden-tests/t02-audit-expired.test.ts#an expired session writes an audit entry and returns expired",
+					"premise/hidden-tests/t03-expired-metrics.test.ts#a request with an expired session is counted",
+					"premise/probes/t11-expired-rate-limit.test.ts#a client replaying an expired session is turned away on the fourth request"
+				],
+				"finalTypecheckOk": true
+			},
+			"queue": {
+				"brokenBuildsOnTrunk": 0,
+				"behaviouralRegressionsOnTrunk": 1,
+				"humanMerges": 9,
+				"premisesBroken": 0,
+				"rederives": {
+					"started": 0,
+					"succeeded": 0,
+					"failed": 0
+				},
+				"forksCreated": 112,
+				"pushes": 133,
+				"agentsActive": 0,
+				"intentsLanded": 101,
+				"mode": "queue",
+				"n": 100,
+				"seed": 23,
+				"trunk": "trunk-mv42yaic",
+				"wallTimeMs": 9689,
+				"landingsPerMinute": 625.4515429868924,
+				"tasksLanded": 10,
+				"tasksDispatched": 12,
+				"ends": {
+					"landed": 101,
+					"failed": 11,
+					"escalated": 0,
+					"other": 0
+				},
+				"races": {
+					"started": 0,
+					"rebaseWon": 0,
+					"rederiveWon": 0,
+					"failed": 0
+				},
+				"agentRaces": {
+					"started": 0,
+					"rebaseWon": 0,
+					"rederiveWon": 0,
+					"failed": 0
+				},
+				"falsePositiveRate": 0,
+				"rejected": {
+					"textConflicts": 9,
+					"typecheck": 0,
+					"checks": 2
+				},
+				"claimsLost": 0,
+				"redReferenceTests": [
+					"premise/probes/t11-expired-rate-limit.test.ts#a client replaying an expired session is turned away on the fourth request"
+				],
+				"finalTypecheckOk": true
+			},
+			"premise": {
+				"brokenBuildsOnTrunk": 0,
+				"behaviouralRegressionsOnTrunk": 0,
+				"humanMerges": 0,
+				"premisesBroken": 34,
+				"rederives": {
+					"started": 22,
+					"succeeded": 19,
+					"failed": 3
+				},
+				"forksCreated": 117,
+				"pushes": 127,
+				"agentsActive": 0,
+				"intentsLanded": 100,
+				"mode": "premise",
+				"n": 100,
+				"seed": 23,
+				"trunk": "trunk-mv42ykec",
+				"wallTimeMs": 12475,
+				"landingsPerMinute": 480.9619238476954,
+				"tasksLanded": 12,
+				"tasksDispatched": 12,
+				"ends": {
+					"landed": 100,
+					"failed": 12,
+					"escalated": 0,
+					"other": 0
+				},
+				"races": {
+					"started": 22,
+					"rebaseWon": 16,
+					"rederiveWon": 3,
+					"failed": 3
+				},
+				"agentRaces": {
+					"started": 5,
+					"rebaseWon": 0,
+					"rederiveWon": 3,
+					"failed": 2
+				},
+				"falsePositiveRate": 0.7272727272727273,
+				"rejected": {
+					"textConflicts": 3,
+					"typecheck": 0,
+					"checks": 2
+				},
+				"claimsLost": 9,
+				"redReferenceTests": [],
+				"finalTypecheckOk": true
+			}
+		}
+	]
 }

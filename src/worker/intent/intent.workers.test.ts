@@ -153,6 +153,26 @@ describe("IntentDO: premises", () => {
 		expect(events.at(-1)).toMatchObject({ t: "intent.status", status: "stale", note: "assertion 'throws on expiry' no longer holds" });
 	});
 
+	it("a type-surface change does not void a re-derive in progress; a broken assertion still does", async () => {
+		const { id, stub, symbol } = await setup();
+		const verify = symbol("verifySession");
+		for (const action of [{ a: "claim" }, { a: "granted" }, { a: "stale" }, { a: "rederive" }] as const) {
+			await stub.act(action);
+		}
+		await stub.recordPremises([observed(verify), asserted(verify)]);
+		const by = { intentId: "i01nullxp", commit: SHA("e"), reason: "type surface of verifySession changed" };
+
+		// The gate will check the re-derived work against trunk as it is by then, so the attempt carries on.
+		const surface = await stub.breakPremise(verify, by, { sources: ["observed", "derived"] });
+		expect(surface).toMatchObject({ broken: false, intent: { status: "rederiving" } });
+		expect(surface.intent.premises.every((premise) => premise.state === "holding")).toBe(true);
+		expect((await eventsFor(id)).some((event) => event.t === "premise.broken")).toBe(false);
+
+		// What it asserted about behaviour is another matter.
+		const behaviour = await stub.breakPremise(verify, { ...by, reason: "assertion no longer holds" }, { assertionId: "a-session-throws" });
+		expect(behaviour).toMatchObject({ broken: true, intent: { status: "stale" } });
+	});
+
 	it("breakPremise marks the premise but leaves the status alone when the Intent cannot go stale", async () => {
 		const { stub, symbol } = await setup();
 		await stub.recordPremise(observed(symbol("verifySession")));
