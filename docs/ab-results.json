@@ -1,6 +1,6 @@
 {
 	"date": "2026-10-11",
-	"url": "http://localhost:5173",
+	"url": "https://premise.akshatdivekar.workers.dev",
 	"n": 100,
 	"seeds": [
 		7,
@@ -39,77 +39,77 @@
 		},
 		{
 			"metric": "Scripted workload Intents that did not land",
-			"baseline": "5 to 8",
-			"queue": "7 to 9",
-			"premise": "9 to 12",
+			"baseline": "9 to 11",
+			"queue": "10 to 11",
+			"premise": "12 to 14",
 			"note": "The workload aims one edit in ten at a function another edit touches, on purpose. In the two queues that becomes a text conflict for a person to merge. In Premise the ledger makes the later Intent wait, and a scripted Intent gives up after three more tries. Either way the work is not on trunk."
 		},
 		{
 			"metric": "Human merges",
-			"baseline": "5 to 8",
-			"queue": "7 to 9",
+			"baseline": "9 to 11",
+			"queue": "10 to 11",
 			"premise": "0",
 			"note": "Text conflicts someone has to merge by hand (the two queues), or Intents that ended with a person (Premise). A scripted Intent that gave up on a claim is not a merge, and is counted in the row above."
 		},
 		{
 			"metric": "Intents landed",
-			"baseline": "104 of 112 to 107 of 112",
-			"queue": "101 of 112 to 103 of 112",
-			"premise": "100 of 112 to 103 of 112",
+			"baseline": "84 of 93 to 99 of 110",
+			"queue": "94 of 107 to 98 of 111",
+			"premise": "93 of 107 to 100 of 112",
 			"note": "Agents and scripted workload together."
 		},
 		{
 			"metric": "Premises broken",
 			"baseline": "0",
 			"queue": "0",
-			"premise": "22 to 44",
+			"premise": "20 to 26",
 			"note": "The two queues have no premises, so nobody is told."
 		},
 		{
 			"metric": "Stale Intents a plain rebase settled",
 			"baseline": "0",
 			"queue": "0",
-			"premise": "13 to 22"
+			"premise": "14 to 22"
 		},
 		{
 			"metric": "False positives: agents",
 			"baseline": "n/a",
 			"queue": "n/a",
-			"premise": "0% (0 of 5) to 50% (3 of 6)",
+			"premise": "0% (0 of 3) to 25% (1 of 4)",
 			"note": "Of the agents' Intents that went stale, the share whose plain rebase then passed the whole gate: the broken premise cost time and changed nothing."
 		},
 		{
 			"metric": "False positives: scripted workload",
 			"baseline": "n/a",
 			"queue": "n/a",
-			"premise": "94% (16 of 17) to 100% (21 of 21)",
+			"premise": "100% (14 of 14) to 100% (21 of 21)",
 			"note": "The same for the scripted workload. These Intents have no tests or assertions of their own, so a stale one whose rebase is clean and passes trunk's suite always counts here. Read it as the cost of treating every type-surface change as a broken premise."
 		},
 		{
 			"metric": "Turned away at the gate",
-			"baseline": "5 text, 0 type, 0 checks to 8 text, 0 type, 0 checks",
-			"queue": "7 text, 0 type, 2 checks to 9 text, 0 type, 2 checks",
-			"premise": "3 text, 0 type, 3 checks to 4 text, 0 type, 2 checks",
+			"baseline": "9 text, 0 type, 0 checks to 11 text, 0 type, 0 checks",
+			"queue": "10 text, 0 type, 2 checks to 11 text, 0 type, 2 checks",
+			"premise": "0 text, 0 type, 0 checks to 0 text, 0 type, 2 checks",
 			"note": "Text conflicts, type errors after rebase, and failed tests or assertions (the first rule runs neither)."
 		},
 		{
 			"metric": "Gave up waiting for a claim",
 			"baseline": "0",
 			"queue": "0",
-			"premise": "5 to 9",
+			"premise": "12 to 14",
 			"note": "Premise only: the two queues have no ledger."
 		},
 		{
 			"metric": "Landings per minute",
-			"baseline": "790.7 to 816.9",
-			"queue": "625.5 to 652.2",
-			"premise": "481.0 to 497.5"
+			"baseline": "56.2 to 70.3",
+			"queue": "64.6 to 71.4",
+			"premise": "41.5 to 54.1"
 		},
 		{
 			"metric": "Wall time",
-			"baseline": "7.8 s to 7.9 s",
-			"queue": "9.5 s to 9.7 s",
-			"premise": "12.1 s to 12.5 s"
+			"baseline": "84.5 s to 89.8 s",
+			"queue": "79.0 s to 91.1 s",
+			"premise": "103.2 s to 144.5 s"
 		},
 		{
 			"metric": "Reference checks and probes red at the end",
@@ -119,9 +119,9 @@
 		},
 		{
 			"metric": "Forks created",
-			"baseline": "112",
-			"queue": "112",
-			"premise": "115 to 117"
+			"baseline": "93 to 110",
+			"queue": "107 to 111",
+			"premise": "110 to 115"
 		}
 	],
 	"trials": [
@@ -130,28 +130,28 @@
 			"baseline": {
 				"brokenBuildsOnTrunk": 0,
 				"behaviouralRegressionsOnTrunk": 3,
-				"humanMerges": 6,
+				"humanMerges": 11,
 				"premisesBroken": 0,
 				"rederives": {
 					"started": 0,
 					"succeeded": 0,
 					"failed": 0
 				},
-				"forksCreated": 112,
-				"pushes": 135,
+				"forksCreated": 110,
+				"pushes": 133,
 				"agentsActive": 0,
-				"intentsLanded": 106,
+				"intentsLanded": 99,
 				"mode": "baseline",
 				"n": 100,
 				"seed": 7,
-				"trunk": "trunk-mv42wdfu",
-				"wallTimeMs": 7786,
-				"landingsPerMinute": 816.8507577703571,
+				"trunk": "trunk-mv46s977",
+				"wallTimeMs": 87106,
+				"landingsPerMinute": 68.19277661699539,
 				"tasksLanded": 12,
 				"tasksDispatched": 12,
 				"ends": {
-					"landed": 106,
-					"failed": 6,
+					"landed": 99,
+					"failed": 11,
 					"escalated": 0,
 					"other": 0
 				},
@@ -169,7 +169,7 @@
 				},
 				"falsePositiveRate": 0,
 				"rejected": {
-					"textConflicts": 6,
+					"textConflicts": 11,
 					"typecheck": 0,
 					"checks": 0
 				},
@@ -184,28 +184,28 @@
 			"queue": {
 				"brokenBuildsOnTrunk": 0,
 				"behaviouralRegressionsOnTrunk": 1,
-				"humanMerges": 8,
+				"humanMerges": 11,
 				"premisesBroken": 0,
 				"rederives": {
 					"started": 0,
 					"succeeded": 0,
 					"failed": 0
 				},
-				"forksCreated": 112,
-				"pushes": 133,
+				"forksCreated": 111,
+				"pushes": 132,
 				"agentsActive": 0,
-				"intentsLanded": 102,
+				"intentsLanded": 98,
 				"mode": "queue",
 				"n": 100,
 				"seed": 7,
-				"trunk": "trunk-mv42wn6i",
-				"wallTimeMs": 9511,
-				"landingsPerMinute": 643.4654610451057,
+				"trunk": "trunk-mv46unrp",
+				"wallTimeMs": 91057,
+				"landingsPerMinute": 64.57493657818729,
 				"tasksLanded": 10,
 				"tasksDispatched": 12,
 				"ends": {
-					"landed": 102,
-					"failed": 10,
+					"landed": 98,
+					"failed": 13,
 					"escalated": 0,
 					"other": 0
 				},
@@ -223,7 +223,7 @@
 				},
 				"falsePositiveRate": 0,
 				"rejected": {
-					"textConflicts": 8,
+					"textConflicts": 11,
 					"typecheck": 0,
 					"checks": 2
 				},
@@ -237,49 +237,49 @@
 				"brokenBuildsOnTrunk": 0,
 				"behaviouralRegressionsOnTrunk": 0,
 				"humanMerges": 0,
-				"premisesBroken": 22,
+				"premisesBroken": 20,
 				"rederives": {
-					"started": 16,
-					"succeeded": 16,
+					"started": 17,
+					"succeeded": 17,
 					"failed": 0
 				},
-				"forksCreated": 115,
-				"pushes": 128,
+				"forksCreated": 110,
+				"pushes": 116,
 				"agentsActive": 0,
-				"intentsLanded": 100,
+				"intentsLanded": 93,
 				"mode": "premise",
 				"n": 100,
 				"seed": 7,
-				"trunk": "trunk-mv42wx1w",
-				"wallTimeMs": 12081,
-				"landingsPerMinute": 496.64762850757387,
+				"trunk": "trunk-mv46x3g7",
+				"wallTimeMs": 103165,
+				"landingsPerMinute": 54.08811127804973,
 				"tasksLanded": 12,
 				"tasksDispatched": 12,
 				"ends": {
-					"landed": 100,
-					"failed": 12,
+					"landed": 93,
+					"failed": 14,
 					"escalated": 0,
 					"other": 0
 				},
 				"races": {
-					"started": 16,
-					"rebaseWon": 13,
+					"started": 17,
+					"rebaseWon": 14,
 					"rederiveWon": 3,
 					"failed": 0
 				},
 				"agentRaces": {
-					"started": 6,
-					"rebaseWon": 3,
+					"started": 3,
+					"rebaseWon": 0,
 					"rederiveWon": 3,
 					"failed": 0
 				},
-				"falsePositiveRate": 0.8125,
+				"falsePositiveRate": 0.8235294117647058,
 				"rejected": {
-					"textConflicts": 3,
+					"textConflicts": 0,
 					"typecheck": 0,
-					"checks": 3
+					"checks": 0
 				},
-				"claimsLost": 9,
+				"claimsLost": 14,
 				"redReferenceTests": [],
 				"finalTypecheckOk": true
 			}
@@ -289,28 +289,28 @@
 			"baseline": {
 				"brokenBuildsOnTrunk": 0,
 				"behaviouralRegressionsOnTrunk": 3,
-				"humanMerges": 5,
+				"humanMerges": 11,
 				"premisesBroken": 0,
 				"rederives": {
 					"started": 0,
 					"succeeded": 0,
 					"failed": 0
 				},
-				"forksCreated": 112,
-				"pushes": 135,
+				"forksCreated": 110,
+				"pushes": 133,
 				"agentsActive": 0,
-				"intentsLanded": 107,
+				"intentsLanded": 99,
 				"mode": "baseline",
 				"n": 100,
 				"seed": 11,
-				"trunk": "trunk-mv42x73l",
-				"wallTimeMs": 7863,
-				"landingsPerMinute": 816.4822586798932,
+				"trunk": "trunk-mv46zv4a",
+				"wallTimeMs": 84521,
+				"landingsPerMinute": 70.27839235219649,
 				"tasksLanded": 12,
 				"tasksDispatched": 12,
 				"ends": {
-					"landed": 107,
-					"failed": 5,
+					"landed": 99,
+					"failed": 11,
 					"escalated": 0,
 					"other": 0
 				},
@@ -328,7 +328,7 @@
 				},
 				"falsePositiveRate": 0,
 				"rejected": {
-					"textConflicts": 5,
+					"textConflicts": 11,
 					"typecheck": 0,
 					"checks": 0
 				},
@@ -343,28 +343,28 @@
 			"queue": {
 				"brokenBuildsOnTrunk": 0,
 				"behaviouralRegressionsOnTrunk": 1,
-				"humanMerges": 7,
+				"humanMerges": 11,
 				"premisesBroken": 0,
 				"rederives": {
 					"started": 0,
 					"succeeded": 0,
 					"failed": 0
 				},
-				"forksCreated": 112,
-				"pushes": 133,
+				"forksCreated": 107,
+				"pushes": 128,
 				"agentsActive": 0,
-				"intentsLanded": 103,
+				"intentsLanded": 94,
 				"mode": "queue",
 				"n": 100,
 				"seed": 11,
-				"trunk": "trunk-mv42xgw2",
-				"wallTimeMs": 9475,
-				"landingsPerMinute": 652.2427440633245,
+				"trunk": "trunk-mv4727ib",
+				"wallTimeMs": 79029,
+				"landingsPerMinute": 71.36620734160877,
 				"tasksLanded": 10,
 				"tasksDispatched": 12,
 				"ends": {
-					"landed": 103,
-					"failed": 9,
+					"landed": 94,
+					"failed": 13,
 					"escalated": 0,
 					"other": 0
 				},
@@ -382,7 +382,7 @@
 				},
 				"falsePositiveRate": 0,
 				"rejected": {
-					"textConflicts": 7,
+					"textConflicts": 11,
 					"typecheck": 0,
 					"checks": 2
 				},
@@ -396,49 +396,49 @@
 				"brokenBuildsOnTrunk": 0,
 				"behaviouralRegressionsOnTrunk": 0,
 				"humanMerges": 0,
-				"premisesBroken": 44,
+				"premisesBroken": 24,
 				"rederives": {
-					"started": 27,
-					"succeeded": 25,
-					"failed": 2
+					"started": 22,
+					"succeeded": 22,
+					"failed": 0
 				},
-				"forksCreated": 117,
-				"pushes": 131,
+				"forksCreated": 115,
+				"pushes": 125,
 				"agentsActive": 0,
-				"intentsLanded": 103,
+				"intentsLanded": 99,
 				"mode": "premise",
 				"n": 100,
 				"seed": 11,
-				"trunk": "trunk-mv42xqre",
-				"wallTimeMs": 12421,
-				"landingsPerMinute": 497.54448112068275,
+				"trunk": "trunk-mv474f5f",
+				"wallTimeMs": 142315,
+				"landingsPerMinute": 41.73839721744019,
 				"tasksLanded": 12,
 				"tasksDispatched": 12,
 				"ends": {
-					"landed": 103,
-					"failed": 9,
+					"landed": 99,
+					"failed": 13,
 					"escalated": 0,
 					"other": 0
 				},
 				"races": {
-					"started": 27,
-					"rebaseWon": 22,
+					"started": 22,
+					"rebaseWon": 19,
 					"rederiveWon": 3,
-					"failed": 2
+					"failed": 0
 				},
 				"agentRaces": {
-					"started": 6,
-					"rebaseWon": 1,
+					"started": 3,
+					"rebaseWon": 0,
 					"rederiveWon": 3,
-					"failed": 2
+					"failed": 0
 				},
-				"falsePositiveRate": 0.8148148148148148,
+				"falsePositiveRate": 0.8636363636363636,
 				"rejected": {
-					"textConflicts": 4,
+					"textConflicts": 0,
 					"typecheck": 0,
-					"checks": 2
+					"checks": 3
 				},
-				"claimsLost": 5,
+				"claimsLost": 13,
 				"redReferenceTests": [],
 				"finalTypecheckOk": true
 			}
@@ -448,60 +448,6 @@
 			"baseline": {
 				"brokenBuildsOnTrunk": 0,
 				"behaviouralRegressionsOnTrunk": 3,
-				"humanMerges": 8,
-				"premisesBroken": 0,
-				"rederives": {
-					"started": 0,
-					"succeeded": 0,
-					"failed": 0
-				},
-				"forksCreated": 112,
-				"pushes": 135,
-				"agentsActive": 0,
-				"intentsLanded": 104,
-				"mode": "baseline",
-				"n": 100,
-				"seed": 23,
-				"trunk": "trunk-mv42y0s0",
-				"wallTimeMs": 7892,
-				"landingsPerMinute": 790.6741003547896,
-				"tasksLanded": 12,
-				"tasksDispatched": 12,
-				"ends": {
-					"landed": 104,
-					"failed": 8,
-					"escalated": 0,
-					"other": 0
-				},
-				"races": {
-					"started": 0,
-					"rebaseWon": 0,
-					"rederiveWon": 0,
-					"failed": 0
-				},
-				"agentRaces": {
-					"started": 0,
-					"rebaseWon": 0,
-					"rederiveWon": 0,
-					"failed": 0
-				},
-				"falsePositiveRate": 0,
-				"rejected": {
-					"textConflicts": 8,
-					"typecheck": 0,
-					"checks": 0
-				},
-				"claimsLost": 0,
-				"redReferenceTests": [
-					"premise/hidden-tests/t02-audit-expired.test.ts#an expired session writes an audit entry and returns expired",
-					"premise/hidden-tests/t03-expired-metrics.test.ts#a request with an expired session is counted",
-					"premise/probes/t11-expired-rate-limit.test.ts#a client replaying an expired session is turned away on the fourth request"
-				],
-				"finalTypecheckOk": true
-			},
-			"queue": {
-				"brokenBuildsOnTrunk": 0,
-				"behaviouralRegressionsOnTrunk": 1,
 				"humanMerges": 9,
 				"premisesBroken": 0,
 				"rederives": {
@@ -509,21 +455,21 @@
 					"succeeded": 0,
 					"failed": 0
 				},
-				"forksCreated": 112,
-				"pushes": 133,
+				"forksCreated": 93,
+				"pushes": 114,
 				"agentsActive": 0,
-				"intentsLanded": 101,
-				"mode": "queue",
+				"intentsLanded": 84,
+				"mode": "baseline",
 				"n": 100,
 				"seed": 23,
-				"trunk": "trunk-mv42yaic",
-				"wallTimeMs": 9689,
-				"landingsPerMinute": 625.4515429868924,
-				"tasksLanded": 10,
+				"trunk": "trunk-mv4781nt",
+				"wallTimeMs": 89752,
+				"landingsPerMinute": 56.154737498885815,
+				"tasksLanded": 12,
 				"tasksDispatched": 12,
 				"ends": {
-					"landed": 101,
-					"failed": 11,
+					"landed": 84,
+					"failed": 9,
 					"escalated": 0,
 					"other": 0
 				},
@@ -543,6 +489,60 @@
 				"rejected": {
 					"textConflicts": 9,
 					"typecheck": 0,
+					"checks": 0
+				},
+				"claimsLost": 0,
+				"redReferenceTests": [
+					"premise/hidden-tests/t02-audit-expired.test.ts#an expired session writes an audit entry and returns expired",
+					"premise/hidden-tests/t03-expired-metrics.test.ts#a request with an expired session is counted",
+					"premise/probes/t11-expired-rate-limit.test.ts#a client replaying an expired session is turned away on the fourth request"
+				],
+				"finalTypecheckOk": true
+			},
+			"queue": {
+				"brokenBuildsOnTrunk": 0,
+				"behaviouralRegressionsOnTrunk": 1,
+				"humanMerges": 10,
+				"premisesBroken": 0,
+				"rederives": {
+					"started": 0,
+					"succeeded": 0,
+					"failed": 0
+				},
+				"forksCreated": 108,
+				"pushes": 129,
+				"agentsActive": 0,
+				"intentsLanded": 96,
+				"mode": "queue",
+				"n": 100,
+				"seed": 23,
+				"trunk": "trunk-mv47aha3",
+				"wallTimeMs": 86147,
+				"landingsPerMinute": 66.86245603445273,
+				"tasksLanded": 10,
+				"tasksDispatched": 12,
+				"ends": {
+					"landed": 96,
+					"failed": 12,
+					"escalated": 0,
+					"other": 0
+				},
+				"races": {
+					"started": 0,
+					"rebaseWon": 0,
+					"rederiveWon": 0,
+					"failed": 0
+				},
+				"agentRaces": {
+					"started": 0,
+					"rebaseWon": 0,
+					"rederiveWon": 0,
+					"failed": 0
+				},
+				"falsePositiveRate": 0,
+				"rejected": {
+					"textConflicts": 10,
+					"typecheck": 0,
 					"checks": 2
 				},
 				"claimsLost": 0,
@@ -555,22 +555,22 @@
 				"brokenBuildsOnTrunk": 0,
 				"behaviouralRegressionsOnTrunk": 0,
 				"humanMerges": 0,
-				"premisesBroken": 34,
+				"premisesBroken": 26,
 				"rederives": {
-					"started": 22,
-					"succeeded": 19,
-					"failed": 3
+					"started": 25,
+					"succeeded": 25,
+					"failed": 0
 				},
-				"forksCreated": 117,
-				"pushes": 127,
+				"forksCreated": 115,
+				"pushes": 126,
 				"agentsActive": 0,
 				"intentsLanded": 100,
 				"mode": "premise",
 				"n": 100,
 				"seed": 23,
-				"trunk": "trunk-mv42ykec",
-				"wallTimeMs": 12475,
-				"landingsPerMinute": 480.9619238476954,
+				"trunk": "trunk-mv47cv3v",
+				"wallTimeMs": 144521,
+				"landingsPerMinute": 41.51645781581915,
 				"tasksLanded": 12,
 				"tasksDispatched": 12,
 				"ends": {
@@ -580,24 +580,24 @@
 					"other": 0
 				},
 				"races": {
-					"started": 22,
-					"rebaseWon": 16,
+					"started": 25,
+					"rebaseWon": 22,
 					"rederiveWon": 3,
-					"failed": 3
+					"failed": 0
 				},
 				"agentRaces": {
-					"started": 5,
-					"rebaseWon": 0,
+					"started": 4,
+					"rebaseWon": 1,
 					"rederiveWon": 3,
-					"failed": 2
+					"failed": 0
 				},
-				"falsePositiveRate": 0.7272727272727273,
+				"falsePositiveRate": 0.88,
 				"rejected": {
-					"textConflicts": 3,
+					"textConflicts": 0,
 					"typecheck": 0,
 					"checks": 2
 				},
-				"claimsLost": 9,
+				"claimsLost": 12,
 				"redReferenceTests": [],
 				"finalTypecheckOk": true
 			}

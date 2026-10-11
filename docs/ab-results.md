@@ -2,7 +2,7 @@
 
 **A queue that only typechecks shipped 3 behavioural regressions and sent 0 of 12 tasks back to a person; a queue that also runs the tests shipped 1 behavioural regression and sent 2 of 12 tasks back to a person; Premise shipped 0 behavioural regressions and sent 0 of 12 tasks back to a person.**
 
-Run on 2026-10-11 against http://localhost:5173. Every rule ran the same 12 demo tasks and the same scripted workload (100 Intents), each on its own fresh copy of trunk, for seeds 7, 11, 23. Where the seeds disagree, a cell gives the lowest and the highest value.
+Run on 2026-10-11 against https://premise.akshatdivekar.workers.dev. Every rule ran the same 12 demo tasks and the same scripted workload (100 Intents), each on its own fresh copy of trunk, for seeds 7, 11, 23. Where the seeds disagree, a cell gives the lowest and the highest value.
 
 - **Typecheck only** lands whatever rebases cleanly and typechecks. No tests, no claims, no premises, no re-derive.
 - **Queue with tests** also runs the change's own tests, the task's reference checks and every test already on trunk, after the rebase. This is the fair comparison: it is what a careful team's queue does. It still has no claims, no premises and no re-derive, so what it turns away goes back to its author.
@@ -25,19 +25,19 @@ Read the table knowing how the run is set up. None of this is hidden in the code
 | Demo tasks sent back to a person | 0 of 12 | 2 of 12 | 0 of 12 |
 | Stale Intents redone and landed with nobody involved | 0 | 0 | 3 |
 | Broken builds on trunk | 0 | 0 | 0 |
-| Scripted workload Intents that did not land | 5 to 8 | 7 to 9 | 9 to 12 |
-| Human merges | 5 to 8 | 7 to 9 | 0 |
-| Intents landed | 104 of 112 to 107 of 112 | 101 of 112 to 103 of 112 | 100 of 112 to 103 of 112 |
-| Premises broken | 0 | 0 | 22 to 44 |
-| Stale Intents a plain rebase settled | 0 | 0 | 13 to 22 |
-| False positives: agents | n/a | n/a | 0% (0 of 5) to 50% (3 of 6) |
-| False positives: scripted workload | n/a | n/a | 94% (16 of 17) to 100% (21 of 21) |
-| Turned away at the gate | 5 text, 0 type, 0 checks to 8 text, 0 type, 0 checks | 7 text, 0 type, 2 checks to 9 text, 0 type, 2 checks | 3 text, 0 type, 3 checks to 4 text, 0 type, 2 checks |
-| Gave up waiting for a claim | 0 | 0 | 5 to 9 |
-| Landings per minute | 790.7 to 816.9 | 625.5 to 652.2 | 481.0 to 497.5 |
-| Wall time | 7.8 s to 7.9 s | 9.5 s to 9.7 s | 12.1 s to 12.5 s |
+| Scripted workload Intents that did not land | 9 to 11 | 10 to 11 | 12 to 14 |
+| Human merges | 9 to 11 | 10 to 11 | 0 |
+| Intents landed | 84 of 93 to 99 of 110 | 94 of 107 to 98 of 111 | 93 of 107 to 100 of 112 |
+| Premises broken | 0 | 0 | 20 to 26 |
+| Stale Intents a plain rebase settled | 0 | 0 | 14 to 22 |
+| False positives: agents | n/a | n/a | 0% (0 of 3) to 25% (1 of 4) |
+| False positives: scripted workload | n/a | n/a | 100% (14 of 14) to 100% (21 of 21) |
+| Turned away at the gate | 9 text, 0 type, 0 checks to 11 text, 0 type, 0 checks | 10 text, 0 type, 2 checks to 11 text, 0 type, 2 checks | 0 text, 0 type, 0 checks to 0 text, 0 type, 2 checks |
+| Gave up waiting for a claim | 0 | 0 | 12 to 14 |
+| Landings per minute | 56.2 to 70.3 | 64.6 to 71.4 | 41.5 to 54.1 |
+| Wall time | 84.5 s to 89.8 s | 79.0 s to 91.1 s | 103.2 s to 144.5 s |
 | Reference checks and probes red at the end | 3 | 1 | 0 |
-| Forks created | 112 | 112 | 115 to 117 |
+| Forks created | 93 to 110 | 107 to 111 | 110 to 115 |
 
 ## What the numbers mean
 

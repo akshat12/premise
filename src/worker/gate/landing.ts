@@ -220,7 +220,8 @@ export class Landing extends DurableObject<Env> {
 
 	/**
 	 * Choreography for a demo or an A/B run: none of `rest` is gated until every one of `first` has
-	 * landed or stopped being on its way. It only orders landings; it changes nothing about what
+	 * landed or stopped being on its way. While that is so, scripted workload Intents wait as well,
+	 * so `first` really is the first thing to land. It only orders landings; it changes nothing about what
 	 * the gate checks. Without it, which of several Intents dispatched together lands first depends
 	 * on which agent happens to finish first.
 	 */
@@ -373,7 +374,10 @@ export class Landing extends DurableObject<Env> {
 		const sql = this.ctx.storage.sql;
 		const held = await this.held();
 		const rows = this.rows();
-		const next = pickBatch(rows.filter((entry) => !held.has(entry.intentId)), WORKLOAD_BATCH_SIZE);
+		// While a hold is in force, the scripted workload waits too: "lands first" means before anything else.
+		// Otherwise a workload landing can change a type the held agents read and turn them stale early.
+		const holding = held.size > 0;
+		const next = pickBatch(rows.filter((entry) => !held.has(entry.intentId) && !(holding && entry.kind === "workload")), WORKLOAD_BATCH_SIZE);
 		this.onlyHeldLeft = next.length === 0 && rows.length > 0;
 		const together = next.filter((entry) => entry.kind === "workload" && entry.attempts === 0);
 		const batched = new Set(together.length > 1 ? together.map((entry) => entry.intentId) : []);
@@ -533,7 +537,8 @@ export class Landing extends DurableObject<Env> {
 		const id = entry.intentId;
 		// A run's choreography (see `hold`) orders landings. A held Intent that went stale early must not
 		// get round it: its rebase is a landing too, so it waits like the queue does.
-		if ((await this.held()).has(id)) {
+		const held = await this.held();
+		if (held.has(id) || (held.size > 0 && (await this.describe(id)).kind === "workload")) {
 			this.deferred.push(entry);
 			return { kind: "done" };
 		}

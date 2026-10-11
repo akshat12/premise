@@ -19,15 +19,15 @@ The case the demo is built around: one Intent changes `verifySession` to return 
 
 ## What the comparison shows, and what it does not
 
-The same 12 tasks and 100 scripted workload Intents, landed under three rules, on seeds 7, 11 and 23. The first two rules are comparisons; the middle one is the fair one.
+The same 12 tasks and 100 scripted workload Intents, landed under three rules, on seeds 7, 11 and 23, on the deployed Worker and real Artifacts (2026-10-11). The first two rules are comparisons; the middle one is the fair one.
 
 | | Typecheck only | Queue that also runs tests | Premise |
 |---|---|---|---|
 | Behavioural regressions that reached trunk | 3 | 1 | 0 |
 | Demo tasks sent back to a person | 0 of 12 | 2 of 12 | 0 of 12 |
 | Stale Intents redone and landed with nobody involved | 0 | 0 | 3 |
-| Scripted workload Intents that did not land | 5 to 8 | 7 to 9 | 9 to 12 |
-| Wall time | 7.8 to 7.9 s | 9.5 to 9.7 s | 12.1 to 12.5 s |
+| Scripted workload Intents that did not land | 9 to 11 | 10 to 11 | 12 to 14 |
+| Wall time | 85 to 90 s | 79 to 91 s | 103 to 145 s |
 
 Read it knowing how the run is set up:
 
@@ -35,8 +35,8 @@ Read it knowing how the run is set up:
 - **A queue that runs tests catches two of the three.** Their own tests fail after the rebase. There the difference is only what happens next: the queue turns the work away and stops, and Premise re-derives it and lands it.
 - **The third is the case tests miss, and it is built to be.** Its tests check the rate limiter with a stand-in for the session check, the way unit tests often do. The stand-in still throws, so every test passes after the rebase while the real path is broken. Only its premise, an executable assertion about the real `verifySession`, is red. A premise is the assumption a stand-in encodes, checked against the real thing.
 - **Premise is slower and lands fewer workload Intents.** Scripted Intents that want a symbol another Intent holds give up after three tries. In the two queues the same collisions are text conflicts for a person.
-- **Most broken premises change nothing.** Nearly all are type-surface changes, and 94% to 100% of the workload Intents they turned stale passed the whole gate on a plain rebase a second later.
-- **These numbers are from a local Worker with in-memory repos** (2026-10-11), with scripted agents. The same script runs against a deployed Worker on real Artifacts.
+- **Most broken premises change nothing.** Nearly all are type-surface changes, and every one of the 14 to 21 workload Intents they turned stale passed the whole gate on a plain rebase a second later. Of the agents' stale Intents, 0 or 1 in each run did.
+- **The agents are scripted,** and Artifacts refused some forks under load: each run asks for 112 Intents, and between 93 and 112 of them got a fork, so the totals differ between runs. The outcome for the twelve tasks was the same on every seed and under every rule.
 
 Every row, what it means, and the per-seed results are in [docs/ab-results.md](docs/ab-results.md).
 
@@ -114,7 +114,7 @@ In a second terminal:
 npm run demo                       # resets, dispatches 12 tasks and 40 workload Intents, opens the live board
 ```
 
-<http://localhost:5173/> plays the recorded run, which needs no backend at all. `npm test` runs the 833 tests and `npm run typecheck` the type checks. `npx tsx scripts/ab.ts --url http://localhost:5173 --seeds 7,11,23` reruns the comparison above.
+<http://localhost:5173/> plays the recorded run, which needs no backend at all. `npm test` runs the 833 tests and `npm run typecheck` the type checks. `npx tsx scripts/ab.ts --url http://localhost:5173 --seeds 7,11,23` reruns the comparison above against the local Worker (the three headline rows come out the same; it takes about ten seconds a run instead of ninety).
 
 In this mode repos are held in memory and agents replay scripted turns, but everything else is the real code: the ledger, the gate, the TypeScript compiler, the isolate runner, invalidation and re-derive.
 
