@@ -1,5 +1,11 @@
 # Live on stage, 10 minutes (Oct 21)
 
+> **Revised Oct 11.** Three corrections to the running order below, which was written for the earlier script:
+> - **0:00:** open on the premise break, as the video does, not on the A/B tab. The comparison has three columns now (typecheck only, a queue that also runs the tests, Premise): 3, 1 and 0 regressions.
+> - **1:00:** when the live run starts, say in the same breath that the agents replay scripted turns and the workload is generated. "Live" means the forks, pushes, typechecks, tests and landings are happening now on Artifacts. Do not leave it for 7:00.
+> - **3:30:** after T02, open T11 and show that every test passed after its rebase and only its premise was red. That is the point of the talk.
+> - Do not say "race", and do not quote 17% or 76%: read the cost from the A/B tab.
+
 The same story as the video, with a live run in the middle and a recorded run ready behind it. The rule on stage: **never wait for the system. If it has not done the next thing within the time given below, say the fallback line and switch.**
 
 ## Before you walk on

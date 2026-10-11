@@ -117,7 +117,7 @@ export function Lanes({ lanes, width, selected, hoverSymbol, shared, onSelect, o
 		<Flow canvas={false} align="start" padding={{ x: 0, y: 0 }} className="premise-flow">
 			<Flow.Node
 				render={
-					<div className="bay" data-reached="true" style={{ height: 48, width: BACKLOG }}>
+					<div className="bay" data-reached="true" style={{ height: 46, width: BACKLOG }}>
 						Backlog
 					</div>
 				}

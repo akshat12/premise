@@ -1,45 +1,26 @@
-# PREMISE: final concept (after two rounds with the judge panel)
+# PREMISE: the concept
 
 > Git tracks what agents wrote. Premise tracks what they assumed, and re-derives the work the moment an assumption breaks.
 
 Entry for Cloudflare's "Build the next Git platform" competition (deadline Oct 14, 2026, 11:59 PM PDT). Built on Workers and Artifacts.
 
-## Judge panel grades
-
-Rubric: A = originality and quality (50%), B = multi-agent concurrency, coordination, context, review and conflicts (25%), C = ease of use and UX (25%).
-
-### Round 1 (weighted /5)
-| Idea | J1 Platform | J2 Infra | J3 UX | J4 Originality | Avg |
-|---|---|---|---|---|---|
-| Leases | 3.75 | 3.38 | 3.63 | 2.88 | 3.41 |
-| Arena | 3.38 | 3.13 | 3.00 | 2.50 | 3.00 |
-| Why | 2.63 | 3.00 | 2.75 | 2.38 | 2.69 |
-| Hybrid | 3.88 | 3.75 | 3.75 | 3.13 | 3.63 |
-
-### Round 2: Premise (A / B / C → weighted)
-| Judge | A | B | C | Weighted | Advance? |
-|---|---|---|---|---|---|
-| J1 Cloudflare platform lead | 4.5 | 4.5 | 3.5 | 4.25 | Yes |
-| J2 Agent-infra skeptic | 4.5 | 4.5 | 3.5 | 4.25 | Yes |
-| J3 UX and demo | 4.5 | 5 | 3.5 | 4.38 | Yes |
-| J4 Originality hawk | 4 | 4.5 | 3.5 | 4.00 | Yes |
-| **Panel average** | **4.38** | **4.63** | **3.5** | **4.22** | **4/4** |
+This is the design document, written before the build and corrected since. It says what Premise is meant to be. The README says what was built and measured, and where the two differ the README is right. An "As built" note marks each place where the build went another way.
 
 ## Why the concept changed
 - Prior art covers the Round 1 ideas:
   - Symbol leases: Wit, Foremerge, MCP Agent Mail, Claim Plane.
   - Reasoning storage: Entire Checkpoints, git-ai, and Cloudflare's own git-notes example.
   - Best-of-N: Cursor, Codex.
-- The gap: every existing tool coordinates what agents **write**. None of them versions what agents **relied on**. Premise applies read-set validation, the check optimistic database transactions run before they commit, to coding agents.
+- The gap we aim at: the tools we looked at coordinate what agents **write**. Premise applies read-set validation, the check optimistic database transactions run before they commit (Kung and Robinson, 1981), to what coding agents **relied on**. The idea of validating reads is old; applying it to an agent's reading and reasoning, and redoing the work when it fails, is the part we are building. The README's "Where this comes from" lists the ancestry.
 - Platform facts that shape the design:
   - Artifacts has no pre-receive hook, so enforcement happens after the push and the landing gate is the guarantee.
   - Tokens are per repo, so each intent gets its own fork.
-  - There is no merge API, so git and tsc run in a Sandbox.
+  - There is no merge API, so the rebase is a three-way merge in the Worker. *As built:* no Sandbox and no containers. The TypeScript compiler runs inside the Worker, and tests and assertions run in Dynamic Workers.
 
 ## The single primitive: an Intent and its premises
 On screen there is one object, the **Intent**, which replaces branch, PR and commit message. It contains:
 - Goal.
-- Acceptance checks, fixed when the intent is dispatched and immutable after that, so a re-derive cannot game them.
+- Acceptance checks, fixed when the intent is dispatched and immutable after that, so a re-derive cannot game them. *As built:* the names of an Intent's own tests are fixed and the agent writes their bodies. What the agent cannot touch are the task's reference checks, which live on trunk out of its reach and which the gate runs from trunk's copy.
 - Two kinds of premise chips:
   - ✏️ **changes**: symbols it will write (write-premises).
   - 👁 **relies on**: symbols it depends on (read-premises), plus executable behavioural assertions.
@@ -61,22 +42,22 @@ On screen there is one object, the **Intent**, which replaces branch, PR and com
 2. **Ledger.** Durable Objects sharded per module path. They hold write-premises and read-premise subscriptions. An intent that spans modules acquires them in sorted order. Expiry uses DO alarms.
 3. **Overlapping write-premises** resolve through a fixed protocol: **Wait / Split / Depend**. An LLM only proposes how to split. A stalemate goes to a one-click human card.
 4. **After a push**, the event goes to a Queue and a checker maps the diff to symbols. An edit outside the intent's write-premises quarantines the intent and requests an upgrade automatically.
-5. **The gate.** A landing DO serializes landings in batches. A Sandbox runs rebase, tsc, the tests and the premise assertions.
+5. **The gate.** A landing DO serializes landings in batches: rebase, typecheck, the Intent's tests, the task's reference checks, every test already on trunk, the premise assertions, and the checks that landed Intents left behind.
 6. **Premise invalidation (core).** When something lands, each changed type surface or failed assertion turns red on every in-flight intent that relied on it, with a targeted message.
-7. **Re-derive instead of rebase (the wow).** A stale intent gets a fresh fork of the new main, and its agent re-runs from the stored intent (goal, premises, rejected alternatives), racing a plain textual rebase. Whichever passes the immutable acceptance checks lands. Re-derives running at once are capped and land in priority order to avoid livelock. After 2 failures the intent goes to a human.
+7. **Re-derive instead of rebase (the wow).** A stale intent gets a fresh fork of the new main, and its agent re-runs from the stored intent (goal, premises, rejected alternatives). *As built:* this is not a race. The plain textual rebase is tried first because it takes about a second; the agent is started only if the rebase does not pass the gate. Re-derives running at once are capped and land in priority order to avoid livelock. After 2 failures the intent goes to a human.
 
 ## The demo case (it must be behavioural)
 `verifySession` keeps its signature but now returns `null` instead of throwing.
-- tsc passes, so a normal merge queue would ship the bug.
+- tsc passes, so a queue that only typechecks would ship the bug.
 - The textual rebase also passes tsc but fails the premise assertion.
 - The re-derived version goes green.
 
-This answers the skeptic's question, "doesn't tsc already catch it?"
+This answers the skeptic's question, "doesn't tsc already catch it?" The next question is "don't the tests catch it?" *As built:* for two of the three dependent tasks they do, and a queue that runs tests stops them as well. The third task's tests use a stand-in for the function that changed, so they keep passing, and only its premise catches it. The A/B report compares all three landing rules.
 
 ## Proof of scale
 - A real open-source TypeScript repo (about 1k exported symbols), imported into Artifacts.
-- 8 to 12 real LLM agents, each shown as a lane. On top of that, 300 to 500 clearly labelled scripted workload agents doing real forks and pushes, shown as an aggregate counter plus ledger activity.
-- **Headline A/B:** the same workload on plain branches versus Premise, measuring:
+- 8 to 12 agents, each shown as a lane. *As built:* twelve, and in the recorded run and the A/B they are scripted (their turns are generated from reference solutions). Live models have been run on single tasks and on three agents at once, not on all twelve. On top of that, 300 to 500 clearly labelled scripted workload agents doing real forks and pushes, shown as an aggregate counter plus ledger activity.
+- **Headline A/B:** the same workload under a queue that only typechecks, a queue that also runs the tests, and Premise, measuring:
   - human merge resolutions;
   - broken builds that reached main;
   - silent behavioural regressions that reached main;
@@ -121,7 +102,7 @@ This answers the skeptic's question, "doesn't tsc already catch it?"
 ## 6-day plan
 - **Day 1 (Oct 8–9):** Artifacts import, fork, token and events. Ledger DO. Symbol map. Event log, WebSocket, and a Kumo shell.
 - **Day 2:** Agent runner (Workflow) with API-only tools and read tracking. The UI shows live lanes.
-- **Day 3:** Push checker. Sandbox gate with `.d.ts` diffing and assertions. Premise invalidation.
+- **Day 3:** Push checker. The gate, with type-surface diffing and assertions. Premise invalidation.
 - **Day 4:** Re-derive path with caps. Workload agents. A/B harness.
 - **Day 5:** UI polish. Lock in the behavioural demo case. Dry runs.
 - **Day 6 (Oct 13–14):** Record the video. README, LICENSE (MIT), run instructions. Submit.

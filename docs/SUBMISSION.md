@@ -4,6 +4,20 @@ Deadline: **Wednesday Oct 14 2026, 11:59 PM PDT.** Target: **Oct 14, 6:00 PM PDT
 
 Owner of every item is **Akshat** unless it says otherwise. "Claude can do this" means a coding session can do the step once Akshat says go; the decision is still Akshat's.
 
+**The form must be filled in and submitted by a person.** The official rules do not allow entries made by automated means, so no script or agent submits it.
+
+## After the Oct 11 review (do these first, in order)
+
+Four reviewer passes on Oct 11 led to changes in the gate, the comparison and the demo scenario (see `docs/DECISIONS.md`, Oct 11). The code is committed and tested locally. What is left needs the deployed Worker:
+
+| | Item | Owner | Link or command |
+|---|---|---|---|
+| [ ] | Publish the updated `demo-repo/` to its public GitHub repo (the deployed Worker imports trunk from there on every reset). | Akshat says go; Claude can do this | `scripts/publish-demo-repo.sh akshat12/acme-accounts` |
+| [ ] | Deploy the Worker. | Akshat says go; Claude can do this | `npm run deploy` |
+| [ ] | Re-run the three-rule comparison on real Artifacts (about 30 minutes). It rewrites `docs/ab-results.*`; then update the README's table and the sentence that says the numbers are local. | Claude can do this | `npx tsx scripts/ab.ts --url https://premise.akshatdivekar.workers.dev --n 100 --seeds 7,11,23` |
+| [ ] | Re-record the main run (it will carry each agent's changes for the drawer), compress it, and update the numbers in the README, the script and the tests that read the recording. | Claude can do this | `npm run demo:record -- --url https://premise.akshatdivekar.workers.dev --out demo/raw/main.json`, then `npm run demo:compress` |
+| [ ] | Optional: one recorded run with a live model, published as `/?demo=live`, reported as it comes out. | Akshat decides (uses the Gemini free quota) | `npm run demo:record` after `POST /api/admin/llm` |
+
 ## Before recording
 
 | | Item | Owner | When | Link or command |
@@ -20,7 +34,7 @@ Owner of every item is **Akshat** unless it says otherwise. "Claude can do this"
 |---|---|---|---|---|
 | [ ] | Record the shots in `shot-list.md`. | Akshat | Mon Oct 12 | [shot-list.md](video/shot-list.md) |
 | [ ] | Edit. Check the "After recording" boxes in `dry-run.md`. | Akshat | Tue Oct 13, morning | [dry-run.md](video/dry-run.md) |
-| [ ] | **Video uploaded** (unlisted is fine). **Length is between 5 and 10 minutes.** | Akshat | Tue Oct 13, 6 PM PDT | Video link: ______ |
+| [ ] | **Video exported as a file: MP4, WebM or MOV, at most 2 GiB. Length is between 5 and 10 minutes.** The form takes a file upload, not a link. An unlisted upload elsewhere is still useful for the README. | Akshat | Tue Oct 13, 6 PM PDT | File: ______ Link for the README: ______ |
 | [ ] | Put the video link in the README ("See it in 2 minutes") and push. | Akshat; Claude can do this | Tue Oct 13 | `README.md` |
 
 ## The repo and the deployment
@@ -37,7 +51,43 @@ Owner of every item is **Akshat** unless it says otherwise. "Claude can do this"
 | | Item | Owner | When | Link or command |
 |---|---|---|---|---|
 | [ ] | **Every entrant is a US or Canada resident and 18 or older. One submission per entrant.** Read the official rules once more for anything this list misses. | Akshat | Tue Oct 13 | <https://www.cloudflare.com/git-competition/> |
-| [ ] | **Submitted** at the form, with the repo link, the video link and the deployed URL. Keep the confirmation. | Akshat | **Wed Oct 14, by 6:00 PM PDT** (hard deadline 11:59 PM PDT) | <https://www.cloudflare.com/git-competition/submit> |
+| [ ] | **Submitted by hand** at the form: team name, contact, location, who would attend on Oct 21, the three texts below, the video file, the repo address, and the two checkboxes. Keep the confirmation. | Akshat | **Wed Oct 14, by 6:00 PM PDT** (hard deadline 11:59 PM PDT) | <https://www.cloudflare.com/git-competition/submit> |
+| [ ] | Finalists present for 10 minutes on Oct 21, and the winner has to be there in person. Check you can be. | Akshat | Tue Oct 13 | [stage-10min.md](video/stage-10min.md) |
+
+## Text for the form (drafts: edit before pasting)
+
+**Project vision**
+
+> Git tracks what agents wrote. Premise tracks what they assumed, and re-derives the work the moment an assumption breaks.
+>
+> When many agents change one codebase at once, the changes that hurt are the ones that rebase cleanly, typecheck, and are wrong, because another agent changed what the code relied on. In Premise each agent works on an Intent in its own Artifacts fork. The Intent records the symbols it changes and the symbols it relies on: what the agent read, what its code calls, and behaviour it states as an executable assertion. When something lands on trunk, every in-flight Intent whose premises no longer hold is told at once what changed and who changed it. A stale Intent tries a plain rebase first; if that does not pass the gate, its agent redoes the work on the new trunk. Nothing lands without a typecheck, the Intent's tests, reference checks the agent cannot write, every test already on trunk, and its assertions.
+>
+> In our comparison a queue that runs tests still ships one planted regression, the one whose tests use a stand-in for the function that changed. Its premise is what catches it. The scenario is constructed and the demo agents are scripted; the README says exactly what was and was not measured.
+
+**How you used Cloudflare**
+
+> - Artifacts: trunk and one fork per Intent (forks and reads through the Worker binding, writes as git over HTTPS with isomorphic-git and a short-lived token for that one fork). The recorded run made about 300 forks and landed 264 Intents.
+> - Workers: one Worker serves the API, the UI and the queue consumer. The TypeScript compiler runs inside it for typechecks and type-surface hashes.
+> - Durable Objects (SQLite): the ledger, sharded by module path; one object per Intent; the gate, one per trunk; the event log with WebSocket fan-out.
+> - Workflows: one durable run per agent, with waits for the ledger and for a person.
+> - Dynamic Workers (Worker Loader): every test and assertion runs in its own isolate with no network.
+> - Queues: wired for Artifacts event subscriptions (pushes to trunk from outside the gate). Implemented and tested; not exercised on the deployed Worker.
+> - Kumo for the UI.
+
+**Instructions to run your project**
+
+> Needs Node 22 or later. No Cloudflare account and no model key:
+>
+> ```
+> git clone <repo> premise && cd premise
+> npm install
+> cp local.vars.example .dev.vars
+> npm run dev:local        # http://localhost:5173 plays the recorded run
+> npm run demo             # in a second terminal: a live run with in-memory repos and scripted agents
+> npm test
+> ```
+>
+> Or open https://premise.akshatdivekar.workers.dev/?demo=main and press the right arrow key. Deploying to your own account on real Artifacts is in the README.
 
 ## After submitting
 

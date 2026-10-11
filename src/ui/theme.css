@@ -50,8 +50,8 @@ body {
 	display: grid;
 	grid-template-columns: 6px 150px minmax(0, 1fr);
 	align-items: stretch;
-	/* Kumo's Flow spaces lanes 16px apart, so 48px is what lets 13 strips fit a 900px-high screen. */
-	height: 48px;
+	/* Kumo's Flow spaces lanes 16px apart, so 46px is what lets 13 strips fit a 900px-high screen under the bar and the replay's caption. */
+	height: 46px;
 	width: 100%;
 	border: 1px solid var(--rule);
 	border-radius: 3px;

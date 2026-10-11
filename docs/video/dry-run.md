@@ -10,7 +10,7 @@ The deployed Worker is `https://premise.akshatdivekar.workers.dev`. Commands tha
 - [ ] **A live run succeeds.** `npm run demo -- --url https://premise.akshatdivekar.workers.dev --workload 40`. On the page that opens: T01 lands first; T02, T03 and T11 go red and come back green with an R1 stamp; all twelve agent strips end "landed"; "Broken builds on trunk" and "Human merges" are both 0. It takes about two minutes. *If it does not finish: the video uses the recorded run for every shot anyway. Note what happened and carry on.*
 - [ ] **The gate is idle afterwards.** `curl -s https://premise.akshatdivekar.workers.dev/api/gate` shows `"queue":[]` and `"busy":false`.
 - [ ] **The recorded run plays.** Open `https://premise.akshatdivekar.workers.dev/?demo=main` in a private window. Press `Space`, then `→` twice: three red strips. Press `→` ten more times: 264 landed.
-- [ ] **Scale and A/B show the script's numbers.** Scale: 300 forks, 306 pushes, 53.1 landings a minute, operations ≈ 912, $0.14. A/B: 3 and 0, 11 and 0, 76%. *If any differ, the recording or the A/B was re-run: change the numbers in `script.md` to match the screen.*
+- [ ] **Scale and A/B show what the script says.** A/B: the first row reads 3, 1 and 0, the second 0, 2 and 0 of 12. Scale: the script reads these numbers off the screen, so check only that the tab has reached the end of the run. *If the A/B rows differ, the comparison was re-run with a different scenario: stop and find out why.*
 - [ ] **The offline copy plays.** `npm run demo:offline`, then `http://localhost:4173/?demo=main` with Wi-Fi off. Same keys, same result.
 
 ## The picture

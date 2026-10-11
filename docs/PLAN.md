@@ -72,6 +72,7 @@ Tracks:
 
 - [x] **T24** (D): README, LICENSE (MIT), run instructions, architecture diagram, `npm run demo`. Depends on: T23
 - [ ] **T25** (D): Video script, dry-run checklist, submission checklist. Depends on: T24
+- [x] **Review pass (Oct 11):** four reviewer judges, and the changes they led to. Notes in `docs/DECISIONS.md` under 2026-10-11. What needs the deployed Worker is listed at the top of `docs/SUBMISSION.md`.
 
 **If you fall behind,** cut in this order:
 1. T23's scale view

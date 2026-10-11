@@ -2,80 +2,104 @@
 
 > Git tracks what agents wrote. Premise tracks what they assumed, and re-derives the work the moment an assumption breaks.
 
-Premise is a Git platform for many coding agents changing one codebase at once. It is built on Cloudflare Workers and [Artifacts](https://developers.cloudflare.com/artifacts/).
+When many agents change one codebase at once, the changes that hurt are not the ones that conflict. They are the ones that rebase cleanly, typecheck, and are wrong, because another agent changed what the code was relying on. Premise is a Git platform, built on Cloudflare Workers and [Artifacts](https://developers.cloudflare.com/artifacts/), that records what each agent's work relies on and acts when that stops being true.
+
+**See it now:** <https://premise.akshatdivekar.workers.dev/?demo=main> plays a recorded run in the browser. Press `→` to step through the key moments. A line under the top bar says what you are looking at.
 
 ![The strip board at the moment a premise breaks: three Intents go red because verifySession changed](docs/screens/t21.jpg)
 
 ## The idea in 20 seconds
 
-- **Intent.** Each agent works on an Intent in its own Artifacts fork. An Intent has a goal, acceptance checks that cannot be edited after dispatch, the symbols it **changes**, and the symbols it **relies on**. The second list is its premises.
-- **Invalidation.** When anything lands on trunk, every Intent still in flight whose premises no longer hold goes red, with one line saying what changed and who changed it. This happens even when the typecheck is green and the text does not conflict.
-- **Re-derive.** A stale Intent does not get a blind rebase. Its agent runs again on a fresh fork of the new trunk, racing a plain textual rebase. Whichever result passes the **gate** (typecheck, tests, premise assertions) lands.
+- **Intent.** Each agent works on an Intent in its own Artifacts fork. An Intent has a goal, acceptance checks, the symbols it **changes**, and the symbols it **relies on**. The second list is its premises.
+- **Invalidation.** When anything lands on trunk, every Intent still in flight whose premises no longer hold goes red, with one line saying what changed and who changed it.
+- **Re-derive.** A stale Intent first tries a plain rebase, which takes about a second. If that does not pass the **gate**, its agent redoes the work on a fresh fork of the new trunk, told what broke.
+- **The gate.** Nothing reaches trunk without a clean rebase, a typecheck, the Intent's own tests, the task's reference checks (kept on trunk where no agent can write them), every test already on trunk, and the Intent's premise assertions.
 
-The case the demo is built around: one Intent changes `verifySession` to return `null` for an expired session instead of throwing. The signature is unchanged, so the typecheck passes. Three other Intents wrote code that catches the throw. Each of them had recorded "verifySession throws on an expired token" as a premise, so all three go red the moment the change lands, and each is re-derived against the new behaviour before it can reach trunk.
+The case the demo is built around: one Intent changes `verifySession` to return `null` for an expired session instead of throwing. The signature is unchanged, so the typecheck passes. Three other Intents wrote code that catches the throw.
 
-## What it buys
+## What the comparison shows, and what it does not
 
-The same 12 tasks and the same 100 scripted workload Intents (seed 7), run twice on real Artifacts on 2026-10-10. The baseline lands work on a clean textual rebase plus a typecheck. Premise is the full system. The rebase and typecheck code is the same in both.
+The same 12 tasks and 100 scripted workload Intents, landed under three rules, on seeds 7, 11 and 23. The first two rules are comparisons; the middle one is the fair one.
 
-| | Baseline | Premise |
-|---|---|---|
-| Behavioural regressions that reached trunk | 3 | 0 |
-| Human merges | 11 | 0 |
-| Broken builds on trunk | 0 | 0 |
-| Demo tasks landed | 12 of 12 | 12 of 12 |
-| Intents landed | 100 of 111 | 97 of 112 |
-| Landings per minute | 50.8 | 42.1 |
-| Wall time | 118.1 s | 138.2 s |
-| Premises broken | 0 | 27 |
-| Stale Intents settled by re-derive | 0 | 3 |
-| Stale Intents a plain rebase settled | 0 | 16 |
-| False-positive rate | n/a | 76% |
-| Turned away at the gate | 11 text, 0 type, 0 checks | 0 text, 0 type, 3 checks |
-| Gave up waiting for a claim | 0 | 15 |
-| Reference tests red at the end | 3 | 0 |
-| Forks created | 111 | 115 |
+| | Typecheck only | Queue that also runs tests | Premise |
+|---|---|---|---|
+| Behavioural regressions that reached trunk | 3 | 1 | 0 |
+| Demo tasks sent back to a person | 0 of 12 | 2 of 12 | 0 of 12 |
+| Stale Intents redone and landed with nobody involved | 0 | 0 | 3 |
+| Scripted workload Intents that did not land | 5 to 8 | 7 to 9 | 9 to 12 |
+| Wall time | 7.8 to 7.9 s | 9.5 to 9.7 s | 12.1 to 12.5 s |
 
-The cost is in the table too. Premise was 17% slower, and 76% of the Intents it turned stale would have landed on a plain rebase anyway. What each row means, and how to run the comparison yourself, is in [docs/ab-results.md](docs/ab-results.md).
+Read it knowing how the run is set up:
+
+- **The breaking change is planted, and it lands first** in every run. This shows a mechanism working. It is not a measurement of how often real teams hit this.
+- **A queue that runs tests catches two of the three.** Their own tests fail after the rebase. There the difference is only what happens next: the queue turns the work away and stops, and Premise re-derives it and lands it.
+- **The third is the case tests miss, and it is built to be.** Its tests check the rate limiter with a stand-in for the session check, the way unit tests often do. The stand-in still throws, so every test passes after the rebase while the real path is broken. Only its premise, an executable assertion about the real `verifySession`, is red. A premise is the assumption a stand-in encodes, checked against the real thing.
+- **Premise is slower and lands fewer workload Intents.** Scripted Intents that want a symbol another Intent holds give up after three tries. In the two queues the same collisions are text conflicts for a person.
+- **Most broken premises change nothing.** Nearly all are type-surface changes, and 94% to 100% of the workload Intents they turned stale passed the whole gate on a plain rebase a second later.
+- **These numbers are from a local Worker with in-memory repos** (2026-10-11), with scripted agents. The same script runs against a deployed Worker on real Artifacts.
+
+Every row, what it means, and the per-seed results are in [docs/ab-results.md](docs/ab-results.md).
 
 ## See it in 2 minutes
 
-- **Recorded run:** <https://premise.akshatdivekar.workers.dev/?demo=main>. This is a real run of the deployed system (12 tasks and 300 workload Intents on Artifacts), replayed in the browser. Press `→` to jump between key moments: the stalemate card, the premise break, each re-derive race. `Space` pauses, `1` `2` `4` set the speed, `?` lists every key.
-- **Tape:** the tab next to "Lanes". The same run with time running left to right: the red line is the landing that broke three premises, and each row shows what became of its Intent.
+- **Recorded run:** <https://premise.akshatdivekar.workers.dev/?demo=main>. A real run of the deployed system on Artifacts, replayed in the browser: 12 tasks and 285 scripted workload Intents, each on its own fork. `→` or "Next moment" jumps between key moments, `Space` pauses, `?` lists every key. Click an Intent to see why it did what it did, what it relies on, its story, and its changes.
+- **Tape:** the tab next to "Lanes". The same run with time running left to right: the red line is the landing that broke three premises.
 - **Scale and A/B:** the other tabs in the top bar.
 - **Video:** _link to come_.
+
+The agents in the recording are scripted: their turns are generated from reference solutions, so the run is repeatable and needs no model key. It was recorded on 2026-10-09, before the gate ran reference checks and trunk's suite and before the third task's tests used a stand-in, so in it all three dependents are also caught by their own tests.
+
+## How premises work
+
+An Intent's premises come from three sources:
+
+1. **Observed.** The agent read the symbol through its tools. The agent has no shell, so everything it reads is recorded.
+2. **Derived.** The agent's own diff calls, imports or implements the symbol. The Worker works this out from the parsed code after each push.
+3. **Asserted.** The agent stated a behaviour it depends on as an executable check, for example "`verifySession` throws `SessionExpiredError` for an expired session".
+
+For observed and derived premises, Premise stores a hash of the symbol's **type surface**: its exported signature and the types that reach it. Function bodies are left out on purpose, because hashing them would turn every reader stale on every edit. A type-surface premise mostly repeats what the gate's typecheck would find later; what it adds is that the agent hears at once, by name.
+
+Behaviour is what a signature cannot describe. It lives in **assertions**, which run again on the new trunk every time something lands. Before a plan is accepted, the agent is asked one question: does this depend on how any function you are not changing behaves? It answers with an assertion or by saying no.
+
+Premises are the early warning; the gate is the guarantee. When an Intent lands, its tests, its reference checks and its assertions stay behind as checks on every later landing, so work that landed first is protected from work that lands after it.
+
+## What a model does on its own
+
+The recording and the A/B use scripted agents. With a live model (Gemini 3.1 Flash-Lite, the three tasks that depend on `verifySession`, no hint in any task, on the in-memory repo, 2026-10-11):
+
+| Setup | Wrote or adopted a correct assertion about `verifySession` |
+|---|---|
+| The repo's assertion library is visible | 3 of 3 runs (adopted it) |
+| No library, and the plan is not asked the question | 0 of 3 runs |
+| No library, and the plan is asked the question | 2 of 6 runs (wrote its own) |
+
+In every one of those runs the work itself passed the task's reference checks. So a small model reliably takes an assertion it is offered, and writes a good one of its own about a third of the time. Without an assertion, the two tasks whose tests cover the behaviour are still stopped at the gate; the third would land broken. Earlier records: 27 of 27 single-task runs with Gemini 3.5 Flash-Lite passed the reference checks, and one deployed run of three live agents had a premise break and a re-derive that landed. Twelve live agents at once has not been run.
+
+## Where this comes from
+
+Little here is new on its own. The parts are borrowed, and the combination is the contribution.
+
+- **Validating what you read, not only what you wrote,** is optimistic concurrency control (Kung and Robinson, 1981). A premise is a read-set entry; invalidation is validation at commit time, moved earlier.
+- **Hashing an interface and ignoring bodies** is how build systems avoid rebuilding dependents (Bazel's interface jars, TypeScript's declaration signatures).
+- **Testing each change on top of the latest trunk before it lands** is what careful teams' landing queues already do. Premise's gate is one of those, and the A/B measures against one.
+- **Claims on symbols before editing** follow from lock and lease systems, and from recent multi-agent coding tools that reserve files or regions.
+- What Premise adds is the read-set of an *agent's reasoning*: recording what was read as the agent reads it, asking for the behavioural part as an executable check, telling the dependent agent the moment it breaks, and redoing the work from the stored goal instead of merging text.
 
 ## Architecture
 
 ![Architecture: a browser UI, one Worker, four kinds of Durable Object, Artifacts and a Queue](docs/architecture.svg)
 
 - **Artifacts** holds trunk and one fork per Intent. Forks and reads go through the Worker binding; writes are git over HTTPS (isomorphic-git inside the Worker), with a short-lived token for that one fork. Agents never hold a token for trunk.
-- **AgentWorkflow** is one durable Workflow run per Intent. The agent has read, search and write tools and no shell, so everything it reads is recorded. The model sits behind a port: Anthropic, OpenAI, Google, OpenRouter, Groq, Workers AI, or scripted turns.
-- **LedgerShard** Durable Objects, one per module path, know who changes each symbol and who relies on it. Two Intents that want the same symbol get one of three fixed answers: **Wait**, **Split** or **Depend**.
-- **Landing** is the gate, one Durable Object per trunk. It rebases, typechecks, runs the Intent's acceptance tests and premise assertions, runs the acceptance tests of work that has already landed, and only then pushes to trunk. It also runs the re-derive race for stale Intents and calls a person after two failures.
+- **AgentWorkflow** is one durable Workflow run per Intent. The model sits behind a port with adapters for Anthropic, OpenAI, Google, OpenRouter, Groq and Workers AI, and scripted turns. Only Google's has been run end to end.
+- **LedgerShard** Durable Objects, one per module path, know who changes each symbol and who relies on it. Two Intents that want the same symbol get **Wait**, **Split** or **Depend**. Claims are renewed while the agent works and lapse if it dies.
+- **Landing** is the gate, one Durable Object per trunk. It also schedules re-derives and calls a person after two have failed.
 - **The TypeScript compiler runs inside the Worker** for typechecks and type-surface hashes. Tests and assertions run in **Dynamic Workers** (the Worker Loader), one isolate per run, with no network.
 - **EventHub** is the single event log. The UI is a pure function of that log, which is why a recorded run replays exactly.
-- **Queues** carry Artifacts events (pushes to trunk, forks) to the Worker, so a push to trunk from outside the gate still invalidates premises.
-
-## How premises work
-
-An Intent's premises come from three sources:
-
-1. **Observed.** The agent read the symbol through its tools. Reading a whole file records every symbol the file exports.
-2. **Derived.** The agent's own diff calls, imports or implements the symbol. The Worker works this out with the TypeScript compiler after each push.
-3. **Asserted.** The agent stated a behaviour it depends on as an executable check, for example "`verifySession` throws `SessionExpiredError` on an expired token".
-
-For observed and derived premises, Premise stores a hash of the symbol's **type surface**: its exported signature and the types that reach it. Function bodies are left out on purpose. Bodies change all the time, and most of those changes do not matter to callers. Hashing them would turn every Intent that read a function stale on every edit to it.
-
-That leaves behaviour, which a signature cannot describe. Behaviour lives in **assertions**: small executable checks that are run again on the new trunk every time something lands. This is what catches the `verifySession` change above, which no typecheck can see.
-
-Premises are the early warning; the gate is the guarantee. A premise that breaks tells an agent early and tells it exactly what changed. Whether or not any premise was recorded, nothing reaches trunk without passing the gate, and landed work is protected by its own acceptance tests from then on.
+- **Queues** are wired to carry Artifacts events to the Worker, so a push to trunk from outside the gate also invalidates premises. That path is implemented and unit-tested; it has not been exercised on the deployed Worker.
 
 ## Run it yourself
 
-### Local only (no Cloudflare account, no model key)
-
-Needs Node 22 or later.
+Needs Node 22 or later. No Cloudflare account and no model key:
 
 ```bash
 git clone <this repo> premise && cd premise
@@ -90,13 +114,14 @@ In a second terminal:
 npm run demo                       # resets, dispatches 12 tasks and 40 workload Intents, opens the live board
 ```
 
-Or open <http://localhost:5173/?demo=main> to play the recorded run, which needs no backend at all. `npm test` runs the test suite and `npm run typecheck` the type checks.
+<http://localhost:5173/> plays the recorded run, which needs no backend at all. `npm test` runs the 833 tests and `npm run typecheck` the type checks. `npx tsx scripts/ab.ts --url http://localhost:5173 --seeds 7,11,23` reruns the comparison above.
 
-In this mode repos are held in memory and agents replay recorded turns, but everything else is the real code: the ledger, the gate, the TypeScript compiler, the isolate runner, invalidation and re-derive.
+In this mode repos are held in memory and agents replay scripted turns, but everything else is the real code: the ledger, the gate, the TypeScript compiler, the isolate runner, invalidation and re-derive.
 
-`npm run dev:local` uses `wrangler.local.jsonc`, which leaves out the Artifacts binding. Plain `npm run dev` uses `wrangler.jsonc`, where that binding is remote even in dev, so it needs `npx wrangler login` first.
+<details>
+<summary><strong>Deployed, on real Artifacts</strong> (needs the Workers Paid plan)</summary>
 
-### Deployed, on real Artifacts
+A model key is optional: without one the agents replay scripted turns.
 
 Needs the Workers Paid plan (Artifacts requires it) and Node 22 or later. A model key is optional: without one the agents replay recorded turns.
 
@@ -144,7 +169,10 @@ Other commands:
 | `npm run demo:compress -- demo/runs/mine.json` | Cuts idle time out of a recording and marks each cut |
 | `npm run demo:offline` | Builds, then serves the UI as plain files with no backend: the recorded run at `http://localhost:4173/?demo=main` |
 
-### Using a real model
+</details>
+
+<details>
+<summary><strong>Using a real model</strong></summary>
 
 Set `LLM` to a provider and give it a key. Nothing else changes.
 
@@ -164,15 +192,19 @@ Locally, put both in `.dev.vars`. Deployed, set the key with `wrangler secret pu
 curl -X POST <your worker>/api/admin/llm -H "x-admin-token: <your token>" -H "content-type: application/json" -d '{"provider":"google","model":"gemini-3.5-flash-lite"}'
 ```
 
+</details>
+
 ## Limitations
 
-- **TypeScript only.** Symbols, type surfaces and the typecheck all come from the TypeScript compiler.
-- **Workload agents are scripted.** The hundreds of "workload" Intents do real forks, pushes and landings on Artifacts, but a seeded generator writes their edits, not a model. They are labelled as scripted everywhere they appear.
-- **The agents in the recorded run are scripted too.** They replay turns built from reference solutions, so the recording is repeatable. The same pipeline has been run with a live model (Gemini 3.1 Flash-Lite) on a handful of tasks, including a premise break that the model re-derived, but not yet on all twelve at once.
+- **A constructed scenario.** Twelve pre-written tasks in one small TypeScript repo with no dependencies and its own test format. There is no way yet to give it your own goal or your own repo, and no interface for an agent that is not Premise's own.
+- **Scripted agents in the recording and the A/B.** Their turns, including the assertions, are generated from reference solutions. The hundreds of workload Intents do real forks, pushes and landings, but a seeded generator writes their edits, and they have no tests. They are labelled as scripted wherever they appear.
+- **Behaviour is tracked only if someone asserts it.** See "What a model does on its own". Observed and derived premises cover types, which the gate's typecheck also covers.
+- **The agent writes its own acceptance tests.** Only their names are fixed. What it cannot touch are the task's reference checks, which the gate runs from trunk's copy. A task with no reference checks would be gated on the agent's own tests and trunk's suite.
+- **False positives.** Most broken premises are type-surface changes that turn out not to matter. For an Intent that has already pushed, the cost is one rebase at the gate. For one still working, the agent is stopped and starts again.
+- **Wait and Depend both pause the Intent** until the other lands. Depend also records the dependency. Neither re-forks the waiter, so if the holder's landing changed what the waiter read, the waiter goes stale then and is re-derived.
+- **Scale with real models is unknown.** One Durable Object per trunk runs the gate. The 53 landings a minute in the recorded run are batches of ten scripted edits; agents' Intents are gated one at a time, at two to five seconds each. In that run 15 of 300 forks failed after retries, and 33 of 285 workload Intents gave up on a claim.
 - **Enforcement happens after the push.** Artifacts has no pre-receive hook, so an agent can push an edit to a symbol it did not claim. The push checker catches it afterwards and quarantines the Intent, and the gate is what stops it reaching trunk.
-- **Landings are serialized.** One Durable Object per trunk runs the gate, in batches. In the 300-Intent run that was about 53 landings a minute.
-- **Premises have false positives.** In the A/B run, 76% of the Intents that went stale would have landed on a plain rebase. A broken premise costs time even when it turns out not to matter.
-- **Acceptance checks are only as good as their tests.** Landed work is protected by the tests it landed with; behaviour nobody tested or asserted is not protected.
+- **Nothing is cleaned up.** Durable Objects and Workflow instances of finished Intents stay until the demo is reset.
 
 ## Repository layout
 

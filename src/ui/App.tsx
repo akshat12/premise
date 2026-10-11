@@ -255,7 +255,11 @@ export function App() {
 					{FRAME === null ? (
 						<Button variant="secondary" size="sm" aria-label="Next moment" title="Jump to the next key moment (→)" onClick={() => seek(nextStop(playing, position))}>
 							<SkipForward size={16} />
-							{layout === "phone" ? null : "Next moment"}
+							{layout === "phone" ? null : (
+								<span>
+									Next<span className="wide-only"> moment</span>
+								</span>
+							)}
 						</Button>
 					) : null}
 					<Button
@@ -324,8 +328,10 @@ export function App() {
 	const toggleSelected = (id: IntentId) => setSelected((current) => (current === id ? null : id));
 	// On the tape a floating card would sit on "now", the part being watched: there it goes above the tape instead.
 	// In a replay the cards are notes, not things to act on: they sit in the page, where they cannot cover the caption.
-	const cardsInline = !wide || view === "tape" || mode === "replay";
-	const humanCards = <HumanCards inline={cardsInline} cards={cards} intents={state.intents} readOnly={mode === "replay"} token={token} named={named} onNeedToken={() => setDispatching(true)} />;
+	// On the wide Lanes view they go at the top of the ledger rail, so the twelve strips still fit the screen.
+	const cardsInRail = wide && view === "lanes" && mode === "replay";
+	const cardsInline = (!wide || view === "tape" || mode === "replay") && !cardsInRail;
+	const humanCards = <HumanCards inline={cardsInline || cardsInRail} cards={cards} intents={state.intents} readOnly={mode === "replay"} token={token} named={named} onNeedToken={() => setDispatching(true)} />;
 	return (
 		<div className="flex h-full flex-col" style={wide ? { minWidth: 1280 } : undefined}>
 			<TopBar
@@ -422,9 +428,9 @@ export function App() {
 						</div>
 					)}
 				</main>
-				{wide && view === "lanes" ? <LedgerRail rows={rows} quiet={settled} callsignOf={callsignOf} hoverSymbol={hoverSymbol} onHoverSymbol={setHoverSymbol} /> : null}
+				{wide && view === "lanes" ? <LedgerRail rows={rows} quiet={settled} callsignOf={callsignOf} hoverSymbol={hoverSymbol} onHoverSymbol={setHoverSymbol} notice={cardsInRail && cards.length > 0 ? humanCards : null} /> : null}
 			</div>
-			{cardsInline ? null : humanCards}
+			{cardsInline || cardsInRail ? null : humanCards}
 			{dispatching ? (
 				<DispatchPanel
 					token={token}

@@ -5,6 +5,8 @@ import type { LedgerRow } from "../lib/view";
 import { symbolName } from "../lib/view";
 
 interface LedgerRailProps {
+	/** Something to show above the rows: in a replay, a note that a person was asked. */
+	notice?: React.ReactNode;
 	rows: LedgerRow[];
 	/** There are Intents on the board, so an empty ledger means they have all finished. */
 	quiet: boolean;
@@ -28,13 +30,14 @@ export function BuiltOn() {
 const short = (callsign: string) => callsign.split(" ")[0] ?? callsign;
 
 /** The ledger: for each symbol in play, who is changing it and who relies on it. */
-export function LedgerRail({ rows, quiet, callsignOf, hoverSymbol, onHoverSymbol, fill = false }: LedgerRailProps) {
+export function LedgerRail({ rows, quiet, callsignOf, hoverSymbol, onHoverSymbol, fill = false, notice = null }: LedgerRailProps) {
 	return (
 		<aside className="flex flex-col" style={fill ? { background: "#fff", border: "1px solid var(--rule)", borderRadius: 3 } : { width: 320, flex: "none", background: "#fff", borderLeft: "1px solid var(--rule)" }} aria-label="Ledger">
 			<div style={{ padding: "12px 16px 8px", borderBottom: "1px solid var(--rule)" }}>
 				<h2 style={{ fontSize: 14, fontWeight: 600, margin: 0 }}>Ledger</h2>
 				<p style={{ fontSize: 12, color: "var(--ink-soft)", margin: "2px 0 0" }}>Who changes each symbol, and who relies on it.</p>
 			</div>
+			{notice ? <div style={{ padding: "8px 12px 0" }}>{notice}</div> : null}
 			<ul className={fill ? undefined : "flex-1 overflow-y-auto"} style={{ listStyle: "none", margin: 0, padding: 0 }}>
 				{rows.length === 0 ? <li style={{ padding: 16, fontSize: 13, color: "var(--ink-soft)" }}>{quiet ? "Nothing in flight: every Intent has landed or stopped." : "Nothing is claimed or relied on yet."}</li> : null}
 				{rows.map((row) => {
