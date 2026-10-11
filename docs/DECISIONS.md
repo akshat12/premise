@@ -804,3 +804,12 @@ It read the built screenshots and code and reported the view now does its job ("
 - **Counters:** it saw the top bar disagree with the tape in screenshots (0 landed beside "15 landings", and a "-8"). The numbers in the page were right; the screenshots caught the rolling animation, which depends on animation frames the preview pane does not always deliver. Hardened anyway: a change of more than 5 is shown at once, progress is clamped, and the number is set to its final value after 400 ms whether or not a frame ever ran.
 - **Also changed:** on the Tape view a human card sits above the tape at every width, because floating at the top right it covered "now".
 - `npm run typecheck && npm test`: 731 passed, 4 skipped.
+
+## 2026-10-10: an automatic draft of the video
+
+At the user's request a background agent tried to produce the video with nobody at the keyboard, and did: `video-out/premise-demo-draft.mp4` (git-ignored), 8:18, 1440×900, H.264 with an AAC narration track. `video-out/README.md` says how it was made and `sh video-out/make.sh` re-runs it in about eleven minutes (with `npm run demo:offline` running).
+
+- **How.** `playwright-core` drives the installed Chrome headless through `docs/video/shot-list.md` against the offline copy and saves Chrome's own screencast frames; macOS `say` (voice "Daniel") reads the script one sentence at a time, so the clicks follow the voice; a small Swift program joins frames and sound with AVFoundation, because **ffmpeg is not installed on this machine** and was not added. Nothing was installed system-wide or in the project. The recording made no non-GET requests; it reads `/api/tasks` once from the deployed Worker so the dispatch panel can list the tasks.
+- **It is a draft, not the submission.** The voice is synthetic; the end frame says `github.com/OWNER/premise`; shot 8 shows the two functions on a plain page, not in an editor; there is a 10-second silence before the premise break while the replay catches up. Nobody has watched it play: the agent checked stills and measured the sound.
+- **Two things in the shot list were wrong at 1440×900, and are corrected there:** the stalemate card covers the ledger's `verifySession` row at the premise break (shot 3 now hovers the struck chip on T02's strip, which lights the same strips), and the drawer cannot show Asserted, Derived and Observed at once (shot 6 now scrolls the column).
+- `premise-demo-draft-review.mp4` is the same video at 1152×720 and a lower bitrate (about 21 MB), made to fit a 30 MB sending limit.
