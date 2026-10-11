@@ -5,7 +5,7 @@ import type { IntentId, SymbolId } from "../../shared/types";
 import type { IntentView } from "../lib/reduce";
 import { annotation, type Band, callsign, type Chip, chipsFor, STATUS_LOOK, type StatusIcon, symbolFile, symbolName } from "../lib/view";
 
-const BAND: Record<Band, string> = { "ink-soft": "var(--ink-soft)", amber: "var(--amber)", redpen: "var(--redpen)", bluestamp: "var(--bluestamp)", holds: "var(--holds)" };
+export const BAND: Record<Band, string> = { "ink-soft": "var(--ink-soft)", amber: "var(--amber)", redpen: "var(--redpen)", bluestamp: "var(--bluestamp)", holds: "var(--holds)" };
 
 const ICONS: Record<StatusIcon, typeof Bell> = {
 	plan: MagnifyingGlass,

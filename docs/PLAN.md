@@ -102,6 +102,7 @@ Prompt for these reviews: "Review the commits since <last checkpoint> against do
   - `@cloudflare/kumo`
   - `@fontsource/barlow-condensed`
   - `@fontsource/ibm-plex-mono`
+  - `@fontsource/geist-sans`, `@fontsource/geist-mono` (the Tape view's text; added 2026-10-11, see DECISIONS)
   - `isomorphic-git`
   - `node-diff3`
   - `typescript` (yes, at runtime, inside the Worker)

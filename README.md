@@ -41,7 +41,8 @@ The cost is in the table too. Premise was 17% slower, and 76% of the Intents it 
 ## See it in 2 minutes
 
 - **Recorded run:** <https://premise.akshatdivekar.workers.dev/?demo=main>. This is a real run of the deployed system (12 tasks and 300 workload Intents on Artifacts), replayed in the browser. Press `→` to jump between key moments: the stalemate card, the premise break, each re-derive race. `Space` pauses, `1` `2` `4` set the speed, `?` lists every key.
-- **Scale and A/B:** the tabs next to "Lanes" in the top bar.
+- **Tape:** the tab next to "Lanes". The same run with time running left to right: the red line is the landing that broke three premises, and each row shows what became of its Intent.
+- **Scale and A/B:** the other tabs in the top bar.
 - **Video:** _link to come_.
 
 ## Architecture

@@ -40,6 +40,21 @@ interface TopBarProps {
 	onDispatch: () => void;
 }
 
+/**
+ * Kumo's tabs keep the arrow keys for moving between tabs, which is right for a keyboard user. But
+ * after a click the tab keeps focus, and the → key (jump to the next key moment) would go to the
+ * tabs instead of the replay. So a pointer click gives focus back to the page; keyboard use is untouched.
+ */
+function releaseFocus(event: React.PointerEvent<HTMLElement>) {
+	const tabs = event.currentTarget;
+	window.setTimeout(() => {
+		const focused = document.activeElement;
+		if (focused instanceof HTMLElement && tabs.contains(focused)) {
+			focused.blur();
+		}
+	}, 0);
+}
+
 const markerStyle = { fontSize: 12, color: "var(--ink-soft)", border: "1px solid var(--rule)", borderRadius: 3, padding: "2px 6px", whiteSpace: "nowrap", background: "#fff" } as const;
 
 export function TopBar({ metrics, trunk, live, marker, layout, views, mode, transport, onDispatch }: TopBarProps) {
@@ -52,10 +67,14 @@ export function TopBar({ metrics, trunk, live, marker, layout, views, mode, tran
 						Premise
 					</span>
 					<LivePill state={live} />
-					<div style={{ marginLeft: "auto", flex: "none" }}>{mode}</div>
+					<div style={{ marginLeft: "auto", flex: "none" }} onPointerUp={releaseFocus}>
+						{mode}
+					</div>
 				</div>
 				<div className="flex items-center gap-2">
-					<div className="topbar-scroll">{views}</div>
+					<div className="topbar-scroll" onPointerUp={releaseFocus}>
+						{views}
+					</div>
 					<div className="flex items-center gap-1" style={{ marginLeft: "auto", flex: "none" }}>
 						{transport}
 						{layout === "phone" ? (
@@ -90,7 +109,7 @@ export function TopBar({ metrics, trunk, live, marker, layout, views, mode, tran
 		);
 	}
 	return (
-		<header className="flex items-center gap-5 px-4" style={{ height: 56, background: "#fff", borderBottom: "1px solid var(--rule)", flex: "none" }}>
+		<header className="flex items-center gap-5 px-4" style={{ position: "relative", height: 56, background: "#fff", borderBottom: "1px solid var(--rule)", flex: "none" }}>
 			<div className="flex items-baseline gap-3" style={{ flex: "none", whiteSpace: "nowrap" }}>
 				<span className="callsign" style={{ fontSize: 24, lineHeight: 1 }}>
 					Premise
@@ -101,7 +120,9 @@ export function TopBar({ metrics, trunk, live, marker, layout, views, mode, tran
 					</span>
 				</Tooltip>
 			</div>
-			<div style={{ flex: "none" }}>{views}</div>
+			<div style={{ flex: "none" }} onPointerUp={releaseFocus}>
+				{views}
+			</div>
 			<div className="flex items-center gap-5" style={{ minWidth: 0, overflow: "hidden" }}>
 				<Counter label="Broken builds on trunk" value={metrics.brokenBuildsOnTrunk} hero alert />
 				<Counter label="Human merges" value={metrics.humanMerges} hero alert />
@@ -116,20 +137,21 @@ export function TopBar({ metrics, trunk, live, marker, layout, views, mode, tran
 				</span>
 			</div>
 			<div className="flex items-center gap-3" style={{ marginLeft: "auto", flex: "none" }}>
-				{marker ? (
-					<span role="status" style={markerStyle}>
-						{marker}
-					</span>
-				) : null}
 				<LivePill state={live} />
 				<div className="flex items-center gap-2">
-					{mode}
+					<span onPointerUp={releaseFocus}>{mode}</span>
 					{transport}
 				</div>
 				<Button variant="primary" size="sm" onClick={onDispatch}>
 					Dispatch tasks
 				</Button>
 			</div>
+			{/* Under the bar, not in it: its three seconds must not squeeze the counters. */}
+			{marker ? (
+				<span role="status" className="topbar-marker" style={markerStyle}>
+					{marker}
+				</span>
+			) : null}
 		</header>
 	);
 }

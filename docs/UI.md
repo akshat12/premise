@@ -37,7 +37,7 @@ Use Kumo's semantic tokens for all standard UI: text, borders, buttons, focus. O
 | `--holds` | `#23775A` | Premise holding / landed |
 | `--redpen` | `#C42F28` | Premise broken / stale (the red pen) |
 | `--bluestamp` | `#2B55C2` | Re-derive stamp and re-derive race row |
-| `--amber` | `#A86A12` | Waiting / contested |
+| `--amber` | `#8F5B0E` | Waiting / contested (darkened from `#A86A12` on 2026-10-11: 5.7:1 on white, so it passes AA as text) |
 
 Do **not** use Cloudflare orange as a UI accent. Use it only on the Kumo `CloudflareLogo` in the footer ("Built on Cloudflare Workers + Artifacts").
 
@@ -81,6 +81,17 @@ The layout above is the "wide" one, from 1280px up. Below that the same things a
 - **Medium, 768 to 1279px.** The top bar is three short rows: what the screen is showing (wordmark, Live pill, Replay/Live); where you are and the player (view tabs, speed, pause, play again, Dispatch); the counters. One lane per row in a plain list: the strip, then its three bays with a short rule between them. Flow is not used here because it spaces nodes 64px apart and clips what does not fit. The ledger is a fourth view tab, not a rail.
 - **Phone, under 768px.** The same, with each strip on two lines (callsign and status, then at most two chips, or one chip and its note) and its bays on a line under it. Four counters, not six. The drawer is a sheet that comes up from the bottom, its three columns stacked. Human cards sit at the top of the lanes instead of floating over a corner. The dispatch panel takes the whole width.
 - Nothing scrolls sideways at any width from 320px up. The strips, bays, colours, type and vocabulary are the same at every size.
+
+### The tape (added 2026-10-11)
+A second way to look at the same Intents, as a tab beside Lanes: time runs left to right, one row for each agent's Intent, trunk along the top. It is the story view: one landing, the rows it stopped, and what became of each. Lanes is still the place for symbols and for what each Intent is doing right now.
+
+- **Marks first, words only where they fit.** Every stretch always draws its mark; its words appear only when the measured stretch is wide enough.
+- **Red is the only solid colour:** the flag of a landing that broke a premise, and "needs you". Everything else is an outline: working is filled grey, at the gate is the same outline empty, re-deriving is pale blue with a blue outline, waiting is pale amber with an amber outline. Landed is a green check at the end of the row; the row's history is not recoloured.
+- **The break line** is thin and behind the bars across all rows, and heavy with a dot only through the rows it stopped. A stale stretch is drawn from the landing itself (true times are in the tooltip).
+- **The axis** shows 1, 1½, 2, 3, 5 or 10 minutes, whichever first keeps "now" inside it, and steps rather than zooms. What has not happened yet is tinted. In a replay the axis is a slider.
+- **The label column** is the strip in small: status band, callsign (Barlow Condensed), R stamp, status icon and word.
+- **Type:** the tape's small text is Geist Sans and Geist Mono, self-hosted. Callsigns stay in Barlow Condensed so an Intent's name looks the same in every view. Nothing is under 12px.
+- **Phone:** marks only, nothing scrolling sideways; breaks are numbered on the trunk line and listed in words above the rows.
 
 ## Motion: one orchestrated moment, everything else responds to the user
 - **The moment is the premise break**, the most important event in the product. Keep it to about 1.2 s total:

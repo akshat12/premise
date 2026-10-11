@@ -18,7 +18,9 @@ export function RollingNumber({ value }: { value: number }) {
 		const began = performance.now();
 		let frame = 0;
 		const tick = (now: number) => {
-			const progress = Math.min(1, (now - began) / 300);
+			// A frame's timestamp can be a hair earlier than `began`, so the progress is kept between 0 and 1:
+			// otherwise the first frame overshoots backwards and a counter can flash a negative number.
+			const progress = Math.max(0, Math.min(1, (now - began) / 300));
 			const current = Math.round(start + (value - start) * progress);
 			from.current = current;
 			setShown(current);

@@ -11,26 +11,31 @@ import { CompactLanes, Lanes } from "./components/Lanes";
 import { BuiltOn, LedgerRail } from "./components/LedgerRail";
 import { type Command, Palette, Shortcuts } from "./components/Palette";
 import { ScaleView } from "./components/ScaleView";
+import { TapeView } from "./components/TapeView";
 import { type LiveState, TopBar } from "./components/TopBar";
 import { type StreamSource, useEventStream } from "./lib/useEventStream";
 import { useViewState } from "./lib/useViewState";
 import { explain, loadToken, resetDemo, saveToken } from "./lib/api";
 import { openCards, sharedSymbols } from "./lib/chips";
 import { nextStop } from "./lib/demo";
+import { buildTape, positionAt } from "./lib/tape";
 import { callsign, lanesOf, layoutFor, ledgerRows, OUTSIDE } from "./lib/view";
 
 const LIVE_URL = "/api/events/ws";
 const SPEEDS = [1, 2, 4, 8];
 type Mode = "replay" | "live";
-type View = "lanes" | "ledger" | "scale" | "ab";
+type View = "lanes" | "tape" | "ledger" | "scale" | "ab";
 const VIEWS: { value: View; label: string }[] = [
 	{ value: "lanes", label: "Lanes" },
+	{ value: "tape", label: "Tape" },
 	// On a wide screen the ledger is the rail beside the lanes. On a narrow one it is a view of its own.
 	{ value: "ledger", label: "Ledger" },
 	{ value: "scale", label: "Scale" },
 	{ value: "ab", label: "A/B" },
 ];
-const VIEW_LABEL: Record<View, string> = { lanes: "Strip board", ledger: "Ledger", scale: "Scale", ab: "A/B results" };
+const VIEW_LABEL: Record<View, string> = { lanes: "Strip board", tape: "Tape", ledger: "Ledger", scale: "Scale", ab: "A/B results" };
+/** The views that are about Intents one by one: a row can be selected, and its drawer opens. */
+const INTENT_VIEWS: readonly View[] = ["lanes", "tape"];
 /** How long a "⏩ compressed" marker stays in the top bar. */
 const MARKER_MS = 3000;
 
@@ -114,6 +119,8 @@ export function App() {
 	const lanes = useMemo(() => lanesOf(state), [state]);
 	const rows = useMemo(() => ledgerRows(state), [state]);
 	const shared = useMemo(() => sharedSymbols(state), [state]);
+	// Worked out only while the tape is on screen.
+	const tape = useMemo(() => (view === "tape" ? buildTape(events, state.intents) : null), [view, events, state.intents]);
 
 	// A marker for time cut out of the recording shows for three seconds, then goes.
 	const markerCount = state.markers.length;
@@ -194,7 +201,7 @@ export function App() {
 			const at = selected === null ? -1 : ids.indexOf(selected);
 			const next = event.key === "j" ? Math.min(ids.length - 1, at + 1) : Math.max(0, at <= 0 ? 0 : at - 1);
 			setSelected(ids[next] ?? null);
-			document.querySelector<HTMLElement>(`[data-node-id="strip-${ids[next]}"] .strip-open`)?.focus();
+			document.querySelector<HTMLElement>(`[data-node-id="strip-${ids[next]}"] .strip-open, button[data-node-id="strip-${ids[next]}"]`)?.focus();
 		};
 		window.addEventListener("keydown", onKey);
 		return () => window.removeEventListener("keydown", onKey);
@@ -266,6 +273,7 @@ export function App() {
 			{ id: "live", title: "Watch live", run: () => setMode("live") },
 			{ id: "replay", title: "Play the recording", run: () => setMode("replay") },
 			{ id: "lanes", title: "Show the lanes", run: () => setView("lanes") },
+			{ id: "tape", title: "Show the tape", run: () => setView("tape") },
 			{ id: "scale", title: "Show the scale view", run: () => setView("scale") },
 			{ id: "ab", title: "Show the A/B results", run: () => setView("ab") },
 			{ id: "shortcuts", title: "Show keyboard shortcuts", run: () => setShortcutsOpen(true) },
@@ -273,12 +281,15 @@ export function App() {
 		[token],
 	);
 	const jumpTo = useCallback((id: IntentId) => {
-		setView("lanes");
+		setView((current) => (INTENT_VIEWS.includes(current) ? current : "lanes"));
 		setSelected(id);
 	}, []);
 	const jumps = useMemo<Command[]>(() => lanes.agents.map((intent) => ({ id: `jump-${intent.id}`, title: `Jump to ${callsign(intent)}`, run: () => jumpTo(intent.id) })), [lanes.agents, jumpTo]);
 
 	const empty = !loading && lanes.agents.length === 0 && lanes.workload === null;
+	// A replay's length, and a way to move it to a moment: the tape's time axis is a slider.
+	const recordingLength = playing.length > 0 ? (playing[playing.length - 1] as PremiseEvent).ts - (playing[0] as PremiseEvent).ts : 0;
+	const seekToTime = (ms: number) => seek(positionAt(playing, ms));
 	const toggleSelected = (id: IntentId) => setSelected((current) => (current === id ? null : id));
 	const humanCards = <HumanCards inline={!wide} cards={cards} intents={state.intents} readOnly={mode === "replay"} token={token} named={named} onNeedToken={() => setDispatching(true)} />;
 	return (
@@ -316,11 +327,22 @@ export function App() {
 			) : null}
 			<div className="flex min-h-0 flex-1">
 				<main className="min-w-0 flex-1 overflow-auto" style={{ padding: !wide ? 12 : view === "lanes" ? "8px 16px" : 16 }} aria-label={VIEW_LABEL[view]}>
-					{!wide && view === "lanes" ? humanCards : null}
+					{!wide && INTENT_VIEWS.includes(view) ? humanCards : null}
 					{view === "ab" ? (
 						<AbPanel results={AB_RESULTS} />
 					) : view === "scale" ? (
 						<ScaleView events={events} metrics={state.metrics} intents={state.intents} />
+					) : view === "tape" && tape !== null && !loading && !empty ? (
+						<TapeView
+							tape={tape}
+							workload={lanes.workload}
+							layout={layout}
+							selected={selected}
+							onSelect={toggleSelected}
+							live={mode === "live"}
+							ended={mode === "replay" && (replayDone || still !== null)}
+							{...(mode === "replay" && still === null && playing.length > 0 ? { total: recordingLength, onSeek: seekToTime } : {})}
+						/>
 					) : view === "ledger" ? (
 						<LedgerRail fill rows={rows} quiet={!empty && !loading} callsignOf={callsignOf} hoverSymbol={hoverSymbol} onHoverSymbol={setHoverSymbol} />
 					) : loading ? (
@@ -372,7 +394,7 @@ export function App() {
 			) : null}
 			<Palette open={paletteOpen} onOpenChange={setPaletteOpen} actions={actions} jumps={jumps} />
 			<Shortcuts open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
-			{selectedIntent && view === "lanes" ? <Drawer intent={selectedIntent} events={events} callsignOf={callsignOf} named={named} onSelect={setSelected} onClose={() => setSelected(null)} /> : null}
+			{selectedIntent && INTENT_VIEWS.includes(view) ? <Drawer intent={selectedIntent} events={events} callsignOf={callsignOf} named={named} onSelect={setSelected} onClose={() => setSelected(null)} /> : null}
 		</div>
 	);
 }

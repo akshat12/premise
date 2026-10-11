@@ -13,7 +13,7 @@
 	--holds: #23775a;
 	--redpen: #c42f28;
 	--bluestamp: #2b55c2;
-	--amber: #a86a12;
+	--amber: #8f5b0e; /* 5.7:1 on white, so it can be text */
 	--rule: #d5dae1;
 
 	--font-callsign: "Barlow Condensed", "Arial Narrow", sans-serif;
@@ -527,5 +527,642 @@ kbd {
 	.ab-figure {
 		font-size: 16px;
 		line-height: 1.2;
+	}
+}
+
+/* ---- The tape: every agent's Intent over time ----
+   Marks first, words only where they fit. Red is the only solid colour: a landing that broke a
+   premise, and an Intent that needs a person. Everything else is outlined. */
+.tape {
+	--tape-label: 176px;
+	--tape-line: #eceef2;
+	--tape-edge: #8a94a3; /* 3.07:1 on white: the least a bar's outline may be */
+	position: relative;
+	border: 1px solid var(--rule);
+	border-radius: 3px;
+	background: #fff;
+	color: var(--ink);
+	font-family: "Geist Sans", system-ui, sans-serif;
+	font-size: 13px;
+}
+.tape[data-layout="medium"] {
+	--tape-label: 136px;
+}
+.tape-sr {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	margin: -1px;
+	overflow: hidden;
+	clip-path: inset(50%);
+	white-space: nowrap;
+}
+.tape-soft {
+	color: var(--ink-soft);
+	font-size: 12px;
+}
+
+/* The header stays put while the rows scroll under it. */
+.tape-head {
+	position: sticky;
+	top: 0;
+	z-index: 4;
+	border-bottom: 1px solid var(--rule);
+	background: #fff;
+}
+.tape-headrow {
+	display: flex;
+}
+.tape-headcell {
+	display: flex;
+	flex: none;
+	align-items: center;
+	gap: 8px;
+	box-sizing: border-box;
+	width: var(--tape-label);
+	padding: 0 8px 0 16px;
+	border-right: 1px solid var(--rule);
+}
+.tape-axis {
+	position: relative;
+	flex: 1;
+	min-width: 0;
+}
+.tape-ticks {
+	position: relative;
+	height: 22px;
+}
+.tape[data-seekable="true"] .tape-ticks {
+	cursor: pointer;
+}
+.tape-ticks:focus-visible {
+	outline: 2px solid var(--bluestamp);
+	outline-offset: -2px;
+}
+.tape-tick {
+	position: absolute;
+	top: 3px;
+	padding-left: 6px;
+	color: var(--ink-soft);
+	font-family: "Geist Mono", ui-monospace, monospace;
+	font-size: 12px;
+	line-height: 16px;
+}
+.tape-now-pill {
+	position: absolute;
+	top: 2px;
+	z-index: 1;
+	box-sizing: border-box;
+	height: 18px;
+	padding: 0 6px;
+	border: 1px solid var(--ink-soft);
+	border-radius: 3px;
+	background: #fff;
+	font-family: "Geist Mono", ui-monospace, monospace;
+	font-size: 12px;
+	font-weight: 600;
+	line-height: 16px;
+	transform: translateX(-50%);
+}
+.tape-now-pill[data-flip="true"] {
+	transform: translateX(-100%);
+}
+.tape-flags {
+	position: relative;
+	height: 26px;
+}
+.tape-flag {
+	position: absolute;
+	top: 0;
+	box-sizing: border-box;
+	max-width: 260px;
+	height: 24px;
+	overflow: hidden;
+	padding: 0 10px;
+	border: 0;
+	border-radius: 3px 3px 3px 0;
+	background: var(--redpen);
+	color: #fff;
+	font: inherit;
+	font-size: 13px;
+	font-weight: 600;
+	line-height: 24px;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	cursor: pointer;
+}
+.tape-flag[data-flip="true"] {
+	border-radius: 3px 3px 0 3px;
+}
+/* A break with no room for its words is a numbered marker on its line. */
+.tape-flag[data-written="false"] {
+	width: 24px;
+	padding: 0;
+	border-radius: 12px;
+	text-align: center;
+	transform: translateX(-50%);
+}
+.tape-flag:focus-visible {
+	outline: 2px solid var(--bluestamp);
+	outline-offset: 2px;
+}
+.tape-trunk {
+	position: relative;
+	flex: 1;
+	min-width: 0;
+	height: 28px;
+}
+.tape-rail {
+	position: absolute;
+	top: 13px;
+	left: 0;
+	height: 2px;
+	background: var(--ink);
+}
+.tape-landing {
+	position: absolute;
+	top: 10px;
+	width: 2px;
+	height: 8px;
+	margin-left: -1px;
+	background: var(--ink);
+}
+.tape-landing[data-agent="false"] {
+	top: 12px;
+	height: 4px;
+	background: var(--ink-soft);
+}
+.tape-stem {
+	position: absolute;
+	top: 0;
+	bottom: 0;
+	width: 2px;
+	margin-left: -1px;
+	background: var(--redpen);
+}
+.tape-diamond {
+	position: absolute;
+	top: 9px;
+	width: 10px;
+	height: 10px;
+	margin-left: -5px;
+	background: var(--redpen);
+	transform: rotate(45deg);
+}
+
+.tape-body {
+	position: relative;
+}
+.tape-under,
+.tape-over {
+	position: absolute;
+	top: 0;
+	right: 0;
+	bottom: 0;
+	left: var(--tape-label);
+	pointer-events: none;
+}
+.tape-under {
+	z-index: 0;
+}
+.tape-over {
+	z-index: 2;
+}
+/* What has not happened yet. */
+.tape-future {
+	position: absolute;
+	top: 0;
+	right: 0;
+	bottom: 0;
+	background: var(--board);
+}
+.tape-gridline,
+.tape-break,
+.tape-now {
+	position: absolute;
+	top: 0;
+	bottom: 0;
+	width: 1px;
+}
+.tape-gridline {
+	background: var(--tape-line);
+}
+/* The landing's moment, thin and behind the bars. It is drawn heavy only through the rows it stopped (.tape-hit). */
+.tape-break {
+	background: var(--redpen);
+	opacity: 0.45;
+}
+.tape-now {
+	background: var(--ink-soft);
+}
+/* Idle time that was cut out of a recording. */
+.tape-cut {
+	position: absolute;
+	top: 0;
+	bottom: 0;
+	width: 8px;
+	margin-left: -4px;
+	background: repeating-linear-gradient(135deg, #c3cad4 0 2px, transparent 2px 5px);
+	pointer-events: auto;
+}
+
+.tape-rows {
+	position: relative;
+	z-index: 1;
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+.tape-row {
+	display: flex;
+	height: 40px;
+	border-bottom: 1px solid var(--tape-line);
+	transition: opacity 120ms linear;
+}
+.tape-row[data-dimmed="true"] {
+	opacity: 0.4;
+}
+.tape-row[data-selected="true"] {
+	box-shadow: inset 0 0 0 1px var(--ink);
+}
+.tape-label {
+	position: relative;
+	display: flex;
+	flex: none;
+	flex-direction: column;
+	justify-content: center;
+	gap: 1px;
+	box-sizing: border-box;
+	width: var(--tape-label);
+	padding: 0 8px 0 16px;
+	border: 0;
+	border-right: 1px solid var(--rule);
+	background: #fff;
+	color: inherit;
+	font: inherit;
+	text-align: left;
+}
+button.tape-label {
+	cursor: pointer;
+}
+button.tape-label:hover {
+	background: #f7f8fa;
+}
+button.tape-label:focus-visible {
+	outline: 2px solid var(--bluestamp);
+	outline-offset: -2px;
+}
+.tape-band {
+	position: absolute;
+	top: 0;
+	bottom: 0;
+	left: 0;
+	width: 4px;
+	background: var(--band, var(--ink-soft));
+	transition: background-color 200ms linear;
+}
+.tape-name {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	min-width: 0;
+}
+.tape-callsign {
+	font-size: 18px;
+	line-height: 1;
+	white-space: nowrap;
+}
+.tape-stamp {
+	height: 16px;
+	padding: 0 3px;
+	border-width: 1.5px;
+	font-size: 12px;
+}
+.tape-status {
+	display: inline-flex;
+	min-width: 0;
+}
+.tape-track {
+	position: relative;
+	display: block;
+	flex: 1;
+	min-width: 0;
+}
+.tape-bar {
+	position: absolute;
+	top: 10px;
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	box-sizing: border-box;
+	min-width: 6px;
+	height: 20px;
+	overflow: hidden;
+	padding: 0 6px;
+	border: 1px solid var(--tape-edge);
+	border-radius: 2px;
+	font-size: 13px;
+	line-height: 16px;
+	white-space: nowrap;
+}
+/* Working is filled; waiting at the gate is the same outline, empty. The difference is not a colour. */
+.tape-bar[data-kind="work"],
+.tape-bar[data-kind="gate"] {
+	justify-content: flex-end;
+	color: #3f4753;
+}
+.tape-bar[data-kind="work"] {
+	background: #dde2ea;
+}
+.tape-bar[data-kind="gate"] {
+	background: #fff;
+}
+.tape-bar[data-kind="wait"] {
+	border-color: var(--amber);
+	background: #fcefd9;
+}
+.tape-bar[data-kind="person"] {
+	border-color: var(--redpen);
+	background: var(--redpen);
+	color: #fff;
+	font-weight: 600;
+}
+.tape-bar[data-kind="rederive"] {
+	border-color: var(--bluestamp);
+	background: #e4ebfb;
+	color: var(--bluestamp);
+	font-weight: 600;
+}
+/* The plain rebase won: nothing was re-derived, so it is not blue. */
+.tape-bar[data-kind="rederive"][data-rebased="true"] {
+	border-color: var(--tape-edge);
+	background: #fff;
+	color: #3f4753;
+	font-weight: 500;
+}
+.tape-stale {
+	position: absolute;
+	top: 0;
+	bottom: 0;
+	min-width: 6px;
+}
+.tape-stale::before {
+	position: absolute;
+	top: 19px;
+	right: 0;
+	left: 0;
+	height: 2px;
+	background: var(--redpen);
+	content: "";
+}
+.tape-stale-label {
+	position: absolute;
+	top: 10px;
+	left: 10px;
+	height: 20px;
+	padding: 0 4px;
+	background: #fff;
+	color: var(--redpen);
+	font-size: 13px;
+	font-weight: 600;
+	line-height: 20px;
+	white-space: nowrap;
+	animation: annotation-in 150ms linear 350ms both;
+}
+/* The break line, heavy, through a row it stopped. */
+.tape-hit {
+	position: absolute;
+	top: 0;
+	bottom: 0;
+	z-index: 1;
+	width: 2px;
+	margin-left: -1px;
+	background: var(--redpen);
+	transform-origin: top;
+	animation: tape-hit-in 350ms ease-out both;
+}
+@keyframes tape-hit-in {
+	from {
+		transform: scaleY(0);
+	}
+	to {
+		transform: scaleY(1);
+	}
+}
+.tape-dot {
+	position: absolute;
+	top: 14px;
+	z-index: 2;
+	box-sizing: border-box;
+	width: 12px;
+	height: 12px;
+	margin-left: -6px;
+	border: 2px solid #fff;
+	border-radius: 50%;
+	background: var(--redpen);
+}
+.tape-cap {
+	position: absolute;
+	top: 10px;
+	z-index: 1;
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	height: 20px;
+	margin-left: -9px;
+	color: var(--holds);
+}
+.tape-cap > svg {
+	flex: none;
+	border-radius: 50%;
+	background: #fff;
+}
+.tape-cap[data-kind="failed"] {
+	color: var(--redpen);
+}
+.tape-cap-word {
+	font-size: 13px;
+	font-weight: 600;
+}
+
+.tape-workrow {
+	position: relative;
+	z-index: 1;
+	height: auto;
+	min-height: 48px;
+	border-bottom: 0;
+	background: #f7f8fa;
+}
+.tape-workrow .tape-label {
+	padding-top: 6px;
+	padding-bottom: 6px;
+}
+.tape-workrow .tape-label {
+	--band: var(--bluestamp);
+	background: #f7f8fa;
+}
+.tape-density-slot {
+	position: absolute;
+	top: 6px;
+	bottom: 8px;
+	display: flex;
+	align-items: flex-end;
+	box-sizing: border-box;
+	padding: 0 1px;
+}
+.tape-density-bar {
+	width: 100%;
+	border-radius: 1px 1px 0 0;
+	background: var(--holds);
+}
+.tape-density-stale {
+	position: absolute;
+	right: 1px;
+	bottom: -5px;
+	left: 1px;
+	height: 3px;
+	background: var(--redpen);
+}
+
+.tape-foot {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	padding: 8px 16px;
+	border-top: 1px solid var(--rule);
+}
+.tape-sentence {
+	margin: 0;
+	font-size: 13px;
+}
+.tape-key {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 4px 18px;
+	margin: 0;
+	padding: 0;
+	font-size: 12px;
+	list-style: none;
+}
+.tape-key li {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+}
+.tape-swatch {
+	position: static;
+	width: 22px;
+	min-width: 0;
+	height: 12px;
+	padding: 0;
+}
+.tape-swatch-break {
+	position: relative;
+	width: 22px;
+	height: 12px;
+	background: linear-gradient(var(--redpen), var(--redpen)) 0 5px / 100% 2px no-repeat;
+}
+.tape-swatch-break .tape-dot {
+	top: 0;
+	left: 6px;
+}
+
+/* ---- The tape on a phone: one Intent to a row, its marks under its name, nothing scrolling sideways ---- */
+.tape[data-layout="phone"] {
+	--tape-label: 12px;
+}
+.tape[data-layout="phone"] .tape-under,
+.tape[data-layout="phone"] .tape-over {
+	right: 12px;
+}
+.tape[data-layout="phone"] .tape-headcell {
+	width: 12px;
+	padding: 0;
+	border-right: 0;
+	overflow: hidden;
+	visibility: hidden;
+}
+.tape[data-layout="phone"] .tape-headrow {
+	padding-right: 12px;
+}
+.tape[data-layout="phone"] .tape-row {
+	height: auto;
+}
+.tape[data-layout="phone"] .tape-label {
+	display: grid;
+	grid-template-columns: max-content minmax(0, 1fr);
+	align-items: center;
+	gap: 8px 10px;
+	width: 100%;
+	min-height: 56px;
+	padding: 10px 12px;
+	border-right: 0;
+	background: none;
+}
+.tape[data-layout="phone"] .tape-label .tape-track {
+	grid-column: 1 / -1;
+	height: 12px;
+}
+.tape[data-layout="phone"] .tape-label .tape-soft {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+.tape-track[data-bare="true"] .tape-bar {
+	top: 0;
+	height: 12px;
+	padding: 0;
+}
+.tape-track[data-bare="true"] .tape-stale::before {
+	top: 5px;
+}
+.tape-track[data-bare="true"] .tape-hit {
+	top: -6px;
+	bottom: -6px;
+}
+.tape-track[data-bare="true"] .tape-dot {
+	top: 0;
+}
+.tape-track[data-bare="true"] .tape-cap {
+	top: -1px;
+	height: 14px;
+	margin-left: -7px;
+}
+.tape[data-layout="phone"] .tape-density {
+	height: 24px;
+}
+.tape[data-layout="phone"] .tape-density-slot {
+	top: 0;
+	bottom: 4px;
+}
+.tape-breaklist {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	margin: 0;
+	padding: 10px 12px;
+	border-bottom: 1px solid var(--rule);
+	font-size: 13px;
+	list-style: none;
+}
+.tape-breaklist li {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+.tape-breaklist .tape-flag {
+	position: static;
+	flex: none;
+	cursor: default;
+	transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.tape-row,
+	.tape-band,
+	.tape-hit,
+	.tape-stale-label {
+		animation: none;
+		transition: none;
 	}
 }
