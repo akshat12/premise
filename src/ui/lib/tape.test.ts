@@ -87,6 +87,16 @@ describe("buildTape, on the recorded run", () => {
 		expect(t03.summary).toMatch(/Re-deriving now\. Premise broke at 0:26 when T01 landed and verifySession changed\.$/);
 	});
 
+	it("draws nothing of a stopped Intent past the line, even one that reached the gate just after the landing", () => {
+		// T11 pushed half a second after T01 landed, and was told a moment later.
+		const line = tape.breaks[0]?.at ?? 0;
+		const t11 = row("T11 EXPIRED");
+		const before = t11.segments.slice(0, t11.segments.findIndex((s) => s.kind === "stale"));
+		expect(before.length).toBeGreaterThan(0);
+		expect(before.every((s) => s.to <= line && s.from <= s.to)).toBe(true);
+		expect(t11.segments.find((s) => s.kind === "stale")?.from).toBe(line);
+	});
+
 	it("leaves an Intent the landing did not touch without a hit", () => {
 		expect(row("T04 SESSION").hits).toEqual([]);
 		expect(row("T05 TAX").hits).toEqual([]);

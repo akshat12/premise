@@ -396,6 +396,16 @@ export function buildTape(events: readonly PremiseEvent[], intents: Readonly<Rec
 				told.push(`A person was asked at ${clock(ask.at)}: ${choices}. ${outcome.replace(/\.$/, "")}`);
 				return { at: ask.at, open, tip: `Asked a person at ${clock(ask.at)}: ${choices}. ${outcome}` };
 			});
+			// Nothing before a snapped stale stretch is drawn past the line it stopped at. (An Intent can push, or
+			// reach the gate, in the half second between the landing and being told.)
+			segments.forEach((segment, index) => {
+				if (segment.kind === "stale" && hits.includes(segment.from)) {
+					for (const earlier of segments.slice(0, index)) {
+						earlier.to = Math.min(earlier.to, segment.from);
+						earlier.from = Math.min(earlier.from, earlier.to);
+					}
+				}
+			});
 			const ended = row.end === undefined ? undefined : { ...row.end, sha: row.end.kind === "landed" ? (row.intent.headCommit ?? null) : null };
 			const name = callsign(row.intent);
 			const title = brief(row.intent.goal);

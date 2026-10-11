@@ -11,3 +11,6 @@ spikes/node_modules/
 
 # Worktrees made for background agents
 .claude/worktrees/
+
+# Draft renders of the demo video
+video-out/
