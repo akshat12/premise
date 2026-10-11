@@ -1,21 +1,32 @@
-// Counting behavioural regressions that reach trunk. Every demo task has a reference test,
-// written in advance and hidden from the agents (premise/hidden-tests/<task>.test.ts). Once a
-// task's Intent has landed, its reference tests should pass on trunk and go on passing. One that
+// Counting behavioural regressions that reach trunk. Every demo task has reference checks, written
+// in advance and out of the agents' reach (premise/hidden-tests/<task>.test.ts). A task whose
+// checks use a stand-in for some part of the system also has a probe (premise/probes/<task>.test.ts)
+// that goes end to end through the real code; no landing rule runs the probes. Once a task's Intent
+// has landed, its reference checks and its probe should pass on trunk and go on passing. One that
 // is red after a landing is a regression that reached trunk: either the work landed broken, or a
 // later landing broke it. Pure.
 import type { TaskDef, TaskId } from "../../shared/types";
+import { referenceFile, testNames } from "../gate/suite";
 import type { FileMap } from "../ports/repo-store";
 import type { RunRequest, RunResult } from "../runner";
 
-export const hiddenTestFile = (taskId: TaskId) => `premise/hidden-tests/${taskId}.test.ts`;
+export const hiddenTestFile = referenceFile;
+export const probeFile = (taskId: TaskId) => `premise/probes/${taskId}.test.ts`;
 export const testKey = (file: string, name: string) => `${file}#${name}`;
 
-/** The reference tests of the tasks that have landed, for the files given. A task with no reference file contributes none. */
+/**
+ * The reference checks and probes of the tasks that have landed, for the files given. A task with
+ * no reference file or no probe contributes none of that kind.
+ */
 export function hiddenTests(tasks: readonly Pick<TaskDef, "id" | "acceptance">[], landed: ReadonlySet<TaskId> | readonly TaskId[], files: FileMap): RunRequest["tests"] {
 	const done = new Set(landed);
 	return tasks.flatMap((task) => {
+		if (!done.has(task.id)) {
+			return [];
+		}
 		const file = hiddenTestFile(task.id);
-		return done.has(task.id) && files[file] !== undefined ? task.acceptance.map((check) => ({ file, name: check.testName })) : [];
+		const probe = probeFile(task.id);
+		return [...(files[file] !== undefined ? task.acceptance.map((check) => ({ file, name: check.testName })) : []), ...testNames(files[probe] ?? "").map((name) => ({ file: probe, name }))];
 	});
 }
 

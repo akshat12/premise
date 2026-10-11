@@ -1,8 +1,11 @@
 import { Button, Empty, SkeletonLine, Tabs } from "@cloudflare/kumo";
-import { ArrowCounterClockwise, AirplaneTakeoff, Pause, Play } from "@phosphor-icons/react";
+import { ArrowCounterClockwise, AirplaneTakeoff, Pause, Play, SkipForward } from "@phosphor-icons/react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { PremiseEvent } from "../shared/events";
 import type { IntentId, SymbolId } from "../shared/types";
+import type { IntentDiff } from "./lib/diff";
+import { readRecording } from "./lib/recording";
+import { useIntentDiff } from "./lib/useIntentDiff";
 import { AbPanel, type AbResults } from "./components/AbPanel";
 import { DispatchPanel } from "./components/DispatchPanel";
 import { Drawer } from "./components/Drawer";
@@ -17,12 +20,12 @@ import { type StreamSource, useEventStream } from "./lib/useEventStream";
 import { useViewState } from "./lib/useViewState";
 import { explain, loadToken, resetDemo, saveToken } from "./lib/api";
 import { openCards, sharedSymbols } from "./lib/chips";
-import { nextStop } from "./lib/demo";
+import { captionAt, nextStop } from "./lib/demo";
 import { buildTape, positionAt } from "./lib/tape";
 import { callsign, lanesOf, layoutFor, ledgerRows, OUTSIDE } from "./lib/view";
 
 const LIVE_URL = "/api/events/ws";
-const SPEEDS = [1, 2, 4, 8];
+const SPEEDS = [1, 2, 4];
 type Mode = "replay" | "live";
 type View = "lanes" | "tape" | "ledger" | "scale" | "ab";
 const VIEWS: { value: View; label: string }[] = [
@@ -44,22 +47,28 @@ const query = new URLSearchParams(window.location.search);
 const startMode = (): Mode => (query.has("live") ? "live" : "replay");
 /** `?frame=420` shows the recording as it stood after its first 420 events and stops there: a still, for screenshots and for pointing at one moment. */
 const FRAME = query.has("frame") ? Math.max(0, Number(query.get("frame")) || 0) : null;
-/** `?demo=main` plays demo/runs/main.json, a recorded run with its idle time cut out, at 1×. */
-const DEMO = query.get("demo");
+/**
+ * Which recorded run plays: `?demo=<name>` is demo/runs/<name>.json. With nothing asked for it is
+ * "main", so the bare address and `/?demo=main` show the same run and the same numbers.
+ */
+const DEFAULT_RUN = "main";
+const DEMO = query.get("demo") ?? DEFAULT_RUN;
 
 // Recorded runs are bundled, each as a chunk of its own that is fetched only when it is asked for.
-const RUNS = import.meta.glob<PremiseEvent[]>("../../demo/runs/*.json", { import: "default" });
-const BUILT_IN = () => import("./fixtures/real-run.json").then((module) => module.default as PremiseEvent[]);
+// A recording is the event log, or the log together with what each agent's Intent changed (see lib/recording.ts).
+const RUNS = import.meta.glob<unknown>("../../demo/runs/*.json", { import: "default" });
+const BUILT_IN = () => import("./fixtures/real-run.json").then((module) => module.default as unknown);
 const AB_RESULTS: AbResults | null = Object.values(import.meta.glob<AbResults>("../../docs/ab-results.json", { import: "default", eager: true }))[0] ?? null;
 
 export function App() {
 	const [mode, setMode] = useState<Mode>(startMode);
 	const [view, setView] = useState<View>("lanes");
-	const [speed, setSpeed] = useState(DEMO === null ? 2 : 1);
+	const [speed, setSpeed] = useState(1);
 	const [paused, setPaused] = useState(false);
 	const [marker, setMarker] = useState<string | undefined>(undefined);
 	const [run, setRun] = useState(0);
 	const [recording, setRecording] = useState<PremiseEvent[] | null>(null);
+	const [recordedDiffs, setRecordedDiffs] = useState<Record<IntentId, IntentDiff>>({});
 	const [selected, setSelected] = useState<IntentId | null>(null);
 	const [hoverSymbol, setHoverSymbol] = useState<SymbolId | null>(null);
 	const [notice, setNotice] = useState<string | null>(null);
@@ -93,11 +102,18 @@ export function App() {
 	// The recording is a real run of the deployed system. It is loaded on demand, not bundled into the first paint.
 	useEffect(() => {
 		let current = true;
-		const chosen = DEMO === null ? undefined : RUNS[`../../demo/runs/${DEMO}.json`];
-		if (DEMO !== null && chosen === undefined) {
+		const chosen = RUNS[`../../demo/runs/${DEMO}.json`];
+		if (chosen === undefined && query.has("demo")) {
 			setNotice(`There is no recorded run called "${DEMO}". Playing the built-in recording.`);
 		}
-		void (chosen ?? BUILT_IN)().then((events) => current && setRecording(events));
+		void (chosen ?? BUILT_IN)().then((data) => {
+			if (!current) {
+				return;
+			}
+			const run = readRecording(data);
+			setRecording(run.events);
+			setRecordedDiffs(run.diffs);
+		});
 		return () => {
 			current = false;
 		};
@@ -152,6 +168,7 @@ export function App() {
 	const live: LiveState = mode === "live" ? (connected ? { kind: "live" } : { kind: "reconnecting" }) : still !== null ? { kind: "still", at: still.length } : { kind: "replay", speed, done: replayDone, paused };
 	const loading = mode === "live" ? !connected && events.length === 0 : recording === null;
 	const selectedIntent = selected === null ? undefined : state.intents[selected];
+	const diff = useIntentDiff(selectedIntent, mode, recordedDiffs);
 
 	// j / k move between strips, Enter opens the drawer, Esc closes it.
 	useEffect(() => {
@@ -235,6 +252,12 @@ export function App() {
 							{paused ? <Play size={16} /> : <Pause size={16} />}
 						</Button>
 					) : null}
+					{FRAME === null ? (
+						<Button variant="secondary" size="sm" aria-label="Next moment" title="Jump to the next key moment (→)" onClick={() => seek(nextStop(playing, position))}>
+							<SkipForward size={16} />
+							{layout === "phone" ? null : "Next moment"}
+						</Button>
+					) : null}
 					<Button
 						variant="ghost"
 						size="sm"
@@ -286,7 +309,11 @@ export function App() {
 	}, []);
 	const jumps = useMemo<Command[]>(() => lanes.agents.map((intent) => ({ id: `jump-${intent.id}`, title: `Jump to ${callsign(intent)}`, run: () => jumpTo(intent.id) })), [lanes.agents, jumpTo]);
 
+	// In a replay, one sentence under the bar says what the screen is showing: the latest key moment in plain words.
+	const caption = useMemo(() => (mode === "replay" && still === null && playing.length > 0 ? captionAt(playing, position) : null), [mode, still, playing, position]);
 	const empty = !loading && lanes.agents.length === 0 && lanes.workload === null;
+	// "Nothing in flight" is only true once every Intent has landed or stopped, not while they are still planning.
+	const settled = useMemo(() => !empty && !loading && Object.values(state.intents).every((intent) => intent.status === "landed" || intent.status === "failed" || intent.status === "escalated"), [empty, loading, state.intents]);
 	// A replay's length, and a way to move it to a moment: the tape's time axis is a slider.
 	const recordingLength = playing.length > 0 ? (playing[playing.length - 1] as PremiseEvent).ts - (playing[0] as PremiseEvent).ts : 0;
 	const seekToTime = (ms: number, nudge?: -1 | 1) => {
@@ -296,7 +323,8 @@ export function App() {
 	};
 	const toggleSelected = (id: IntentId) => setSelected((current) => (current === id ? null : id));
 	// On the tape a floating card would sit on "now", the part being watched: there it goes above the tape instead.
-	const cardsInline = !wide || view === "tape";
+	// In a replay the cards are notes, not things to act on: they sit in the page, where they cannot cover the caption.
+	const cardsInline = !wide || view === "tape" || mode === "replay";
 	const humanCards = <HumanCards inline={cardsInline} cards={cards} intents={state.intents} readOnly={mode === "replay"} token={token} named={named} onNeedToken={() => setDispatching(true)} />;
 	return (
 		<div className="flex h-full flex-col" style={wide ? { minWidth: 1280 } : undefined}>
@@ -322,8 +350,17 @@ export function App() {
 				layout={layout}
 				mode={modeTabs}
 				transport={transport}
+				// The A/B tab is about a different pair of runs: this recording's counters beside its table only confuse.
+				quiet={view === "ab"}
+				// Watching a recording, dispatching is not the next thing to do: it needs the admin token and a live Worker.
+				dispatchQuiet={mode === "replay"}
 				onDispatch={() => setDispatching(true)}
 			/>
+			{caption !== null && INTENT_VIEWS.includes(view) ? (
+				<p className="caption" role="status" aria-live="polite">
+					{caption}
+				</p>
+			) : null}
 			{notice ? (
 				<div role="status" className="flex items-center justify-between" style={{ padding: "6px 16px", background: "#fff", borderBottom: "1px solid var(--rule)", fontSize: 13 }}>
 					{notice}
@@ -351,7 +388,7 @@ export function App() {
 							{...(mode === "replay" && still === null && playing.length > 0 ? { total: recordingLength, onSeek: seekToTime } : {})}
 						/>
 					) : view === "ledger" ? (
-						<LedgerRail fill rows={rows} quiet={!empty && !loading} callsignOf={callsignOf} hoverSymbol={hoverSymbol} onHoverSymbol={setHoverSymbol} />
+						<LedgerRail fill rows={rows} quiet={settled} callsignOf={callsignOf} hoverSymbol={hoverSymbol} onHoverSymbol={setHoverSymbol} />
 					) : loading ? (
 						<div className="flex flex-col gap-2" aria-label="Loading the run">
 							{Array.from({ length: 8 }, (_, index) => (
@@ -385,7 +422,7 @@ export function App() {
 						</div>
 					)}
 				</main>
-				{wide && view === "lanes" ? <LedgerRail rows={rows} quiet={!empty && !loading} callsignOf={callsignOf} hoverSymbol={hoverSymbol} onHoverSymbol={setHoverSymbol} /> : null}
+				{wide && view === "lanes" ? <LedgerRail rows={rows} quiet={settled} callsignOf={callsignOf} hoverSymbol={hoverSymbol} onHoverSymbol={setHoverSymbol} /> : null}
 			</div>
 			{cardsInline ? null : humanCards}
 			{dispatching ? (
@@ -401,7 +438,7 @@ export function App() {
 			) : null}
 			<Palette open={paletteOpen} onOpenChange={setPaletteOpen} actions={actions} jumps={jumps} />
 			<Shortcuts open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
-			{selectedIntent && INTENT_VIEWS.includes(view) ? <Drawer intent={selectedIntent} events={events} callsignOf={callsignOf} named={named} onSelect={setSelected} onClose={() => setSelected(null)} /> : null}
+			{selectedIntent && INTENT_VIEWS.includes(view) ? <Drawer intent={selectedIntent} events={events} callsignOf={callsignOf} named={named} diff={diff} replay={mode === "replay"} onSelect={setSelected} onClose={() => setSelected(null)} /> : null}
 		</div>
 	);
 }

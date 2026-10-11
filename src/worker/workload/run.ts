@@ -67,7 +67,8 @@ export async function runWorkloadIntent(env: WorkloadEnv, store: RepoStore, job:
 		await api.init(newIntent({ id, kind: "workload", taskId: WORKLOAD_TASK, goal: job.label, acceptance: [], baseCommit: head }));
 		await api.recordPremises(job.reads.map((read) => ({ symbol: read.symbol, source: "observed" as const, surfaceHash: read.surfaceHash, state: "holding" as const })));
 
-		const baseline = (await currentMode(env)) === "baseline";
+		// True in either comparison run of the A/B report: no ledger, no checker.
+		const baseline = (await currentMode(env)) !== "premise";
 		await api.act({ a: "claim" });
 		const symbols = job.claims.map((claim) => claim.symbol);
 		// The comparison run has no ledger: nobody asks before editing.

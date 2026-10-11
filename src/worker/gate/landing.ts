@@ -31,6 +31,13 @@ const ON_ITS_WAY: readonly IntentStatus[] = ["planning", "claiming", "waiting", 
 const HOLD_POLL_MS = 1_000;
 /** A re-derive whose agent has not come back in this long is counted as failed. */
 export const RACE_TIMEOUT_MS = 20 * 60 * 1000;
+/**
+ * A re-derive is void when trunk changes something the Intent relies on while its agent is still
+ * redoing the work: the attempt is thrown away and a new one starts on the newer trunk. That is
+ * free this many times in a row. After that each void counts as a failed re-derive, so an Intent
+ * whose agent is slower than trunk moves ends with a person instead of restarting for ever.
+ */
+export const MAX_FREE_VOIDS = 2;
 
 type QueueRow = { intent_id: string; path: string; priority: number; enqueued_at: number; attempts: number; kind: string | null };
 type StaleRow = { intent_id: string; priority: number; since: number; rebase_failed_at: string | null; reason: string | null };
@@ -66,6 +73,7 @@ export class Landing extends DurableObject<Env> {
 			sql.exec("CREATE TABLE IF NOT EXISTS running(intent_id TEXT PRIMARY KEY, attempt INTEGER NOT NULL, started INTEGER NOT NULL)");
 			// Re-derives of an Intent that have failed since it last landed or a person last said Retry.
 			sql.exec("CREATE TABLE IF NOT EXISTS rederive_failures(intent_id TEXT PRIMARY KEY, failed INTEGER NOT NULL)");
+			sql.exec("CREATE TABLE IF NOT EXISTS rederive_voids(intent_id TEXT PRIMARY KEY, voided INTEGER NOT NULL)");
 			// What landed Intents left behind for the gate to keep true (see standing.ts). The tests themselves are on trunk.
 			sql.exec("CREATE TABLE IF NOT EXISTS standing_tests(intent_id TEXT NOT NULL, file TEXT NOT NULL, name TEXT NOT NULL, PRIMARY KEY (intent_id, file, name))");
 			sql.exec("CREATE TABLE IF NOT EXISTS standing_assertions(intent_id TEXT NOT NULL, assertion_id TEXT NOT NULL, symbol TEXT NOT NULL, assertion TEXT NOT NULL, PRIMARY KEY (intent_id, assertion_id))");
@@ -153,6 +161,17 @@ export class Landing extends DurableObject<Env> {
 
 	private setFailures(intentId: IntentId, failed: number): void {
 		this.ctx.storage.sql.exec("INSERT OR REPLACE INTO rederive_failures (intent_id, failed) VALUES (?, ?)", intentId, failed);
+		if (failed === 0) {
+			this.ctx.storage.sql.exec("DELETE FROM rederive_voids WHERE intent_id = ?", intentId);
+		}
+	}
+
+	/** Counts one more voided re-derive for an Intent and returns the new total. */
+	private noteVoid(intentId: IntentId): number {
+		const sql = this.ctx.storage.sql;
+		const voided = (sql.exec<{ voided: number }>("SELECT voided FROM rederive_voids WHERE intent_id = ?", intentId).toArray()[0]?.voided ?? 0) + 1;
+		sql.exec("INSERT OR REPLACE INTO rederive_voids (intent_id, voided) VALUES (?, ?)", intentId, voided);
+		return voided;
 	}
 
 	/** The task list from trunk, which decides the order Intents are gated and re-derived in. Read once per trunk. */
@@ -276,7 +295,7 @@ export class Landing extends DurableObject<Env> {
 
 	/** Empties both queues. Used when the demo is reset. */
 	async clear(): Promise<void> {
-		for (const table of ["queue", "stale_queue", "running", "rederive_failures", "standing_tests", "standing_assertions", "holds", "landed_tasks", "red_tests"]) {
+		for (const table of ["queue", "stale_queue", "running", "rederive_failures", "rederive_voids", "standing_tests", "standing_assertions", "holds", "landed_tasks", "red_tests"]) {
 			this.ctx.storage.sql.exec(`DELETE FROM ${table}`);
 		}
 		await this.ctx.storage.deleteAlarm();
@@ -294,13 +313,15 @@ export class Landing extends DurableObject<Env> {
 		try {
 			const trunk = await currentTrunk(this.env);
 			const store = getRepoStore(this.env);
+			const mode = await currentMode(this.env);
 			const deps: RaceDeps = {
 				store,
 				trunk,
 				gate: gateDeps(this.env, store, trunk, this.cache),
 				cache: this.cache,
 				standing: this.standingChecks,
-				baseline: (await currentMode(this.env)) === "baseline",
+				baseline: mode === "baseline",
+				queue: mode === "queue",
 				startAgent: (intent, attempt, broken, reason) => this.startAgent(intent.id, attempt, broken, reason),
 			};
 			// A slot marked as taken with no attempt number is a race whose start was cut short
@@ -494,8 +515,14 @@ export class Landing extends DurableObject<Env> {
 		const scheduler = this.scheduler();
 		const running = scheduler.isRunning(intentId);
 		if (running !== undefined) {
-			scheduler.finished(intentId);
 			await this.stopAgent(intentId, running.attempt);
+			const voided = this.noteVoid(intentId);
+			if (voided > MAX_FREE_VOIDS) {
+				// Trunk keeps moving faster than this Intent's agent can redo the work. Count it, so it ends with a person.
+				await this.endRederive(intentId, { landed: false, reason: `trunk changed what this Intent relies on while it was being re-derived (${voided} times in a row)` });
+				return;
+			}
+			scheduler.finished(intentId);
 			await publish(this.env, { t: "rederive.race", id: intentId, rebase: "fail", rederive: "fail" });
 		}
 		scheduler.noteStale({ intentId, priority: await this.priorityOf(intentId), since: Date.now(), rebaseFailedAt, reason });

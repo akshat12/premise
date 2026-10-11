@@ -52,6 +52,17 @@ export const tests: Tests = {
 		const deps = { sessions: createMemorySessionStore(), limiter: createRateLimiter(config), now };
 		assert.deepEq(guardRequest("client-1", undefined, deps), { allowed: true, session: null });
 	},
+	"guardRequest checks the token with the verifier it is given": () => {
+		const seen: (string | undefined)[] = [];
+		const verify = (token: string | undefined) => {
+			seen.push(token);
+			return token === "known" ? makeSession() : null;
+		};
+		const deps = { sessions: createMemorySessionStore(), limiter: createRateLimiter(config), now, verify };
+		assert.deepEq(guardRequest("client-1", "known", deps), { allowed: true, session: makeSession() });
+		assert.deepEq(guardRequest("client-1", "other", deps), { allowed: true, session: null });
+		assert.deepEq(seen, ["known", "other"]);
+	},
 	"guardRequest turns away a client that is over its limit": () => {
 		const deps = { sessions: createMemorySessionStore([makeSession()]), limiter: createRateLimiter(config), now };
 		for (let i = 0; i < 3; i++) {

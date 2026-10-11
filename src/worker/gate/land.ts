@@ -12,6 +12,7 @@ import { mapLimit } from "../ports/git-tree";
 import { describeFailure, gateBatch, type GateDeps, gateOne } from "./gate";
 import { type Invalidate, invalidate } from "./invalidate";
 import { type StandingFailure, standingOf, type StandingStore } from "./standing";
+import { referenceChecks } from "./suite";
 
 const SNAPSHOTS_KEPT = 8;
 
@@ -92,7 +93,16 @@ export interface LandDeps {
 	 * conflict would need a person, so it is counted as a human merge.
 	 */
 	baseline?: boolean;
+	/**
+	 * The A/B comparison's other landing rule, a queue that runs tests: rebase, typecheck, the
+	 * change's own tests, its reference checks and trunk's suite. Still no ledger, no premises, no
+	 * standing checks, no invalidation and no re-derive: what does not pass goes back to its author.
+	 */
+	queue?: boolean;
 }
+
+/** True for either comparison rule: nothing of Premise's own (standing checks, invalidation, re-derive) applies. */
+const plain = (deps: Pick<LandDeps, "baseline" | "queue">): boolean => deps.baseline === true || deps.queue === true;
 
 export type LandOutcome =
 	/** It is on trunk. `stale` lists the other Intents this landing turned stale. */
@@ -123,8 +133,9 @@ export async function settle(api: IntentApi, action: IntentAction, note?: string
  * is changed; the caller decides what a failure means. `kind` is "landed" or "failed".
  */
 export async function landWork(env: LandEnv, intent: Intent, path: QueuePath, deps: LandDeps): Promise<Exclude<LandOutcome, { kind: "skipped" }>> {
-	const standing = deps.baseline ? [] : ((await deps.standing?.all()) ?? []);
-	const { report, changedSymbols, newTrunkFiles, conflicts, trunkBefore, standingFailures, retired } = await gateOne(deps.gate, intent, deps.baseline ? "baseline" : path, deps.baseline ? { skipTests: true, skipAssertions: true } : { standing });
+	const standing = plain(deps) ? [] : ((await deps.standing?.all()) ?? []);
+	const rule = deps.baseline ? { skipTests: true, skipAssertions: true } : deps.queue ? { skipAssertions: true } : { standing };
+	const { report, changedSymbols, newTrunkFiles, conflicts, trunkBefore, standingFailures, retired } = await gateOne(deps.gate, intent, deps.baseline ? "baseline" : path, rule);
 	await publish(env, { t: "gate.result", report });
 
 	if (report.landedCommit === null || newTrunkFiles === undefined) {
@@ -135,9 +146,9 @@ export async function landWork(env: LandEnv, intent: Intent, path: QueuePath, de
 		rememberSnapshot(deps.cache, commit, newTrunkFiles);
 	}
 	await settle(intentStub(env, intent.id), { a: "land", commit });
-	if (deps.standing !== undefined && !deps.baseline) {
+	if (deps.standing !== undefined && !plain(deps)) {
 		// From now on this Intent's acceptance checks are trunk's to keep.
-		const left = standingOf(intent);
+		const left = standingOf(intent, referenceChecks(intent, newTrunkFiles));
 		if (left.tests.length + left.assertions.length > 0) {
 			await deps.standing.add(left);
 		}
@@ -152,8 +163,8 @@ export async function landWork(env: LandEnv, intent: Intent, path: QueuePath, de
 		// Our own code is what pushed, so it reports the push; the platform's event is only relayed (see events/consumer.ts).
 		await publish(env, { t: "artifacts", type: "pushed", repo: deps.gate.trunk ?? "trunk", detail: { commit, intent: intent.id } });
 		await publish(env, { t: "trunk.advanced", commit, byIntent: intent.id, changedSymbols });
-		// The comparison run tells nobody that what they relied on has changed.
-		stale = deps.baseline ? [] : (await (deps.invalidate ?? invalidate)(env, { commit, byIntent: intent.id, changedSymbols, newTrunkFiles })).stale;
+		// The comparison runs tell nobody that what they relied on has changed.
+		stale = plain(deps) ? [] : (await (deps.invalidate ?? invalidate)(env, { commit, byIntent: intent.id, changedSymbols, newTrunkFiles })).stale;
 	}
 	await publishMetrics(env);
 	return { kind: "landed", commit, changedSymbols, report, stale };
@@ -184,8 +195,8 @@ export async function landIntent(env: LandEnv, intentId: IntentId, path: QueuePa
 	if (outcome.kind === "landed" || path === "rederive") {
 		return outcome;
 	}
-	if (deps.baseline) {
-		// Nothing re-derives it. A text conflict is a person's afternoon; a type error goes back to its author.
+	if (plain(deps)) {
+		// Nothing re-derives it. A text conflict is a person's afternoon; a type error or a failed test goes back to its author.
 		if (outcome.report.textConflict) {
 			await publish(env, { t: "human.needed", id: intentId, kind: "fallback", message: `${outcome.note}. Someone has to merge this by hand.`, options: ["Abandon"] });
 		}
@@ -234,8 +245,8 @@ export async function landBatch(env: LandEnv, intentIds: readonly IntentId[], de
 	if (waiting.length === 0) {
 		return { landed: [], commit: null, stale: [], singly: [], deferred: [] };
 	}
-	const standing = deps.baseline ? [] : ((await deps.standing?.all()) ?? []);
-	const outcome = await gateBatch(deps.gate, waiting, deps.baseline ? { standing, path: "baseline" } : { standing });
+	const standing = plain(deps) ? [] : ((await deps.standing?.all()) ?? []);
+	const outcome = await gateBatch(deps.gate, waiting, deps.baseline ? { standing, path: "baseline", skipTests: true } : { standing });
 	if (outcome.landed === null) {
 		// One at a time, then, which also shows which of them is at fault. Deferred ones go along: there is no batch to wait for.
 		return { landed: [], commit: null, stale: [], singly: waiting.map((intent) => intent.id).filter((id) => !outcome.deferred.includes(id)), deferred: outcome.deferred };
@@ -257,7 +268,7 @@ export async function landBatch(env: LandEnv, intentIds: readonly IntentId[], de
 		const byIntent = Object.values(changedBy)[0] ?? (members[0] as IntentId);
 		await publish(env, { t: "artifacts", type: "pushed", repo: deps.gate.trunk ?? "trunk", detail: { commit, intent: byIntent, intents: members, batch: members.length } });
 		await publish(env, { t: "trunk.advanced", commit, byIntent, changedSymbols });
-		stale = deps.baseline ? [] : (await (deps.invalidate ?? invalidate)(env, { commit, byIntent, changedSymbols, newTrunkFiles, changedBy })).stale.filter((id) => !members.includes(id));
+		stale = plain(deps) ? [] : (await (deps.invalidate ?? invalidate)(env, { commit, byIntent, changedSymbols, newTrunkFiles, changedBy })).stale.filter((id) => !members.includes(id));
 	}
 	await publishMetrics(env);
 	return { landed: members, commit, stale, singly: outcome.conflicted, deferred: outcome.deferred };

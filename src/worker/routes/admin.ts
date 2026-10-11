@@ -18,7 +18,7 @@ const SMOKE_PREFIX = "smoke";
 function abOptions(body: Record<string, unknown>): AbOptions | null {
 	const n = body.n === undefined ? 100 : body.n;
 	const seed = body.seed === undefined ? 7 : body.seed;
-	if ((body.mode !== "baseline" && body.mode !== "premise") || typeof n !== "number" || !Number.isInteger(n) || n < 0 || n > MAX_WORKLOAD || typeof seed !== "number" || !Number.isFinite(seed)) {
+	if ((body.mode !== "baseline" && body.mode !== "queue" && body.mode !== "premise") || typeof n !== "number" || !Number.isInteger(n) || n < 0 || n > MAX_WORKLOAD || typeof seed !== "number" || !Number.isFinite(seed)) {
 		return null;
 	}
 	return { mode: body.mode, n, seed };
@@ -102,7 +102,7 @@ export async function handleAdmin(request: Request, env: Env, url: URL): Promise
 			const body = ((await request.json().catch(() => null)) ?? {}) as Record<string, unknown>;
 			const options = abOptions(body);
 			if (options === null) {
-				return Response.json({ error: 'body must be { mode: "baseline" | "premise", n?: 0..1000, seed?: number, wait?: boolean }' }, { status: 400 });
+				return Response.json({ error: 'body must be { mode: "baseline" | "queue" | "premise", n?: 0..1000, seed?: number, wait?: boolean }' }, { status: 400 });
 			}
 			return Response.json(body.wait === true ? { ok: true, result: await runAbMode(env, options) } : { ok: true, ...(await startAbMode(env, options)) });
 		}
@@ -111,7 +111,7 @@ export async function handleAdmin(request: Request, env: Env, url: URL): Promise
 			const body = ((await request.json().catch(() => null)) ?? {}) as Record<string, unknown>;
 			const options = abOptions(body);
 			if (options === null) {
-				return Response.json({ error: 'body must be { mode: "baseline" | "premise", n?: number, seed?: number }' }, { status: 400 });
+				return Response.json({ error: 'body must be { mode: "baseline" | "queue" | "premise", n?: number, seed?: number }' }, { status: 400 });
 			}
 			const state = await isQuiet(env);
 			return Response.json(state.quiet ? { ok: true, quiet: true, counts: state.counts, result: await collectAb(env, options) } : { ok: true, quiet: false, counts: state.counts });

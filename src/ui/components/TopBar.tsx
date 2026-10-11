@@ -37,6 +37,10 @@ interface TopBarProps {
 	mode: React.ReactNode;
 	/** Speed, pause and play-again, in a replay. */
 	transport: React.ReactNode;
+	/** Leave the counters out (the view on screen is not about this run). */
+	quiet?: boolean;
+	/** Dispatch is not the main thing to do right now (a recording is playing). */
+	dispatchQuiet?: boolean;
 	onDispatch: () => void;
 }
 
@@ -57,7 +61,8 @@ function releaseFocus(event: React.PointerEvent<HTMLElement>) {
 
 const markerStyle = { fontSize: 12, color: "var(--ink-soft)", border: "1px solid var(--rule)", borderRadius: 3, padding: "2px 6px", whiteSpace: "nowrap", background: "#fff" } as const;
 
-export function TopBar({ metrics, trunk, live, marker, layout, views, mode, transport, onDispatch }: TopBarProps) {
+export function TopBar({ metrics, trunk, live, marker, layout, views, mode, transport, quiet = false, dispatchQuiet = false, onDispatch }: TopBarProps) {
+	const dispatchLook = dispatchQuiet ? "secondary" : "primary";
 	if (layout !== "wide") {
 		// Narrow: what the screen is showing, then where you are and the player, then the numbers.
 		return (
@@ -78,17 +83,17 @@ export function TopBar({ metrics, trunk, live, marker, layout, views, mode, tran
 					<div className="flex items-center gap-1" style={{ marginLeft: "auto", flex: "none" }}>
 						{transport}
 						{layout === "phone" ? (
-							<Button variant="primary" size="sm" shape="square" aria-label="Dispatch tasks" title="Dispatch tasks" onClick={onDispatch}>
+							<Button variant={dispatchLook} size="sm" shape="square" aria-label="Dispatch tasks" title="Dispatch tasks (needs the admin token)" onClick={onDispatch}>
 								<AirplaneTakeoff size={16} />
 							</Button>
 						) : (
-							<Button variant="primary" size="sm" onClick={onDispatch}>
+							<Button variant={dispatchLook} size="sm" title="Needs the admin token" onClick={onDispatch}>
 								Dispatch tasks
 							</Button>
 						)}
 					</div>
 				</div>
-				<div className="topbar-counters">
+				<div className="topbar-counters" style={quiet ? { display: "none" } : undefined}>
 					<Counter label="Broken builds on trunk" value={metrics.brokenBuildsOnTrunk} hero alert wrap />
 					<Counter label="Human merges" value={metrics.humanMerges} hero alert wrap />
 					<Counter label="Landed" value={metrics.intentsLanded} wrap />
@@ -123,7 +128,7 @@ export function TopBar({ metrics, trunk, live, marker, layout, views, mode, tran
 			<div style={{ flex: "none" }} onPointerUp={releaseFocus}>
 				{views}
 			</div>
-			<div className="flex items-center gap-5" style={{ minWidth: 0, overflow: "hidden" }}>
+			<div className="flex items-center gap-5" style={{ minWidth: 0, overflow: "hidden", visibility: quiet ? "hidden" : "visible" }}>
 				<Counter label="Broken builds on trunk" value={metrics.brokenBuildsOnTrunk} hero alert />
 				<Counter label="Human merges" value={metrics.humanMerges} hero alert />
 				<span aria-hidden="true" style={{ width: 1, height: 28, background: "var(--rule)" }} />
@@ -142,7 +147,7 @@ export function TopBar({ metrics, trunk, live, marker, layout, views, mode, tran
 					<span onPointerUp={releaseFocus}>{mode}</span>
 					{transport}
 				</div>
-				<Button variant="primary" size="sm" onClick={onDispatch}>
+				<Button variant={dispatchLook} size="sm" title="Needs the admin token" onClick={onDispatch}>
 					Dispatch tasks
 				</Button>
 			</div>

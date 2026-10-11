@@ -72,7 +72,7 @@
 						}
 					],
 					"why": [
-						"Same goal after t01: detect expiry from the stored session."
+						"Same goal after t01: verifySession no longer throws, so also detect expiry from the stored session."
 					]
 				}
 			}

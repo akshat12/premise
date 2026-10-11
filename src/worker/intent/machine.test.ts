@@ -28,6 +28,7 @@ describe("transition: allowed edges", () => {
 		["checking", { a: "stale" }, "stale"],
 		["queued", { a: "stale" }, "stale"],
 		["stale", { a: "rederive" }, "rederiving"],
+		["stale", { a: "escalate" }, "escalated"],
 		["rederiving", { a: "land", commit: SHA }, "landed"],
 		["rederiving", { a: "stale" }, "stale"],
 		["rederiving", { a: "escalate" }, "escalated"],

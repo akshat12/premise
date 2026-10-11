@@ -15,6 +15,9 @@
 import type { Assertion, Intent, IntentId, SymbolId } from "../../shared/types";
 import type { FileMap } from "../ports/repo-store";
 import type { RunRequest, RunResult } from "../runner";
+import type { TestRef } from "./suite";
+
+const isReference = (file: string) => file.startsWith("premise/");
 
 export interface Standing {
 	intentId: IntentId;
@@ -43,11 +46,14 @@ export class MemoryStandingStore implements StandingStore {
 	}
 }
 
-/** What an Intent leaves standing when it lands: its acceptance tests and the assertions that still hold. */
-export function standingOf(intent: Pick<Intent, "id" | "acceptance" | "premises">): Standing {
+/**
+ * What an Intent leaves standing when it lands: its acceptance tests, its task's reference checks
+ * (pass `reference`; see `referenceChecks`), and the assertions that still hold.
+ */
+export function standingOf(intent: Pick<Intent, "id" | "acceptance" | "premises">, reference: readonly TestRef[] = []): Standing {
 	return {
 		intentId: intent.id,
-		tests: intent.acceptance.map((check) => ({ file: check.testFile, name: check.testName })),
+		tests: [...intent.acceptance.map((check) => ({ file: check.testFile, name: check.testName })), ...reference],
 		assertions: intent.premises.flatMap((premise) => (premise.source === "asserted" && premise.state === "holding" && premise.assertion !== undefined ? [{ symbol: premise.symbol, assertion: premise.assertion }] : [])),
 	};
 }
@@ -75,12 +81,16 @@ export function planStanding(standing: readonly Standing[], lander: Pick<Intent,
 		if (entry.intentId === lander.id) {
 			continue;
 		}
-		const tests = entry.tests.filter((test) => trunk[test.file] !== undefined && !own.has(`${test.file}\n${test.name}`));
+		// A reference file is on every copy of trunk from the start, so its presence says nothing. The Intent's
+		// own test files do: they are on a trunk only if its work is. Without that, an agent whose fork is
+		// older than the landing would be held to checks its fork cannot pass.
+		const landedHere = entry.tests.some((test) => !isReference(test.file) && trunk[test.file] !== undefined);
+		const tests = entry.tests.filter((test) => trunk[test.file] !== undefined && (landedHere || !isReference(test.file)) && !own.has(`${test.file}\n${test.name}`));
 		for (const test of tests) {
 			(merged[test.file] === trunk[test.file] ? plan.tests : plan.tampered).push({ intentId: entry.intentId, ...test });
 		}
 		// An Intent's assertions are only meaningful alongside its tests on this trunk.
-		if (entry.tests.some((test) => trunk[test.file] !== undefined)) {
+		if (landedHere) {
 			for (const item of entry.assertions) {
 				plan.assertions.push({ intentId: entry.intentId, ...item, runId: standingAssertionId(entry.intentId, item.assertion.id) });
 			}

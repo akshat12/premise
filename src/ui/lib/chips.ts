@@ -71,7 +71,7 @@ export interface TimelineEntry {
 const TONE_OF_BAND = { "ink-soft": "plain", holds: "good", redpen: "bad", bluestamp: "rederive", amber: "wait" } as const;
 
 /** One Intent's story from the event log, newest first: status changes, broken premises, gate verdicts and race results. */
-export function timelineFor(events: readonly PremiseEvent[], id: IntentId): TimelineEntry[] {
+export function timelineFor(events: readonly PremiseEvent[], id: IntentId, describe: (assertionId: string) => string | undefined = () => undefined): TimelineEntry[] {
 	const entries: TimelineEntry[] = [];
 	for (const event of events) {
 		const base = { seq: event.seq, ts: event.ts };
@@ -87,19 +87,33 @@ export function timelineFor(events: readonly PremiseEvent[], id: IntentId): Time
 				? "text conflict"
 				: !report.typecheck.ok
 					? "type error"
-					: [...report.assertions.failed.map((failure) => `premise ${failure.id} fails`), ...report.tests.failed.map((failure) => `"${failure.name}" fails`)].join("; ");
-			entries.push({ ...base, text: report.ok ? `Gate passed ${what} (${report.tests.passed.length} acceptance checks)` : `Gate turned back ${what}: ${why}`, tone: report.ok ? "good" : "bad" });
+					: [
+							...report.assertions.failed.map((failure) => `its premise no longer holds (${describe(failure.id) ?? failure.id})`),
+							...report.tests.failed.map((failure) => `"${failure.name}" fails`),
+							...(report.reference?.failed ?? []).map((failure) => `reference check "${failure.name}" fails`),
+							...(report.suite?.failed ?? []).map((failure) => `it breaks a test already on trunk (${failure.name})`),
+						].join("; ");
+			// When only the premise failed, say so: every test passed, and tests alone would have let this land.
+			const onlyPremise = !report.ok && !report.textConflict && report.typecheck.ok && report.assertions.failed.length > 0 && report.tests.failed.length + (report.reference?.failed.length ?? 0) + (report.suite?.failed.length ?? 0) === 0;
+			const ran = [
+				`${report.tests.passed.length} acceptance checks`,
+				...(report.reference ? [`${report.reference.passed.length} reference checks`] : []),
+				...(report.suite ? [`${report.suite.passed} tests already on trunk`] : []),
+			].join(", ");
+			entries.push({ ...base, text: report.ok ? `Gate passed ${what} (${ran})` : `Gate turned back ${what}: ${why}${onlyPremise ? `. Every test passed (${ran})` : ""}`, tone: report.ok ? "good" : "bad" });
 		} else if (event.t === "rederive.race" && event.id === id) {
 			const text =
 				event.winner !== undefined
-					? `Race won by the ${event.winner === "rebase" ? "rebase" : "re-derive"}`
+					? event.winner === "rebase"
+						? "The plain rebase passed the gate: nothing had to be redone"
+						: "The re-derive passed the gate"
 					: event.rebase === "pending" && event.rederive === "pending"
-						? "Race started: rebase against re-derive"
+						? "Trying a plain rebase first"
 						: event.rebase === "fail" && event.rederive === "fail"
 							? "Neither the rebase nor the re-derive passed"
 							: event.rebase === "fail"
 								? "The rebase did not pass; re-deriving on a fresh fork"
-								: "Race update";
+								: "Re-derive update";
 			entries.push({ ...base, text, tone: event.winner !== undefined ? "good" : event.rederive === "fail" ? "bad" : "rederive" });
 		} else if (event.t === "claim.decision" && event.id === id && event.decision.kind !== "granted") {
 			const decision = event.decision;

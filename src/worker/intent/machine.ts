@@ -52,7 +52,8 @@ const EDGES: Record<IntentStatus, Edges> = {
 	quarantined: { "upgrade-granted": "queued" },
 	queued: { gate: "gating", stale: "stale" },
 	gating: { land: "landed", stale: "stale" },
-	stale: { rederive: "rederiving" },
+	// `escalate` from stale: its re-derives kept being voided by further changes to trunk, so a person is asked.
+	stale: { rederive: "rederiving", escalate: "escalated" },
 	rederiving: { land: "landed", stale: "stale", escalate: "escalated" },
 	escalated: {},
 	landed: {},

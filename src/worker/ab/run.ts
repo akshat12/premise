@@ -1,6 +1,6 @@
 // Runs one mode of the A/B comparison and measures it. Each mode starts from a reset, so it has
-// its own fresh copy of trunk, an empty ledger and an empty event log; the two modes are run one
-// after the other. Both get the same tasks, the same scripted workload (same seed), and the same
+// its own fresh copy of trunk, an empty ledger and an empty event log; the modes are run one
+// after the other. All get the same tasks, the same scripted workload (same seed), and the same
 // choreography (the `verifySession` change lands first).
 import type { PremiseEvent } from "../../shared/events";
 import type { IntentId, TaskId } from "../../shared/types";
@@ -89,18 +89,18 @@ export async function collectAb(env: Env, options: AbOptions): Promise<ModeResul
 	const dispatched = registry.filter((row) => row.kind === "agent" && taskIds.has(row.taskId));
 
 	const races = { started: 0, rebaseWon: 0, rederiveWon: 0, failed: 0 };
+	const agentRaces = { started: 0, rebaseWon: 0, rederiveWon: 0, failed: 0 };
+	const agentIds = new Set(registry.filter((row) => row.kind === "agent").map((row) => row.id));
 	const rejected = { textConflicts: 0, typecheck: 0, checks: 0 };
 	let claimsLost = 0;
 	for (const event of events) {
 		if (event.t === "rederive.race") {
-			if (event.rebase === "pending" && event.rederive === "pending") {
-				races.started++;
-			} else if (event.winner === "rebase") {
-				races.rebaseWon++;
-			} else if (event.winner === "rederive") {
-				races.rederiveWon++;
-			} else if (event.rebase === "fail" && event.rederive === "fail") {
-				races.failed++;
+			const key = event.rebase === "pending" && event.rederive === "pending" ? "started" : event.winner === "rebase" ? "rebaseWon" : event.winner === "rederive" ? "rederiveWon" : event.rebase === "fail" && event.rederive === "fail" ? "failed" : null;
+			if (key !== null) {
+				races[key]++;
+				if (agentIds.has(event.id)) {
+					agentRaces[key]++;
+				}
 			}
 		} else if (event.t === "gate.result" && !event.report.ok) {
 			rejected[event.report.textConflict ? "textConflicts" : !event.report.typecheck.ok ? "typecheck" : "checks"]++;
@@ -122,6 +122,7 @@ export async function collectAb(env: Env, options: AbOptions): Promise<ModeResul
 		tasksDispatched: dispatched.length,
 		ends,
 		races,
+		agentRaces,
 		falsePositiveRate: races.started === 0 ? 0 : races.rebaseWon / races.started,
 		rejected,
 		claimsLost,

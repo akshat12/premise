@@ -240,8 +240,9 @@ describe("the Landing Durable Object", () => {
 
 	it("lands two queued Intents in order and publishes what happened", async () => {
 		await drained(); // anything earlier tests left behind
-		const first = await queuedOnTrunk("t07-role-check");
-		const second = await queuedOnTrunk("t09-currency-format");
+		// Not real tasks: the gate would hold a real task's Intent to that task's reference checks.
+		const first = await queuedOnTrunk("x07-marker");
+		const second = await queuedOnTrunk("x09-marker");
 		const before = await first.store.head(first.trunk);
 
 		await landing(env).enqueue(first.id);
@@ -286,7 +287,7 @@ describe("the Landing Durable Object", () => {
 
 	it("fails an Intent it cannot check after a few tries, instead of leaving it stuck", async () => {
 		await drained();
-		const intent = await queuedOnTrunk("t12-password-policy");
+		const intent = await queuedOnTrunk("x12-marker");
 		// Its fork disappears, so the gate cannot read what it pushed.
 		await intent.store.remove(intent.id);
 		await landing(env).enqueue(intent.id);

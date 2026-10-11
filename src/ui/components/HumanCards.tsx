@@ -88,6 +88,33 @@ function HumanCard({ inline, intent, other, readOnly, token, named, onNeedToken 
 		}
 	}
 
+	// In a recording nobody can answer, and a claim two Intents both want is the ledger's everyday case, not the
+	// event the run is about. One amber line says it; the full card is for a live run, where there are buttons to press.
+	if (readOnly && stalemate) {
+		return (
+			<p className="flex items-center gap-2" role="note" style={{ width: inline ? "100%" : 360, maxWidth: inline ? 480 : "100%", margin: 0, background: "#fff", border: "1px solid var(--rule)", borderLeft: "4px solid var(--amber)", borderRadius: 3, padding: "6px 10px", fontSize: 13 }}>
+				<Bell size={14} weight="fill" color="var(--amber)" aria-hidden="true" style={{ flex: "none" }} />
+				<span>
+					<span className="callsign" style={{ fontSize: 14 }}>
+						{callsign(intent).split(" ")[0]}
+					</span>
+					{other ? (
+						<>
+							{" and "}
+							<span className="callsign" style={{ fontSize: 14 }}>
+								{callsign(other).split(" ")[0]}
+							</span>
+							{" both want "}
+						</>
+					) : (
+						" wants a symbol another Intent holds: "
+					)}
+					<span className="symbol">{symbols[0] ?? "the same symbol"}</span>. A person is asked: {human.options.join(" / ")}.
+				</span>
+			</p>
+		);
+	}
+
 	return (
 		<section role="alertdialog" aria-label={`${callsign(intent)} needs you`} style={{ width: inline ? "100%" : 360, maxWidth: inline ? 480 : "100%", background: "#fff", border: "1px solid var(--rule)", borderLeft: "4px solid var(--redpen)", borderRadius: 3, padding: "12px 14px" }}>
 			<p className="flex items-center gap-2" style={{ margin: 0, fontSize: 14, fontWeight: 600 }}>

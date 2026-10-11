@@ -30,7 +30,7 @@ async function patch(id: string): Promise<FileChanges> {
 	return ((await import(pathToFileURL(join(repo, `premise/reference/${id}.patch.ts`)).href)) as { default: FileChanges }).default;
 }
 
-/** Tasks whose plan depends on verifySession throwing: they read session.ts and adopt the assertion. */
+/** Tasks whose plan depends on verifySession throwing: they read session.ts and assert it, in their own words. */
 const RELIES_ON_THROW = new Set(["t02-audit-expired", "t03-expired-metrics", "t11-expired-rate-limit"]);
 /** Tasks that read session.ts for its types only. */
 const READS_SESSION = new Set(["t04-session-ttl-header"]);
@@ -40,6 +40,16 @@ const READS_SESSION = new Set(["t04-session-ttl-header"]);
  */
 const ALSO_CLAIMS: Record<string, Claim[]> = {
 	"t06-discount-stacking": [{ symbol: "src/billing/invoice.ts#computeTotal", mode: "body" }],
+};
+/**
+ * What an agent that relies on the throw asserts. It writes the check itself; nothing in the task
+ * or the repo hands it one. (The repo's premise/assertions.json library holds the same check for
+ * agents that prefer to adopt it; these scripts do not use it.)
+ */
+const OLD_PREMISE = {
+	description: "verifySession throws SessionExpiredError for an expired session",
+	imports: [SESSION, "src/store/memory-store.ts"],
+	code: "const store = createMemorySessionStore([{ id: 's1', userId: 'u1', expiresAt: 0 }]); assert.throws(() => verifySession('s1', store, () => 10), SessionExpiredError);",
 };
 /** What a re-derived agent asserts once it has seen the new behaviour. */
 const NEW_PREMISE = {
@@ -82,7 +92,7 @@ for (const solution of SOLUTIONS) {
 		turns.push(
 			rederive
 				? turn("verifySession now returns null on expiry; recording that.", [call("assert_premise", NEW_PREMISE)])
-				: turn("My plan relies on verifySession throwing on expiry.", [call("assert_premise", { adopt: "a-session-throws" })]),
+				: turn("My plan relies on verifySession throwing on expiry.", [call("assert_premise", OLD_PREMISE)]),
 		);
 	}
 	turns.push(turn("Declaring what I will change.", [call("declare_changes", { claims, why: [solution.summary] })]));

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { PremiseEvent } from "../../shared/events";
-import { compressRun, formatCut, momentKind, nextStop, parseCut, realTimes } from "./demo";
+import recording from "../../../demo/runs/main.json";
+import { captionAt, compressRun, formatCut, momentKind, nextStop, parseCut, realTimes } from "./demo";
 import { replayDelays } from "./stream";
 
 const status = (ts: number, id = "i00000001", state: "working" | "stale" | "landed" = "working"): PremiseEvent => ({ t: "intent.status", id, status: state, seq: 0, ts });
@@ -139,5 +140,31 @@ describe("nextStop", () => {
 	it("only the last metrics event is a moment", () => {
 		expect(momentKind(metrics(0), false)).toBeNull();
 		expect(momentKind(metrics(0), true)).toBe("end");
+	});
+});
+
+describe("captionAt, on the recorded run", () => {
+	const run = recording as PremiseEvent[];
+	const stops: number[] = [];
+	for (let at = 0; at < run.length; ) {
+		at = nextStop(run, at);
+		stops.push(at);
+	}
+
+	it("says what the recording is and how to step through it, before anything has happened", () => {
+		expect(captionAt(run, 0)).toBe('A recorded run on real Artifacts: 12 agents and 285 scripted workload Intents, each on its own fork. Step through the key moments with "Next moment" or the → key.');
+		expect(captionAt(run, 200)).toBe(captionAt(run, 0));
+	});
+
+	it("explains each key moment in a sentence", () => {
+		expect(captionAt(run, stops[0] ?? 0)).toBe("T05 TAX edited a symbol another Intent is changing, and is held. A person may choose Wait, Split or Depend; if nobody does, it is settled when the other Intent lands.");
+		expect(captionAt(run, stops[1] ?? 0)).toBe("T01 NULL landed and changed verifySession. T02 AUDIT, T03 EXPIRED and T11 EXPIRED had recorded that they rely on it. All three are stopped until their work is redone.");
+		expect(captionAt(run, stops[2] ?? 0)).toBe("T02 AUDIT: a plain rebase did not pass the gate. Its agent redid the work on the new trunk (a re-derive), and that passed the gate and landed.");
+		expect(captionAt(run, stops[5] ?? 0)).toBe("5s of idle time was cut out of the recording here. Nothing else is edited.");
+		expect(captionAt(run, run.length)).toBe("The run is over: 264 Intents landed, 0 broken builds on trunk, 0 human merges.");
+	});
+
+	it("keeps saying the last moment until the next one", () => {
+		expect(captionAt(run, (stops[1] ?? 0) + 40)).toBe(captionAt(run, stops[1] ?? 0));
 	});
 });

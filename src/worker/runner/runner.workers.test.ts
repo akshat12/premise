@@ -67,13 +67,30 @@ describe("runInIsolate: the planted scenario", () => {
 		expect(result.tests.map((test) => test.ok)).toEqual([true, true, true]);
 	});
 
-	it("the same holds for the other two Intents that relied on the throw", async () => {
-		for (const [patch, task] of [["t03", "t03-expired-metrics"], ["t11", "t11-expired-rate-limit"]] as const) {
-			const rebased = await runInIsolate(env, { files: demoWith("t01", patch), tests: acceptance(task), assertions: [] });
-			expect(rebased.tests[0]?.ok, `${patch} rebased`).toBe(false);
-			const rederived = await runInIsolate(env, { files: demoWith("t01", `${patch}-rederived`), tests: acceptance(task), assertions: [] });
-			expect(rederived.tests.every((test) => test.ok), `${patch} re-derived`).toBe(true);
-		}
+	it("the same holds for t03", async () => {
+		const rebased = await runInIsolate(env, { files: demoWith("t01", "t03"), tests: acceptance("t03-expired-metrics"), assertions: [] });
+		expect(rebased.tests[0]?.ok).toBe(false);
+		const rederived = await runInIsolate(env, { files: demoWith("t01", "t03-rederived"), tests: acceptance("t03-expired-metrics"), assertions: [] });
+		expect(rederived.tests.every((test) => test.ok)).toBe(true);
+	});
+
+	it("t11 is the one tests do not catch: after t01 its tests pass, and only the premise and the end-to-end probe fail", async () => {
+		const PROBE = "premise/probes/t11-expired-rate-limit.test.ts";
+		const probe = [{ file: PROBE, name: "a client replaying an expired session is turned away on the fourth request" }, { file: PROBE, name: "a signed-in client is never turned away by this rule" }];
+		const task = "t11-expired-rate-limit";
+		// On the trunk it was written against, everything holds.
+		const onTrunk = await runInIsolate(env, { files: demoWith("t11"), tests: [...acceptance(task), ...probe], assertions: [SESSION_THROWS] });
+		expect(onTrunk.tests.every((test) => test.ok)).toBe(true);
+		expect(onTrunk.assertions[0]?.ok).toBe(true);
+		// Rebased onto t01: its own tests use a stand-in for the session check, which still throws, so they pass.
+		const rebased = await runInIsolate(env, { files: demoWith("t01", "t11"), tests: [...acceptance(task), ...probe], assertions: [SESSION_THROWS] });
+		expect(rebased.tests.slice(0, 3).map((test) => test.ok)).toEqual([true, true, true]);
+		expect(rebased.assertions[0]).toMatchObject({ ok: false, error: "expected the function to throw SessionExpiredError, but it returned" });
+		expect(rebased.tests[3]).toMatchObject({ ok: false, error: 'expected {"allowed":false,"retryAfterMs":600000}, got {"allowed":true,"session":null}' });
+		expect(rebased.tests[4]?.ok).toBe(true);
+		// Re-derived: the tests and the probe both pass.
+		const rederived = await runInIsolate(env, { files: demoWith("t01", "t11-rederived"), tests: [...acceptance(task), ...probe], assertions: [] });
+		expect(rederived.tests.every((test) => test.ok)).toBe(true);
 	});
 });
 

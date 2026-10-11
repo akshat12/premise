@@ -53,8 +53,10 @@ describe("standing checks at the gate (real compiler and runner)", () => {
 		const t01 = await queued("t01-null-expired", referencePatch("t01"));
 		expect((await landIntent(env, t02.id, "rebase", deps)).kind).toBe("landed");
 		const afterT02 = await store.head("trunk");
-		// What t02 left behind: its three acceptance tests and the assertion it made.
-		expect(standing.all()).toEqual([{ intentId: t02.id, tests: demoTask("t02-audit-expired").acceptance.map((check) => ({ file: check.testFile, name: check.testName })), assertions: [{ symbol: VERIFY, assertion: SESSION_THROWS }] }]);
+		// What t02 left behind: its three acceptance tests, its task's three reference checks, and the assertion it made.
+		const own = demoTask("t02-audit-expired").acceptance.map((check) => ({ file: check.testFile, name: check.testName }));
+		const reference = own.map((test) => ({ file: "premise/hidden-tests/t02-audit-expired.test.ts", name: test.name }));
+		expect(standing.all()).toEqual([{ intentId: t02.id, tests: [...own, ...reference], assertions: [{ symbol: VERIFY, assertion: SESSION_THROWS }] }]);
 
 		// t01 rebases cleanly, typechecks, and passes its own acceptance tests. Without standing
 		// checks it would land here and t02's behaviour on trunk would be broken with nothing red.
@@ -66,8 +68,9 @@ describe("standing checks at the gate (real compiler and runner)", () => {
 		}
 		expect(outcome.report).toMatchObject({ textConflict: false, typecheck: { ok: true }, ok: false, assertions: { passed: [], failed: [] } });
 		expect(outcome.report.tests.passed).toEqual(demoTask("t01-null-expired").acceptance.map((check) => check.testName));
-		expect(outcome.report.tests.failed.map((failure) => failure.name)).toEqual([EXPIRED_TEST]);
-		expect(outcome.standingFailures).toMatchObject([{ intentId: t02.id, tests: [{ name: EXPIRED_TEST }], relied: [SESSION_THROWS.description] }]);
+		// It fails twice over: t02's own acceptance test, and the same check in t02's reference file.
+		expect(outcome.report.tests.failed.map((failure) => failure.name)).toEqual([EXPIRED_TEST, EXPIRED_TEST]);
+		expect(outcome.standingFailures).toMatchObject([{ intentId: t02.id, tests: [{ name: EXPIRED_TEST }, { name: EXPIRED_TEST }], relied: [SESSION_THROWS.description] }]);
 		expect(outcome.note).toMatch(new RegExp(`^Breaks landed Intent ${t02.id}: its acceptance check "${EXPIRED_TEST}" fails \\(.*session_expired.*\\)\\. It relied on: ${SESSION_THROWS.description}\\.$`));
 		expect((await eventsAbout(t01.id)).at(-1)).toMatchObject({ t: "intent.status", status: "stale", note: outcome.note });
 
@@ -76,7 +79,7 @@ describe("standing checks at the gate (real compiler and runner)", () => {
 		const repaired = await queued("t01-null-expired", { ...referencePatch("t01"), "src/auth/login.ts": referencePatch("t02-rederived")["src/auth/login.ts"] ?? null });
 		const landed = await landIntent(env, repaired.id, "rebase", deps);
 		expect(landed.kind).toBe("landed");
-		expect(standing.all().map((entry) => [entry.intentId, entry.tests.length, entry.assertions.length])).toEqual([[t02.id, 3, 0], [repaired.id, 2, 0]]);
+		expect(standing.all().map((entry) => [entry.intentId, entry.tests.length, entry.assertions.length])).toEqual([[t02.id, 6, 0], [repaired.id, 4, 0]]);
 		await t01.api.act({ a: "fail" }, "test cleanup");
 	}, 30_000);
 
@@ -103,7 +106,7 @@ describe("standing checks at the gate (real compiler and runner)", () => {
 		await toQueued(again.api, store, again.intent, referencePatch("t02-rederived"));
 		expect((await landIntent(env, again.id, "rebase", deps)).kind).toBe("landed");
 		expect((await landIntent(env, t04.id, "rebase", deps)).kind).toBe("landed");
-		expect(standing.all().map((entry) => entry.tests.length)).toEqual([2, 3, 2]);
+		expect(standing.all().map((entry) => entry.tests.length)).toEqual([4, 6, 4]);
 	}, 30_000);
 });
 

@@ -82,6 +82,13 @@ export interface GateReport {
   typecheck: { ok: boolean; errors: string[] };
   tests: { passed: string[]; failed: { name: string; error: string }[] };
   assertions: { passed: string[]; failed: { id: string; error: string }[] };
+  /**
+   * The task's reference checks, run from trunk's own copy (premise/hidden-tests/), which no agent
+   * can read or write. Absent when the Intent's task has none or they were not run.
+   */
+  reference?: { passed: string[]; failed: { name: string; error: string }[] };
+  /** Trunk's existing tests (tests/**) on the merged files. Absent when they were not run. */
+  suite?: { passed: number; failed: { name: string; error: string }[] };
   ok: boolean;
   landedCommit: CommitSha | null;
   durationMs: number;

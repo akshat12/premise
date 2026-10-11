@@ -90,7 +90,8 @@ describe("search_symbols and read_symbol", () => {
 		const result = await call("search_symbols", { query: "verifysession" });
 		expect(result.text).toContain(VERIFY);
 		expect(result.text).toContain("export declare function verifySession(");
-		expect((await api.get()).premises.map((premise) => premise.symbol)).toEqual([VERIFY]);
+		// The search is by substring and ignores case, so it also finds the VerifySession type the guard declares.
+		expect((await api.get()).premises.map((premise) => premise.symbol)).toEqual(["src/auth/rate-limit.ts#VerifySession", VERIFY]);
 		expect((await call("search_symbols", { query: "zzz-nothing" })).text).toContain("No exported symbol matches");
 	});
 

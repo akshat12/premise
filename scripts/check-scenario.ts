@@ -149,15 +149,29 @@ try {
 	expect("0. trunk as it is", "tsc passes, all tests pass", `tsc ${baseTypes.ok ? "passes" : "FAILS"}, ${baseTests.every((result) => result.ok) ? "all tests pass" : "tests FAIL"}`);
 
 	// The four outcomes the demo depends on, for each of the three Intents that rely on the throw.
+	// t02 and t03 are caught by their own tests after the rebase. t11 is the one tests do not catch:
+	// its checks use a stand-in for the session check, so they still pass, and only the probe (which
+	// nothing runs before landing) and the premise assertion see that the real path is broken.
 	await checkPatched("1. t01 on trunk", "t01", ["t01"], "t01-null-expired", "passes", true);
-	const relying: [string, string][] = [["t02", "t02-audit-expired"], ["t03", "t03-expired-metrics"], ["t11", "t11-expired-rate-limit"]];
+	const relying: [string, string, "passes" | "FAILS"][] = [["t02", "t02-audit-expired", "FAILS"], ["t03", "t03-expired-metrics", "FAILS"], ["t11", "t11-expired-rate-limit", "passes"]];
 	await Promise.all(
-		relying.flatMap(([patch, task]) => [
+		relying.flatMap(([patch, task, rebased]) => [
 			checkPatched(`2. ${patch} on trunk`, `${patch}-on-trunk`, [patch], task, "passes", true),
-			checkPatched(`3. ${patch} on top of t01 (textual rebase)`, `${patch}-rebased`, ["t01", patch], task, "FAILS"),
+			checkPatched(`3. ${patch} on top of t01 (textual rebase)`, `${patch}-rebased`, ["t01", patch], task, rebased, rebased === "passes"),
 			checkPatched(`4. ${patch}-rederived on top of t01`, `${patch}-rederived`, ["t01", `${patch}-rederived`], task, "passes", true),
 		]),
 	);
+	const PROBE = "premise/probes/t11-expired-rate-limit.test.ts";
+	const probe = async (label: string, name: string, patchIds: string[], expected: "passes" | "FAILS") => {
+		const results = await runTests(await tree(name, patchIds), [PROBE]);
+		const bad = results.filter((result) => !result.ok);
+		expect(label, expected === "passes" ? "probe passes" : "probe FAILS", results.length > 0 && bad.length === 0 ? "probe passes" : "probe FAILS", bad.map((result) => `"${result.name}": ${result.error ?? ""}`));
+	};
+	await Promise.all([
+		probe("4a. t11 on trunk: the end-to-end probe", "t11-probe-trunk", ["t11"], "passes"),
+		probe("4b. t11 on top of t01 (textual rebase): the end-to-end probe", "t11-probe-rebased", ["t01", "t11"], "FAILS"),
+		probe("4c. t11-rederived on top of t01: the end-to-end probe", "t11-probe-rederived", ["t01", "t11-rederived"], "passes"),
+	]);
 
 	// The control: t04 reads verifySession but relies only on its types, so it is fine either way.
 	await Promise.all([

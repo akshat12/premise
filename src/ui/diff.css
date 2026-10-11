@@ -1,0 +1,193 @@
+/* The Drawer's "Changes" column: what an Intent changed, as a unified diff.
+   Only Premise's own tokens (theme.css) are used. The tints are the green of a premise that
+   holds and the red of the red pen, thinned with white. Added and removed lines also carry their
+   + and - signs, so the colour is never the only thing telling them apart. */
+
+/* A fourth column, the widest: a diff needs the room. */
+.drawer-columns.has-changes {
+	grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr) minmax(0, 1.2fr) minmax(0, 2fr);
+}
+
+/* Reviewing: the Changes column has the drawer to itself, and the drawer is taller. */
+.drawer-columns.has-changes[data-review="true"] {
+	grid-template-columns: minmax(0, 1fr);
+}
+.drawer-columns.has-changes[data-review="true"] > .drawer-column:not(.changes-column) {
+	display: none;
+}
+.drawer-columns.has-changes[data-review="true"] > .changes-column {
+	border-left: 0;
+}
+@media (min-width: 1280px) {
+	.drawer[data-review="true"] {
+		height: min(64vh, 640px);
+	}
+}
+
+/* Medium screens: three columns are already tight, so Changes goes under them at full width. */
+@media (min-width: 768px) and (max-width: 1279px) {
+	.drawer-columns.has-changes {
+		grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr) minmax(0, 1.2fr);
+		grid-template-rows: minmax(0, 2fr) minmax(0, 3fr);
+	}
+	.drawer-columns.has-changes > .changes-column {
+		grid-column: 1 / -1;
+		border-top: 1px solid var(--rule);
+		border-left: 0;
+	}
+	.drawer-columns.has-changes[data-review="true"] {
+		grid-template-columns: minmax(0, 1fr);
+		grid-template-rows: minmax(0, 1fr);
+	}
+	.drawer-columns.has-changes[data-review="true"] > .changes-column {
+		border-top: 0;
+	}
+}
+
+.changes-head {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+	margin: 0 0 8px;
+}
+.changes-head h3 {
+	margin: 0;
+	font-size: 13px;
+	font-weight: 600;
+}
+.changes-note {
+	margin: 0 0 8px;
+	color: var(--ink-soft);
+	font-size: 12px;
+}
+.changes-note .diff-added,
+.changes-note .diff-removed {
+	font-family: var(--font-symbol);
+	font-weight: 500;
+}
+
+.diff-added {
+	color: var(--holds);
+}
+.diff-removed {
+	color: var(--redpen);
+}
+
+/* ---- One file ---- */
+.changes-file {
+	margin: 0 0 8px;
+	border: 1px solid var(--rule);
+	border-radius: 3px;
+	background: #fff;
+}
+.changes-file-head {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	width: 100%;
+	min-height: 28px;
+	padding: 4px 8px;
+	border: 0;
+	border-radius: 2px;
+	background: var(--board);
+	color: var(--ink);
+	font-family: var(--font-symbol);
+	font-size: 12px;
+	font-weight: 500;
+	text-align: left;
+	cursor: pointer;
+}
+.changes-file-head:focus-visible {
+	outline: 2px solid var(--bluestamp);
+	outline-offset: 1px;
+}
+.changes-file-head[aria-expanded="true"] {
+	border-bottom: 1px solid var(--rule);
+	border-radius: 2px 2px 0 0;
+}
+/* A long path keeps its end, the file's name, and loses its start. */
+.changes-file-path {
+	flex: 1 1 auto;
+	min-width: 0;
+	overflow: hidden;
+	direction: rtl;
+	text-align: left;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+.changes-file-path bdi {
+	direction: ltr;
+}
+.changes-file-status {
+	flex: none;
+	color: var(--ink-soft);
+	font-family: inherit;
+}
+.changes-file-counts {
+	display: flex;
+	flex: none;
+	gap: 8px;
+	font-variant-numeric: tabular-nums;
+}
+
+/* ---- The diff itself ---- */
+.diff {
+	font-family: var(--font-symbol);
+	font-size: 12px;
+	font-weight: 500;
+	line-height: 18px;
+	tab-size: 2;
+}
+.diff-hunk {
+	padding: 2px 8px;
+	border-top: 1px solid var(--rule);
+	background: #fff;
+	color: var(--ink-soft);
+}
+.diff-hunk:first-child {
+	border-top: 0;
+}
+.diff-line {
+	display: grid;
+	grid-template-columns: 5ch 2ch minmax(0, 1fr);
+}
+.diff-line[data-kind="+"] {
+	background: color-mix(in srgb, var(--holds) 13%, #fff);
+}
+.diff-line[data-kind="-"] {
+	background: color-mix(in srgb, var(--redpen) 10%, #fff);
+}
+.diff-no {
+	padding-right: 1ch;
+	color: var(--ink-soft);
+	text-align: right;
+	font-variant-numeric: tabular-nums;
+	user-select: none;
+}
+.diff-sign {
+	text-align: center;
+	user-select: none;
+}
+.diff-line[data-kind="+"] .diff-sign {
+	color: var(--holds);
+}
+.diff-line[data-kind="-"] .diff-sign {
+	color: var(--redpen);
+}
+/* Long lines wrap inside the column: nothing scrolls sideways. */
+.diff-text {
+	padding-right: 8px;
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+}
+.diff-aside {
+	margin: 0;
+	padding: 4px 8px;
+	border-top: 1px solid var(--rule);
+	color: var(--ink-soft);
+	font-size: 12px;
+}
+.diff-aside:first-child {
+	border-top: 0;
+}

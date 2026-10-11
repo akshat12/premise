@@ -46,8 +46,18 @@ describe("prompts", () => {
 		expect(message).toContain("  test file: tests/audit-expired.test.ts");
 		expect(message).toContain('  test name: "an expired session writes an audit entry and returns expired"');
 		expect(message).toContain("- a-session-throws: verifySession throws on expiry");
-		expect(message).toContain("Hints:");
+		// No task tells its agent which premise to assert: t02 depends on how verifySession behaves, and has no hints at all.
+		expect(message).not.toContain("Hints:");
 		expect(message).not.toContain("re-derive");
+		const withHints = briefing({ intent, task: demoTask("t11-expired-rate-limit"), adoptable: [], mode: "fresh" });
+		expect(withHints).toContain("Hints:\n- Test guardRequest on its own");
+		expect(withHints).not.toContain("adopt");
+	});
+
+	it("no demo task's hints name an assertion or tell the agent to make one", () => {
+		for (const id of ["t01-null-expired", "t02-audit-expired", "t03-expired-metrics", "t11-expired-rate-limit"]) {
+			expect((demoTask(id).hints ?? []).join(" "), id).not.toMatch(/assert|adopt|a-session-throws/i);
+		}
 	});
 
 	it("a re-derive briefing says what broke, the earlier reasoning, and that the checks are unchanged", () => {
@@ -146,12 +156,15 @@ describe("runAgent: every recorded script completes", () => {
 		}, 30_000);
 	}
 
-	it("the three that rely on the throw record the assertion", async () => {
+	it("the three that rely on the throw record the assertion, written by the agent and not adopted from the repo's library", async () => {
 		const store = seededStore();
 		const started = await startIntent(env, store, "t02-audit-expired");
 		const { intent } = await run(store, started, scriptFor("t02-audit-expired"));
-		expect(intent.premises.filter((premise) => premise.source === "asserted").map((premise) => [premise.symbol, premise.assertion?.id])).toEqual([["src/auth/session.ts#verifySession", "a-session-throws"]]);
 		await started.api.act({ a: "fail" }, "test cleanup");
+		expect(intent.premises.filter((premise) => premise.source === "asserted").map((premise) => [premise.symbol, premise.assertion?.id, premise.assertion?.description])).toEqual([["src/auth/session.ts#verifySession", "a1", "verifySession throws SessionExpiredError for an expired session"]]);
+		for (const task of ["t02-audit-expired", "t03-expired-metrics", "t11-expired-rate-limit"]) {
+			expect(JSON.stringify(scriptFor(task)), task).not.toContain('"adopt"');
+		}
 	}, 30_000);
 });
 
@@ -331,7 +344,7 @@ describe("runAgent: when things go wrong", () => {
 		steps.do = async (name, fn) => {
 			const result = await realDo(name, fn);
 			if (name === "work-turn-1") {
-				await started.api.breakPremise("src/auth/session.ts#verifySession", { intentId: "i01nullxp", commit: "e".repeat(40), reason: "verifySession no longer throws" }, { assertionId: "a-session-throws" });
+				await started.api.breakPremise("src/auth/session.ts#verifySession", { intentId: "i01nullxp", commit: "e".repeat(40), reason: "verifySession no longer throws" }, { assertionId: "a1" });
 			}
 			return result;
 		};

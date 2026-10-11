@@ -1,11 +1,13 @@
 import { Button } from "@cloudflare/kumo";
 import { Eye, Flag, LinkSimple } from "@phosphor-icons/react";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import type { PremiseEvent } from "../../shared/events";
 import type { IntentId, Premise } from "../../shared/types";
 import { ago, groupPremises, SOURCE_TITLE, timelineFor, type TimelineEntry } from "../lib/chips";
+import type { DiffState } from "../lib/diff";
 import type { IntentView } from "../lib/reduce";
 import { callsign, OUTSIDE, symbolFile, symbolName } from "../lib/view";
+import { Changes } from "./Changes";
 import { RaceIndicator, StatusMark } from "./Strip";
 
 const TONE: Record<TimelineEntry["tone"], string> = { plain: "var(--ink)", good: "var(--holds)", bad: "var(--redpen)", rederive: "var(--bluestamp)", wait: "var(--amber)" };
@@ -51,16 +53,30 @@ interface DrawerProps {
 	named: (text: string) => string;
 	onSelect: (id: IntentId) => void;
 	onClose: () => void;
+	/**
+	 * What the Intent changed, from `useIntentDiff` (lib/useIntentDiff.ts): a diff, null when there
+	 * is none, or "loading". Left out, the drawer has no Changes column.
+	 */
+	diff?: DiffState;
+	/** Watching a recording: the diff is the one saved with it. */
+	replay?: boolean;
 }
 
-/** The selected Intent in full: why it did what it did, what it relies on and where each premise came from, and its story so far. */
-export function Drawer({ intent, events, callsignOf, named, onSelect, onClose }: DrawerProps) {
+/** The selected Intent in full: why it did what it did, what it relies on and where each premise came from, its story so far, and what it changed. */
+export function Drawer({ intent, events, callsignOf, named, onSelect, onClose, diff, replay = false }: DrawerProps) {
+	// Reviewing: the Changes column has the whole drawer. It stays that way from one Intent to the next, until the drawer is closed.
+	const [reviewing, setReviewing] = useState(false);
+	const review = reviewing && diff !== undefined;
 	const groups = useMemo(() => groupPremises(intent.premises), [intent.premises]);
-	const timeline = useMemo(() => timelineFor(events, intent.id), [events, intent.id]);
+	const timeline = useMemo(() => {
+		// The gate names a failed assertion by id; the reader gets the sentence the agent wrote.
+		const described = new Map(intent.premises.flatMap((premise) => (premise.assertion ? [[premise.assertion.id, premise.assertion.description] as const] : [])));
+		return timelineFor(events, intent.id, (assertionId) => described.get(assertionId));
+	}, [events, intent.id, intent.premises]);
 	const now = events.at(-1)?.ts ?? 0;
 	const stale = intent.status === "stale" || intent.status === "rederiving";
 	return (
-		<section className="drawer flex flex-col" aria-label={`${callsign(intent)} details`}>
+		<section className="drawer flex flex-col" data-review={review} aria-label={`${callsign(intent)} details`}>
 			<header className="drawer-head flex items-start justify-between gap-4">
 				<div style={{ minWidth: 0 }}>
 					<div className="flex items-center gap-3">
@@ -76,7 +92,7 @@ export function Drawer({ intent, events, callsignOf, named, onSelect, onClose }:
 					Close
 				</Button>
 			</header>
-			<div className="drawer-columns min-h-0 flex-1">
+			<div className={`drawer-columns min-h-0 flex-1${diff === undefined ? "" : " has-changes"}`} data-review={review}>
 				<div className="drawer-column">
 					<h3 style={columnTitle}>Why</h3>
 					{intent.why.length > 0 ? (
@@ -134,6 +150,12 @@ export function Drawer({ intent, events, callsignOf, named, onSelect, onClose }:
 						))}
 					</ol>
 				</div>
+				{diff === undefined ? null : (
+					<div className="drawer-column changes-column">
+						{/* Keyed by Intent, so the files a reader opened for one are not left open for the next. */}
+						<Changes key={intent.id} diff={diff} replay={replay} expanded={review} onToggleExpanded={() => setReviewing((now) => !now)} />
+					</div>
+				)}
 			</div>
 		</section>
 	);

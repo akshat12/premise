@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { emptyCounters } from "../metrics";
-import { hiddenTestFile, hiddenTests, newlyRed, redTests, testKey } from "./regress";
-import { buildReport, type ModeResult, renderMarkdown } from "./report";
+import { hiddenTestFile, hiddenTests, newlyRed, probeFile, redTests, testKey } from "./regress";
+import { buildReport, type ModeResult, renderMarkdown, spread, type Trial } from "./report";
 
 const result = (mode: ModeResult["mode"], fields: Partial<ModeResult> = {}): ModeResult => ({
 	...emptyCounters(),
@@ -15,8 +15,9 @@ const result = (mode: ModeResult["mode"], fields: Partial<ModeResult> = {}): Mod
 	landingsPerMinute: 40,
 	tasksLanded: 12,
 	tasksDispatched: 12,
-	ends: { landed: 40, failed: 2, escalated: 0, other: 0 },
+	ends: { landed: 40, failed: 0, escalated: 0, other: 0 },
 	races: { started: 0, rebaseWon: 0, rederiveWon: 0, failed: 0 },
+	agentRaces: { started: 0, rebaseWon: 0, rederiveWon: 0, failed: 0 },
 	falsePositiveRate: 0,
 	rejected: { textConflicts: 0, typecheck: 0, checks: 0 },
 	claimsLost: 0,
@@ -25,48 +26,74 @@ const result = (mode: ModeResult["mode"], fields: Partial<ModeResult> = {}): Mod
 	...fields,
 });
 
+const trial = (seed: number, baseline: Partial<ModeResult> = {}, queue: Partial<ModeResult> = {}, premise: Partial<ModeResult> = {}): Trial => ({
+	seed,
+	baseline: result("baseline", { seed, ...baseline }),
+	queue: result("queue", { seed, ...queue }),
+	premise: result("premise", { seed, ...premise }),
+});
+
 describe("buildReport", () => {
 	it("writes the headline from the numbers, with the grammar to match", () => {
-		const report = buildReport(result("baseline", { behaviouralRegressionsOnTrunk: 3, humanMerges: 7 }), result("premise", { behaviouralRegressionsOnTrunk: 0, humanMerges: 1 }));
-		expect(report.headline).toBe("Baseline shipped 3 behavioural regressions and needed 7 human merges; Premise shipped 0 behavioural regressions and needed 1 human merge.");
+		const report = buildReport([trial(7, { behaviouralRegressionsOnTrunk: 3 }, { behaviouralRegressionsOnTrunk: 1, tasksLanded: 10 }, {})]);
+		expect(report.headline).toBe(
+			"A queue that only typechecks shipped 3 behavioural regressions and sent 0 of 12 tasks back to a person; a queue that also runs the tests shipped 1 behavioural regression and sent 2 of 12 tasks back to a person; Premise shipped 0 behavioural regressions and sent 0 of 12 tasks back to a person.",
+		);
 		// Different numbers, different sentence: nothing about the outcome is assumed.
-		const flipped = buildReport(result("baseline", { behaviouralRegressionsOnTrunk: 1, humanMerges: 0 }), result("premise", { behaviouralRegressionsOnTrunk: 2, humanMerges: 5 }));
-		expect(flipped.headline).toBe("Baseline shipped 1 behavioural regression and needed 0 human merges; Premise shipped 2 behavioural regressions and needed 5 human merges.");
+		const flipped = buildReport([trial(7, {}, {}, { behaviouralRegressionsOnTrunk: 2, tasksLanded: 7 })]);
+		expect(flipped.headline).toContain("Premise shipped 2 behavioural regressions and sent 5 of 12 tasks back to a person.");
+		expect(flipped.headline).toContain("A queue that only typechecks shipped 0 behavioural regressions");
 	});
 
-	it("has a row for every metric the comparison is about, with both modes' values", () => {
-		const baseline = result("baseline", { behaviouralRegressionsOnTrunk: 3, humanMerges: 4, rejected: { textConflicts: 4, typecheck: 1, checks: 0 }, redReferenceTests: ["premise/hidden-tests/t02-audit-expired.test.ts#x"], forksCreated: 42, wallTimeMs: 61_500, landingsPerMinute: 39.02 });
-		const premise = result("premise", { claimsLost: 5, premisesBroken: 9, races: { started: 9, rebaseWon: 6, rederiveWon: 3, failed: 0 }, falsePositiveRate: 6 / 9, forksCreated: 45, rejected: { textConflicts: 0, typecheck: 0, checks: 3 } });
-		const rows = Object.fromEntries(buildReport(baseline, premise).table.map((row) => [row.metric, [row.baseline, row.premise]]));
+	it("has a row for every metric the comparison is about, with all three rules' values", () => {
+		const baseline = { behaviouralRegressionsOnTrunk: 3, humanMerges: 4, rejected: { textConflicts: 4, typecheck: 1, checks: 0 }, redReferenceTests: ["premise/hidden-tests/t02-audit-expired.test.ts#x"], forksCreated: 42, wallTimeMs: 61_500, landingsPerMinute: 39.02, ends: { landed: 37, failed: 5, escalated: 0, other: 0 }, intentsLanded: 37 };
+		const queue = { behaviouralRegressionsOnTrunk: 1, humanMerges: 4, tasksLanded: 10, rejected: { textConflicts: 4, typecheck: 1, checks: 2 }, ends: { landed: 35, failed: 7, escalated: 0, other: 0 }, intentsLanded: 35 };
+		const premise = { claimsLost: 5, premisesBroken: 9, races: { started: 9, rebaseWon: 6, rederiveWon: 3, failed: 0 }, agentRaces: { started: 3, rebaseWon: 0, rederiveWon: 3, failed: 0 }, falsePositiveRate: 6 / 9, forksCreated: 45, rejected: { textConflicts: 0, typecheck: 0, checks: 3 }, ends: { landed: 37, failed: 5, escalated: 0, other: 0 }, intentsLanded: 37 };
+		const rows = Object.fromEntries(buildReport([trial(7, baseline, queue, premise)]).table.map((row) => [row.metric, [row.baseline, row.queue, row.premise]]));
 		expect(rows).toMatchObject({
-			"Behavioural regressions that reached trunk": ["3", "0"],
-			"Human merges": ["4", "0"],
-			"Broken builds on trunk": ["0", "0"],
-			"Demo tasks landed": ["12 of 12", "12 of 12"],
-			"Intents landed": ["40 of 42", "40 of 42"],
-			"Landings per minute": ["39.0", "40.0"],
-			"Wall time": ["61.5 s", "60.0 s"],
-			"Premises broken": ["0", "9"],
-			"Stale Intents settled by re-derive": ["0", "3"],
-			"Stale Intents a plain rebase settled": ["0", "6"],
-			"False-positive rate": ["n/a", "67%"],
-			"Turned away at the gate": ["4 text, 1 type, 0 checks", "0 text, 0 type, 3 checks"],
-			"Gave up waiting for a claim": ["0", "5"],
-			"Reference tests red at the end": ["1", "0"],
-			"Forks created": ["42", "45"],
+			"Behavioural regressions that reached trunk": ["3", "1", "0"],
+			"Demo tasks sent back to a person": ["0 of 12", "2 of 12", "0 of 12"],
+			"Stale Intents redone and landed with nobody involved": ["0", "0", "3"],
+			"Broken builds on trunk": ["0", "0", "0"],
+			"Scripted workload Intents that did not land": ["5", "5", "5"],
+			"Human merges": ["4", "4", "0"],
+			"Intents landed": ["37 of 42", "35 of 42", "37 of 42"],
+			"Premises broken": ["0", "0", "9"],
+			"Stale Intents a plain rebase settled": ["0", "0", "6"],
+			"False positives: agents": ["n/a", "n/a", "0% (0 of 3)"],
+			"False positives: scripted workload": ["n/a", "n/a", "100% (6 of 6)"],
+			"Turned away at the gate": ["4 text, 1 type, 0 checks", "4 text, 1 type, 2 checks", "0 text, 0 type, 3 checks"],
+			"Gave up waiting for a claim": ["0", "0", "5"],
+			"Landings per minute": ["39.0", "40.0", "40.0"],
+			"Wall time": ["61.5 s", "60.0 s", "60.0 s"],
+			"Reference checks and probes red at the end": ["1", "0", "0"],
+			"Forks created": ["42", "0", "45"],
 		});
 	});
 
-	it("renders a Markdown document that says how the two modes differ and lists what is red", () => {
-		const baseline = result("baseline", { behaviouralRegressionsOnTrunk: 1, redReferenceTests: ["premise/hidden-tests/t02-audit-expired.test.ts#an expired session writes an audit entry and returns expired"] });
-		const text = renderMarkdown(baseline, result("premise"), { date: "2026-10-09", source: "https://example.test" });
-		expect(text).toContain("**Baseline shipped 1 behavioural regression and needed 0 human merges; Premise shipped 0 behavioural regressions and needed 0 human merges.**");
-		expect(text).toContain("Run on 2026-10-09 against https://example.test.");
-		expect(text).toContain("the same scripted workload (30 Intents, seed 7)");
-		expect(text).toContain("| Behavioural regressions that reached trunk | 1 | 0 |");
-		expect(text).toContain("The rebase function and the typecheck are the same code in both.");
-		expect(text).toContain("## Reference tests red on trunk at the end (Baseline)");
-		expect(text).not.toContain("at the end (Premise)");
+	it("gives the lowest and highest value where seeds disagree, and one value where they agree", () => {
+		expect(spread(["3", "3", "3"])).toBe("3");
+		expect(spread(["11", "9", "14"])).toBe("9 to 14");
+		const trials = [trial(7, { behaviouralRegressionsOnTrunk: 3, humanMerges: 11 }), trial(11, { behaviouralRegressionsOnTrunk: 3, humanMerges: 9 }), trial(23, { behaviouralRegressionsOnTrunk: 3, humanMerges: 14 })];
+		const rows = Object.fromEntries(buildReport(trials).table.map((row) => [row.metric, row.baseline]));
+		expect(rows["Behavioural regressions that reached trunk"]).toBe("3");
+		expect(rows["Human merges"]).toBe("9 to 14");
+	});
+
+	it("renders a Markdown document that says how the rules differ, what the scenario builds in, and what is red", () => {
+		const red = "premise/probes/t11-expired-rate-limit.test.ts#a client replaying an expired session is turned away on the fourth request";
+		const text = renderMarkdown([trial(7, {}, { behaviouralRegressionsOnTrunk: 1, redReferenceTests: [red] })], { date: "2026-10-11", source: "https://example.test" });
+		expect(text).toContain("a queue that also runs the tests shipped 1 behavioural regression and sent 0 of 12 tasks back to a person");
+		expect(text).toContain("Run on 2026-10-11 against https://example.test.");
+		expect(text).toContain("the same scripted workload (30 Intents)");
+		expect(text).toContain("for seed 7.");
+		expect(text).toContain("| | Typecheck only | Queue with tests | Premise |");
+		expect(text).toContain("| Behavioural regressions that reached trunk | 0 | 1 | 0 |");
+		expect(text).toContain("## What is built into the scenario");
+		expect(text).toContain("The rebase, the typecheck and the test runner are the same code in all three.");
+		expect(text).toContain("## Red on trunk at the end: A queue that also runs the tests, seed 7");
+		expect(text).toContain(`- \`${red}\``);
+		expect(text).not.toContain("at the end: Premise");
 		// The product's own words only.
 		expect(text).not.toMatch(/merge queue|pull request|\bPR\b|\bbranch\b/i);
 	});
@@ -86,6 +113,15 @@ describe("counting regressions", () => {
 		]);
 		expect(hiddenTests(tasks, [], files)).toEqual([]);
 		expect(hiddenTests(tasks, ["t01", "t02"], { [hiddenTestFile("t01")]: "x" })).toEqual([{ file: "premise/hidden-tests/t01.test.ts", name: "one works" }]);
+	});
+
+	it("adds a landed task's end-to-end probe, every test in it, when trunk has one", () => {
+		const withProbe = { ...files, [probeFile("t02")]: 'export const tests = { "the real path works": () => {}, "and keeps working": () => {} };' };
+		expect(hiddenTests(tasks, ["t02"], withProbe).slice(2)).toEqual([
+			{ file: "premise/probes/t02.test.ts", name: "the real path works" },
+			{ file: "premise/probes/t02.test.ts", name: "and keeps working" },
+		]);
+		expect(hiddenTests(tasks, ["t01"], withProbe)).toEqual([{ file: "premise/hidden-tests/t01.test.ts", name: "one works" }]);
 	});
 
 	it("a test is red if it failed, and every test is red if nothing loaded", () => {

@@ -18,8 +18,7 @@
 			}
 		],
 		"hints": [
-			"Add the acceptance tests in tests/session-expiry.test.ts.",
-			"Do not call assert_premise in this Intent: it changes how verifySession reports an expired session, so a-session-throws must not be adopted."
+			"Add the acceptance tests in tests/session-expiry.test.ts."
 		]
 	},
 	{
@@ -45,9 +44,6 @@
 				"testFile": "tests/audit-expired.test.ts",
 				"testName": "a valid session writes no expired entry"
 			}
-		],
-		"hints": [
-			"Your plan depends on how verifySession reports an expired session. Assert it: adopt `a-session-throws`."
 		]
 	},
 	{
@@ -67,9 +63,6 @@
 				"testFile": "tests/expired-metrics.test.ts",
 				"testName": "valid and anonymous requests are not counted as expired"
 			}
-		],
-		"hints": [
-			"Your plan depends on how verifySession reports an expired session. Assert it: adopt `a-session-throws`."
 		]
 	},
 	{
@@ -275,7 +268,7 @@
 			}
 		],
 		"hints": [
-			"Your plan depends on how verifySession reports an expired session. Assert it: adopt `a-session-throws`."
+			"Test guardRequest on its own: pass a stand-in `verify` in its deps (see `GuardDeps.verify` and the existing test that does this), so the tests do not depend on the session store."
 		]
 	},
 	{

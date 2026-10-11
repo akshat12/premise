@@ -32,21 +32,21 @@ export type Band = "ink-soft" | "amber" | "redpen" | "bluestamp" | "holds";
 export type StatusIcon = "plan" | "wait" | "work" | "check" | "warn" | "gate" | "landed" | "stale" | "rederive" | "bell" | "failed";
 
 /** How each status reads on a strip: a band colour, an icon and a word. State is never colour alone. */
-export const STATUS_LOOK: Record<IntentStatus, { band: Band; icon: StatusIcon; word: string }> = {
-	planning: { band: "ink-soft", icon: "plan", word: "planning" },
-	claiming: { band: "ink-soft", icon: "plan", word: "claiming" },
-	waiting: { band: "amber", icon: "wait", word: "waiting" },
-	working: { band: "ink-soft", icon: "work", word: "working" },
-	submitted: { band: "ink-soft", icon: "check", word: "pushed" },
-	checking: { band: "ink-soft", icon: "check", word: "checking" },
-	quarantined: { band: "amber", icon: "warn", word: "quarantined" },
-	queued: { band: "ink-soft", icon: "gate", word: "at the gate" },
-	gating: { band: "ink-soft", icon: "gate", word: "in the gate" },
-	landed: { band: "holds", icon: "landed", word: "landed" },
-	stale: { band: "redpen", icon: "stale", word: "stale" },
-	rederiving: { band: "bluestamp", icon: "rederive", word: "re-deriving" },
-	escalated: { band: "redpen", icon: "bell", word: "needs you" },
-	failed: { band: "redpen", icon: "failed", word: "failed" },
+export const STATUS_LOOK: Record<IntentStatus, { band: Band; icon: StatusIcon; word: string; /** What the word means, for the tooltip. */ means: string }> = {
+	planning: { band: "ink-soft", icon: "plan", word: "planning", means: "Reading the code and deciding what it will change" },
+	claiming: { band: "ink-soft", icon: "plan", word: "claiming", means: "Asking the ledger for the symbols it will change" },
+	waiting: { band: "amber", icon: "wait", word: "waiting", means: "Another Intent is changing the same symbol; this one waits for it" },
+	working: { band: "ink-soft", icon: "work", word: "working", means: "Its agent is writing the change on its own fork" },
+	submitted: { band: "ink-soft", icon: "check", word: "pushed", means: "Pushed to its fork; not yet checked" },
+	checking: { band: "ink-soft", icon: "check", word: "checking", means: "Comparing what it changed with what it said it would change" },
+	quarantined: { band: "amber", icon: "warn", word: "quarantined", means: "It changed a symbol it had not claimed, so it is held back" },
+	queued: { band: "ink-soft", icon: "gate", word: "at the gate", means: "Waiting its turn at the gate" },
+	gating: { band: "ink-soft", icon: "gate", word: "in the gate", means: "The gate is running: rebase, typecheck, tests, premise assertions" },
+	landed: { band: "holds", icon: "landed", word: "landed", means: "Passed the gate and is on trunk" },
+	stale: { band: "redpen", icon: "stale", word: "stale", means: "Something it relies on changed on trunk. Its work is stopped until it is redone" },
+	rederiving: { band: "bluestamp", icon: "rederive", word: "re-deriving", means: "Redoing the work on the new trunk: a plain rebase first, then the agent if that does not pass" },
+	escalated: { band: "redpen", icon: "bell", word: "needs you", means: "It could not be settled automatically, so a person is asked" },
+	failed: { band: "redpen", icon: "failed", word: "failed", means: "It gave up without landing" },
 };
 
 const REACHED_CHECK: readonly IntentStatus[] = ["submitted", "checking", "quarantined", "queued", "gating", "landed"];

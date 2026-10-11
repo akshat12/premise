@@ -1,5 +1,5 @@
-// The gate, for one Intent: rebase onto trunk, typecheck, run the acceptance tests and the premise
-// assertions, and only then commit to trunk. Everything it touches comes in through `GateDeps`, so
+// The gate, for one Intent: rebase onto trunk, typecheck, run its acceptance tests, the task's
+// reference checks, trunk's existing tests and the premise assertions, and only then commit to trunk. Everything it touches comes in through `GateDeps`, so
 // the whole pipeline runs in a unit test with an in-memory repo.
 import type { CommitSha, GateReport, Intent, IntentId, SymbolId } from "../../shared/types";
 import { type FileChanges, type FileMap, StaleHeadError } from "../ports/repo-store";
@@ -7,6 +7,7 @@ import type { RunRequest, RunResult } from "../runner";
 import { diffSurface, type SurfaceMap, type TypecheckResult } from "../surface";
 import { threeWayRebase } from "./rebase";
 import { describeStandingFailure, judgeStanding, planStanding, type Standing, type StandingFailure, standingRequest, type StandingVerdict } from "./standing";
+import { referenceChecks, suiteTests, type TestRef } from "./suite";
 
 export interface GateDeps {
 	snapshot(repo: string, ref: string): Promise<FileMap>;
@@ -45,7 +46,7 @@ export type GatePath = GateReport["path"];
 export interface GateOptions {
 	/** Do not run the premise assertions (the A/B baseline has none). */
 	skipAssertions?: boolean;
-	/** Do not run the acceptance tests (the A/B baseline lands on typecheck alone). */
+	/** Run no tests at all: not the Intent's own, not its reference checks, not trunk's suite (the A/B baseline lands on typecheck alone). */
 	skipTests?: boolean;
 	/** Run every check but do not commit. `report.ok` then means "would land"; `landedCommit` stays null. */
 	dryRun?: boolean;
@@ -88,7 +89,18 @@ export function changesBetween(from: FileMap, to: FileMap): FileChanges {
 	return changes;
 }
 
-type Verdict = Pick<GateReport, "textConflict" | "typecheck" | "tests" | "assertions">;
+type Verdict = Pick<GateReport, "textConflict" | "typecheck" | "tests" | "assertions" | "reference" | "suite">;
+
+/** The reference file exists to be out of the agent's reach. Work that changes it does not land. */
+export const REFERENCE_TAMPERED = "this Intent changed the task's reference checks, which are trunk's to keep";
+
+/** Splits one run's test results back into the groups they were asked for in. */
+function carve<T>(results: readonly T[], sizes: readonly number[]): T[][] {
+	let from = 0;
+	return sizes.map((size) => results.slice(from, (from += size)));
+}
+
+const failuresOf = (results: RunResult["tests"], label: (test: TestRef) => string) => results.filter((test) => !test.ok).map((test) => ({ name: label(test), error: test.error ?? "failed" }));
 
 // A step that did not run reports nothing passed: read a report top-down and stop at the first failure.
 const NOT_RUN: Pick<GateReport, "tests" | "assertions"> = { tests: { passed: [], failed: [] }, assertions: { passed: [], failed: [] } };
@@ -141,18 +153,35 @@ async function attempt(deps: GateDeps, intent: Intent, opts: GateOptions): Promi
 
 	const tests = opts.skipTests ? [] : intent.acceptance.map((check) => ({ file: check.testFile, name: check.testName }));
 	const assertions = opts.skipAssertions ? [] : intent.premises.flatMap((premise) => (premise.source === "asserted" && premise.assertion !== undefined ? [premise.assertion] : []));
+	// The task's reference checks, as trunk has them. They are run only if the work left that file alone.
+	const reference = opts.skipTests ? [] : referenceChecks(intent, trunkFiles);
+	const referenceTampered = reference.length > 0 && merged[reference[0]?.file ?? ""] !== trunkFiles[reference[0]?.file ?? ""];
+	const referenceRun = referenceTampered ? [] : reference;
 	// The checks landed Intents left behind run in the same isolate as the lander's own.
 	const plan = planStanding(opts.standing ?? [], intent, trunkFiles, merged);
 	const extra = standingRequest(plan);
-	const nothingToRun = tests.length + assertions.length + extra.tests.length + extra.assertions.length === 0;
-	const run: RunResult = nothingToRun ? { tests: [], assertions: [] } : await deps.run({ files: merged, tests: [...tests, ...extra.tests], assertions: [...assertions, ...extra.assertions] });
+	// Every other test on trunk, as merged. One that is already being run under another heading is not run twice.
+	const suite = opts.skipTests ? [] : suiteTests(merged, [...tests, ...extra.tests, ...plan.tampered]);
+	const asked = [...tests, ...referenceRun, ...suite, ...extra.tests];
+	const nothingToRun = asked.length + assertions.length + extra.assertions.length === 0;
+	const run: RunResult = nothingToRun ? { tests: [], assertions: [] } : await deps.run({ files: merged, tests: asked, assertions: [...assertions, ...extra.assertions] });
+	const [ownTests = [], referenceTests = [], suiteResults = [], standingTests = []] = carve(run.tests, [tests.length, referenceRun.length, suite.length, extra.tests.length]);
 	// The report's test and assertion lists are the Intent's own; a landed check that fails is added to the failures.
-	const ownRun: RunResult = { ...run, tests: run.tests.slice(0, tests.length), assertions: run.assertions.slice(0, assertions.length) };
+	const ownRun: RunResult = { ...run, tests: ownTests, assertions: run.assertions.slice(0, assertions.length) };
 	const ran = tests.length + assertions.length === 0 && run.loadError === undefined ? NOT_RUN : summarise(intent, ownRun);
-	const standing = run.loadError === undefined ? judgeStanding(plan, { tests: run.tests.slice(tests.length), assertions: run.assertions.slice(assertions.length) }) : judgeStanding({ ...plan, tests: [], assertions: [] }, { tests: [], assertions: [] });
+	const loaded = run.loadError === undefined;
+	const standing = loaded ? judgeStanding(plan, { tests: standingTests, assertions: run.assertions.slice(assertions.length) }) : judgeStanding({ ...plan, tests: [], assertions: [] }, { tests: [], assertions: [] });
 	const landedFailed = standing.failures.flatMap((failure) => failure.tests.map((test) => ({ name: test.name, error: `(acceptance check of landed Intent ${failure.intentId}) ${test.error}` })));
 	const verdict: Verdict = { textConflict: false, typecheck, tests: { passed: ran.tests.passed, failed: [...ran.tests.failed, ...landedFailed] }, assertions: ran.assertions };
-	if (verdict.tests.failed.length > 0 || verdict.assertions.failed.length > 0) {
+	if (reference.length > 0) {
+		verdict.reference = referenceTampered
+			? { passed: [], failed: reference.map((test) => ({ name: test.name, error: REFERENCE_TAMPERED })) }
+			: { passed: loaded ? referenceTests.filter((test) => test.ok).map((test) => test.name) : [], failed: failuresOf(referenceTests, (test) => test.name) };
+	}
+	if (suite.length > 0) {
+		verdict.suite = { passed: loaded ? suiteResults.filter((test) => test.ok).length : 0, failed: failuresOf(suiteResults, (test) => `${test.file}: ${test.name}`) };
+	}
+	if (verdict.tests.failed.length > 0 || verdict.assertions.failed.length > 0 || (verdict.reference?.failed.length ?? 0) > 0 || (verdict.suite?.failed.length ?? 0) > 0) {
 		return { ...stopped, verdict, standingFailures: standing.failures };
 	}
 
@@ -168,7 +197,8 @@ async function attempt(deps: GateDeps, intent: Intent, opts: GateOptions): Promi
 
 /**
  * Runs one Intent through the gate. It lands (`report.ok`, `report.landedCommit`) only if the
- * rebase is clean, the result typechecks, and every acceptance test and asserted premise passes.
+ * rebase is clean, the result typechecks, and every acceptance test, reference check, test already
+ * on trunk and asserted premise passes.
  * If trunk moves while it is being checked, the whole thing runs once more against the new trunk.
  * With `opts.dryRun` nothing is committed and `report.ok` says whether it would have landed.
  */
@@ -205,7 +235,16 @@ export function describeFailure(report: GateReport, conflicts: readonly string[]
 		return describeStandingFailure(standingFailures);
 	}
 	const test = report.tests.failed[0];
-	return test === undefined ? "Did not pass the gate" : `Acceptance check failed on the new trunk: "${test.name}": ${test.error}`;
+	if (test !== undefined) {
+		return `Acceptance check failed on the new trunk: "${test.name}": ${test.error}`;
+	}
+	const reference = report.reference?.failed[0];
+	if (reference !== undefined) {
+		return `Reference check failed on the new trunk: "${reference.name}": ${reference.error}`;
+	}
+	const existing = report.suite?.failed[0];
+	const more = (report.suite?.failed.length ?? 0) - 1;
+	return existing === undefined ? "Did not pass the gate" : `Breaks a test that is already on trunk: "${existing.name}": ${existing.error}${more > 0 ? ` (and ${more} more)` : ""}`;
 }
 
 export interface BatchOutcome {
@@ -242,7 +281,7 @@ export function batchMessage(intents: readonly Pick<Intent, "id">[]): string {
  * If the combined result does not pass, nothing lands and `landed` is null; the caller then gates
  * the members singly, which also says which of them was at fault.
  */
-export async function gateBatch(deps: GateDeps, intents: readonly Intent[], opts: Pick<GateOptions, "standing"> & { path?: GatePath } = {}): Promise<BatchOutcome> {
+export async function gateBatch(deps: GateDeps, intents: readonly Intent[], opts: Pick<GateOptions, "standing" | "skipTests"> & { path?: GatePath } = {}): Promise<BatchOutcome> {
 	const started = Date.now();
 	const none = (reason: string): BatchOutcome => ({ landed: null, conflicted: [], deferred: [], reason });
 	if (intents.some((intent) => intent.acceptance.length > 0 || intent.premises.some((premise) => premise.source === "asserted") || intent.headCommit === null)) {
@@ -283,12 +322,21 @@ export async function gateBatch(deps: GateDeps, intents: readonly Intent[], opts
 	}
 	const plan = planStanding(opts.standing ?? [], { id: "", acceptance: [] }, trunkFiles, merged);
 	const extra = standingRequest(plan);
-	if (plan.tampered.length > 0 || extra.tests.length + extra.assertions.length > 0) {
-		const run = plan.tampered.length > 0 ? { tests: [], assertions: [] } : await deps.run({ files: merged, tests: extra.tests, assertions: extra.assertions });
-		const verdict = "loadError" in run && run.loadError !== undefined ? null : judgeStanding(plan, run);
+	// Trunk's own tests run once for the whole batch.
+	const suite = opts.skipTests ? [] : suiteTests(merged, [...extra.tests, ...plan.tampered]);
+	let suitePassed = 0;
+	if (plan.tampered.length > 0 || suite.length + extra.tests.length + extra.assertions.length > 0) {
+		const run: RunResult = plan.tampered.length > 0 ? { tests: [], assertions: [] } : await deps.run({ files: merged, tests: [...suite, ...extra.tests], assertions: extra.assertions });
+		const [suiteResults = [], standingTests = []] = carve(run.tests, [suite.length, extra.tests.length]);
+		const verdict = run.loadError !== undefined ? null : judgeStanding(plan, { tests: standingTests, assertions: run.assertions });
 		if (verdict === null || verdict.failures.length > 0) {
 			return { ...none(verdict === null ? "the merged files do not load" : describeStandingFailure(verdict.failures)), conflicted, deferred };
 		}
+		const broke = failuresOf(suiteResults, (test) => `${test.file}: ${test.name}`)[0];
+		if (broke !== undefined) {
+			return { ...none(`breaks a test that is already on trunk: "${broke.name}": ${broke.error}`), conflicted, deferred };
+		}
+		suitePassed = suiteResults.length;
 	}
 
 	const changes = changesBetween(trunkFiles, merged);
@@ -321,6 +369,7 @@ export async function gateBatch(deps: GateDeps, intents: readonly Intent[], opts
 		}
 	}
 	const durationMs = Date.now() - started;
-	const reports = members.map((intent): GateReport => ({ intentId: intent.id, path: opts.path ?? "rebase", textConflict: false, typecheck: { ok: true, errors: [] }, ...NOT_RUN, ok: true, landedCommit: commit, durationMs }));
+	const ranSuite = suite.length > 0 ? { suite: { passed: suitePassed, failed: [] } } : {};
+	const reports = members.map((intent): GateReport => ({ intentId: intent.id, path: opts.path ?? "rebase", textConflict: false, typecheck: { ok: true, errors: [] }, ...NOT_RUN, ...ranSuite, ok: true, landedCommit: commit, durationMs }));
 	return { landed: { commit, trunkBefore: trunkHead, members: members.map((intent) => intent.id), reports, changedSymbols, changedBy, newTrunkFiles: merged }, conflicted, deferred };
 }

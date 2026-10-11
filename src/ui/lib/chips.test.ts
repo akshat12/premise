@@ -59,14 +59,14 @@ describe("sharedSymbols", () => {
 describe("timelineFor", () => {
 	it("tells one Intent's story, newest first", () => {
 		const t02 = byCall().T02;
-		const story = timelineFor(events, t02?.id ?? "");
+		const story = timelineFor(events, t02?.id ?? "", (assertionId) => (assertionId === "a-session-throws" ? "verifySession throws SessionExpiredError on expired tokens" : undefined));
 		const texts = story.map((entry) => entry.text);
-		expect(texts[0]).toBe("Race won by the re-derive");
+		expect(texts[0]).toBe("The re-derive passed the gate");
 		expect(texts).toContain("Landed");
 		expect(texts.some((text) => text.startsWith("Gate passed the re-derived work (3 acceptance checks)"))).toBe(true);
-		expect(texts.some((text) => text.startsWith("Gate turned back the rebased work: premise a-session-throws fails"))).toBe(true);
+		expect(texts.some((text) => text.startsWith("Gate turned back the rebased work: its premise no longer holds (verifySession throws SessionExpiredError on expired tokens)"))).toBe(true);
 		expect(texts).toContain("The rebase did not pass; re-deriving on a fresh fork");
-		expect(texts).toContain("Race started: rebase against re-derive");
+		expect(texts).toContain("Trying a plain rebase first");
 		const broke = story.find((entry) => entry.text.startsWith("Premise broke: assertion 'verifySession throws"));
 		expect(broke).toMatchObject({ tone: "bad", other: byCall().T01?.id });
 		expect(texts.at(-1)).toBe("Claiming");

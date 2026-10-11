@@ -44,9 +44,11 @@ function strongest(conflicts: HeldClaim[]): HeldClaim | undefined {
  * 1. Granted: nobody else holds any requested symbol.
  * 2. Depend: every contested symbol is held as "interface" by the other Intent and wanted only
  *    as "body" here, or the requester already declared that it depends on the other Intent.
- * 3. Split: both sides also have at least one symbol that is not contested. The contested
- *    symbols go to the higher-priority side; a tie goes to the current holder.
- * 4. Wait: any other overlap.
+ * 3. Split: exactly one other Intent is in the way, and both sides also have at least one symbol
+ *    that is not contested. The contested symbols go to the higher-priority side; a tie goes to
+ *    the current holder.
+ * 4. Wait: any other overlap, including one with two or more other Intents. A Split is a deal
+ *    between two; it must never hand over a symbol a third Intent holds.
  */
 export function decide(req: ClaimRequest, held: HeldClaim[]): LedgerDecision {
 	const wanted = new Map(req.claims.map((claim) => [claim.symbol, claim.mode]));
@@ -68,7 +70,8 @@ export function decide(req: ClaimRequest, held: HeldClaim[]): LedgerDecision {
 	const mineElsewhere = sorted(req.claims.map((claim) => claim.symbol).filter((symbol) => !contestedSet.has(symbol)));
 	const theirsElsewhere = sorted(held.filter((claim) => claim.intentId === other.intentId && !contestedSet.has(claim.symbol)).map((claim) => claim.symbol));
 	const requesterHasMore = mineElsewhere.length > 0 || (req.elsewhere ?? 0) > 0;
-	if (requesterHasMore && theirsElsewhere.length > 0) {
+	const onlyOneOther = new Set(conflicts.map((claim) => claim.intentId)).size === 1;
+	if (onlyOneOther && requesterHasMore && theirsElsewhere.length > 0) {
 		// The requester's `since` is "now", which is never earlier than the holder's, so a tie keeps the holder.
 		const requesterWins = req.priority < other.priority;
 		return {

@@ -21,7 +21,32 @@ describe("standingOf", () => {
 	});
 });
 
+describe("standingOf, for an Intent of a task", () => {
+	it("also leaves the task's reference checks standing", () => {
+		const intent = { id: "i1", acceptance: [check("tests/x.test.ts", "x works")], premises: [] };
+		expect(standingOf(intent, [{ file: "premise/hidden-tests/t09-thing.test.ts", name: "x works" }]).tests).toEqual([
+			{ file: "tests/x.test.ts", name: "x works" },
+			{ file: "premise/hidden-tests/t09-thing.test.ts", name: "x works" },
+		]);
+	});
+});
+
 describe("planStanding", () => {
+	it("holds a lander to a landed Intent's reference checks only on a trunk that has that Intent's work", () => {
+		const REFERENCE = "premise/hidden-tests/t09-thing.test.ts";
+		const landed: Standing = { intentId: "ilandedx1", tests: [{ file: "tests/x.test.ts", name: "x works" }, { file: REFERENCE, name: "x works" }], assertions: [{ symbol: "src/s.ts#f", assertion: assertion("a1") }] };
+		// The reference file is on trunk from the start, before anything has landed. A fork taken then does not have x's work.
+		const before = { [REFERENCE]: "reference", "src/s.ts": "code" };
+		expect(planStanding([landed], lander, before, before)).toEqual({ tests: [], tampered: [], assertions: [] });
+		const after = { ...before, "tests/x.test.ts": "x tests" };
+		const plan = planStanding([landed], lander, after, after);
+		expect(plan.tests.map((test) => test.file)).toEqual(["tests/x.test.ts", REFERENCE]);
+		expect(plan.assertions).toHaveLength(1);
+		// Changing the reference file of landed work counts as tampering, like changing its test file.
+		expect(planStanding([landed], lander, after, { ...after, [REFERENCE]: "weakened" }).tampered.map((test) => test.file)).toEqual([REFERENCE]);
+	});
+
+
 	it("runs every landed Intent's tests and assertions on the merged files", () => {
 		const plan = planStanding([X, Y], lander, trunk, { ...trunk, "tests/l.test.ts": "new" });
 		expect(plan.tests.map((test) => [test.intentId, test.name])).toEqual([["ilandedx1", "x works"], ["ilandedx1", "x still works"], ["ilandedy1", "y works"]]);

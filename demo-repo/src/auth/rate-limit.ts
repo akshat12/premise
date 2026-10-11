@@ -65,10 +65,15 @@ export function createRateLimiter(config: RateLimitConfig = DEFAULT_LOGIN_LIMIT)
 	};
 }
 
+/** Looks a token up and says whose session it is. `verifySession` is the real one. */
+export type VerifySession = (token: string | undefined, store: SessionStore, now: Clock) => Session | null;
+
 export interface GuardDeps {
 	sessions: SessionStore;
 	limiter: RateLimiter;
 	now: Clock;
+	/** How a token is checked. Left out everywhere except in tests, where a stand-in keeps the test about the guard alone. */
+	verify?: VerifySession;
 }
 
 export type GuardResult = { allowed: true; session: Session | null } | { allowed: false; retryAfterMs: number };
@@ -82,8 +87,9 @@ export function guardRequest(clientKey: string, token: string | undefined, deps:
 	if (!standing.allowed) {
 		return { allowed: false, retryAfterMs: standing.retryAfterMs };
 	}
+	const verify = deps.verify ?? verifySession;
 	try {
-		return { allowed: true, session: verifySession(token, deps.sessions, deps.now) };
+		return { allowed: true, session: verify(token, deps.sessions, deps.now) };
 	} catch (e) {
 		if (e instanceof SessionExpiredError) {
 			return { allowed: true, session: null };

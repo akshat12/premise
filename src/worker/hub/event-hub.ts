@@ -4,6 +4,7 @@ import { moduleShard } from "../../shared/ids";
 import type { IntentKind, IntentStatus, Metrics } from "../../shared/types";
 import { parseSince, PING, PONG } from "../../shared/wire";
 import { computeMetrics, countEvent, type Counters, emptyCounters, type RegistryRow } from "../metrics";
+import { atCapacity, capacityMessage, RETRY_AFTER_S } from "./limits";
 
 const BACKLOG_PAGE = 2000;
 
@@ -142,6 +143,11 @@ export class EventHub extends DurableObject<Env> {
 			.map((row) => ({ id: row.id, kind: row.kind as IntentKind, taskId: row.task_id, status: row.status as IntentStatus, updatedAt: row.updated_at }));
 	}
 
+	/** Whether an Intent with this id has been created since the last reset. Public routes ask before they open an Intent. */
+	async knows(id: string): Promise<boolean> {
+		return this.ctx.storage.sql.exec("SELECT 1 FROM registry WHERE id = ?", id).toArray().length > 0;
+	}
+
 	/** Ids of Intents that have asserted a premise, in the order they first did. */
 	async asserters(): Promise<string[]> {
 		return this.ctx.storage.sql.exec<{ id: string }>("SELECT id FROM asserters ORDER BY rowid").toArray().map((row) => row.id);
@@ -184,16 +190,16 @@ export class EventHub extends DurableObject<Env> {
 	}
 
 	/**
-	 * How work lands. "premise" is the product. "baseline" is the comparison for the A/B report:
-	 * no ledger, no premises, no re-derive; a clean textual rebase that typechecks lands.
-	 * A reset puts it back to "premise".
+	 * How work lands. "premise" is the product. The other two are the comparisons for the A/B
+	 * report, and neither has a ledger, premises or re-derive: "baseline" lands a clean textual
+	 * rebase that typechecks; "queue" also runs the tests first. A reset puts it back to "premise".
 	 */
-	async mode(): Promise<"premise" | "baseline"> {
-		return this.getMeta<"premise" | "baseline">("mode", "premise");
+	async mode(): Promise<"premise" | "baseline" | "queue"> {
+		return this.getMeta<"premise" | "baseline" | "queue">("mode", "premise");
 	}
 
-	async setMode(mode: "premise" | "baseline"): Promise<void> {
-		this.setMeta("mode", mode === "baseline" ? "baseline" : "premise");
+	async setMode(mode: "premise" | "baseline" | "queue"): Promise<void> {
+		this.setMeta("mode", mode === "baseline" || mode === "queue" ? mode : "premise");
 	}
 
 	/**
@@ -247,6 +253,10 @@ export class EventHub extends DurableObject<Env> {
 	async fetch(request: Request): Promise<Response> {
 		if (request.headers.get("Upgrade")?.toLowerCase() !== "websocket") {
 			return new Response("Expected a WebSocket upgrade", { status: 426 });
+		}
+		// Every event goes to every socket, so the number of sockets is bounded (see limits.ts).
+		if (atCapacity(this.ctx.getWebSockets().length)) {
+			return new Response(capacityMessage(), { status: 503, headers: { "Retry-After": String(RETRY_AFTER_S) } });
 		}
 		const pair = new WebSocketPair();
 		const [client, server] = [pair[0], pair[1]];

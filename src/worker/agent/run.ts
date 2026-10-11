@@ -4,7 +4,7 @@ import type { Assertion, Claim, CommitSha, Intent, IntentId, LedgerDecision, Pre
 import { currentMode, hub, publish, waitTopic } from "../hub/publish";
 import type { IntentApi } from "../intent/client";
 import { IllegalTransition, type IntentAction } from "../intent/machine";
-import { isStalemateAcrossShards, requestClaimsAcrossShards, shardsOf } from "../ledger/client";
+import { isStalemateAcrossShards, renewEverywhere, requestClaimsAcrossShards, shardsOf } from "../ledger/client";
 import { assistantMessage, type LlmClient, type LlmMessage, toolCalls, type ToolResultBlock } from "../ports/llm";
 import type { RepoStore } from "../ports/repo-store";
 import { briefing, NUDGE, SYSTEM_PROMPT, WORK_PHASE_NOTE } from "./prompts";
@@ -109,6 +109,11 @@ async function turn(ctx: ToolContext, deps: AgentDeps, params: Pick<AgentParams,
 	const interrupted = takenOver(intent, params);
 	if (interrupted !== undefined) {
 		return { assistant: { role: "assistant", content: [] }, results: [], stop: "continue", usage: { input: 0, output: 0 }, interrupted };
+	}
+	if (phase === "work" && intent.claims.length > 0) {
+		// A claim lapses ten minutes after it was last renewed, so that a run that dies cannot hold a symbol
+		// for ever. A run that is alive says so before every turn; a slow model then cannot lose its claims mid-work.
+		await renewEverywhere(deps.env, intent.id, shardsOf(intent.claims.map((claim) => claim.symbol)));
 	}
 	const reply = await deps.llm(intent, messages).turn(SYSTEM_PROMPT, [...messages], TOOLS);
 	const assistant = assistantMessage(reply) as TurnResult["assistant"];
@@ -267,8 +272,8 @@ export async function runAgent(deps: AgentDeps, params: AgentParams, steps: Step
 			}
 			const { decision, claims, stalemate } = await steps.do(`claim-${round}`, async () => {
 				const intent = await api.get();
-				if ((await currentMode(env)) === "baseline") {
-					// The comparison run has no ledger: everyone simply edits what they like.
+				if ((await currentMode(env)) !== "premise") {
+					// The comparison runs have no ledger: everyone simply edits what they like.
 					return { decision: { kind: "granted" } as LedgerDecision, claims: intent.claims, stalemate: false };
 				}
 				const answer = await requestClaimsAcrossShards(env, { intentId: intent.id, claims: intent.claims, priority: params.priority ?? DEFAULT_PRIORITY, dependsOn: intent.dependsOn });

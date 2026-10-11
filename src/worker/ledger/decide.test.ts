@@ -113,6 +113,22 @@ describe("decide: several conflicting Intents", () => {
 	});
 });
 
+describe("decide: a third Intent holds something the requester wants", () => {
+	// B holds x and b1, C holds y, A asks for x, y and a1. A Split with B must not give A the y that C holds.
+	const heldBy = [held("b", body(TOTAL)), held("b", body(DISCOUNT)), held("c", body(TAX))];
+
+	it("waits instead of splitting, so no claim changes hands behind the third Intent's back", () => {
+		const decision = decide(request("a", [body(TOTAL), body(TAX), body(NUMBER)]), heldBy);
+		expect(decision.kind).toBe("wait");
+		expect(decision).toMatchObject({ on: "b", symbols: [TOTAL] });
+	});
+
+	it("still splits when only one other Intent is in the way", () => {
+		const decision = decide(request("a", [body(TOTAL), body(NUMBER)]), heldBy);
+		expect(decision).toEqual({ kind: "split", with: "b", proposal: { mine: [NUMBER], theirs: [DISCOUNT, TOTAL].sort() } });
+	});
+});
+
 describe("isStalemate", () => {
 	const split = (intentId: string, other: string): LedgerHistoryEntry => ({ type: "decision", intentId, other, kind: "split" });
 

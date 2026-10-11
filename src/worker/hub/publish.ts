@@ -4,8 +4,12 @@ import type { RegistryRow } from "../metrics";
 
 type HubEnv = Pick<Env, "HUB">;
 
-/** "premise" is the product; "baseline" is what it is compared with in the A/B report (see ab/run.ts). */
-export type RunMode = "premise" | "baseline";
+/**
+ * "premise" is the product. The other two are what it is compared with in the A/B report (see ab/run.ts):
+ * "baseline" lands whatever rebases and typechecks; "queue" is a queue that also runs the tests.
+ */
+export type RunMode = "premise" | "baseline" | "queue";
+export const RUN_MODES: readonly RunMode[] = ["premise", "baseline", "queue"];
 
 /**
  * The EventHub's RPC surface. Declared by hand because the generated stub type maps the array
@@ -18,6 +22,7 @@ export interface HubApi {
 	since(seq: number, limit?: number): Promise<PremiseEvent[]>;
 	reset(): Promise<void>;
 	registry(): Promise<RegistryRow[]>;
+	knows(id: string): Promise<boolean>;
 	asserters(): Promise<string[]>;
 	claimCommit(commit: string): Promise<boolean>;
 	isProcessed(commit: string): Promise<boolean>;
@@ -66,9 +71,10 @@ export async function currentTrunk(env: HubEnv & Pick<Env, "TRUNK_REPO">): Promi
 	return (await hub(env).trunk()) ?? env.TRUNK_REPO;
 }
 
-/** How work lands right now. Anything other than an explicit "baseline" is the product itself. */
+/** How work lands right now. Anything other than an explicit comparison mode is the product itself. */
 export async function currentMode(env: HubEnv): Promise<RunMode> {
-	return (await hub(env).mode().catch(() => "premise" as const)) === "baseline" ? "baseline" : "premise";
+	const mode = await hub(env).mode().catch(() => "premise" as const);
+	return mode === "baseline" || mode === "queue" ? mode : "premise";
 }
 
 /**

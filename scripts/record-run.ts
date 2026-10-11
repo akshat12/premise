@@ -4,8 +4,10 @@
 //       [--workload 300] [--seed 7] [--land-first t01-null-expired] [--timeout-minutes 30] [--attach]
 //
 // It resets the demo, dispatches every task and the scripted workload, waits until nothing is
-// moving, and saves the whole event log. If the agents ran on a real model, their turns are saved
-// next to it (demo/scripts/<name>.json) so the same run can be replayed later with no model.
+// moving, and saves the whole event log, with what each agent's Intent changed (its diff) beside
+// it: a replay has no backend and the forks are gone by then, so the diffs travel in the file
+// (see src/ui/lib/recording.ts). If the agents ran on a real model, their turns are saved next
+// to it (demo/scripts/<name>.json) so the same run can be replayed later with no model.
 // Then cut the idle time out with scripts/compress-run.ts and open /?demo=<name>.
 //
 // Do not run it while a demo you care about is on screen: the first thing it does is reset.
@@ -14,6 +16,8 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
 import type { PremiseEvent } from "../src/shared/events";
 import type { TaskDef } from "../src/shared/types";
+import { type IntentDiff, isIntentDiff } from "../src/ui/lib/diff";
+import { agentIntentIds, formatRecording } from "../src/ui/lib/recording";
 import { arg, flag, worker } from "./lib/admin";
 
 const url = arg("url") ?? process.env.URL ?? "";
@@ -55,6 +59,28 @@ async function allEvents(): Promise<PremiseEvent[]> {
 	}
 }
 
+/**
+ * What each agent's Intent changed, asked for while its fork still exists. The scripted workload
+ * Intents are left out: there are hundreds, and each is a one-line edit nobody reviews.
+ */
+async function agentDiffs(log: readonly PremiseEvent[]): Promise<Record<string, IntentDiff>> {
+	const diffs: Record<string, IntentDiff> = {};
+	for (const id of agentIntentIds(log)) {
+		try {
+			const diff = await api.get<unknown>(`/api/intents/${id}/diff`);
+			if (isIntentDiff(diff) && !diff.unavailable) {
+				diffs[id] = diff;
+			} else {
+				console.log(`No diff for ${id}: its fork could not be read.`);
+			}
+		} catch (error) {
+			// The recording is worth having without it.
+			console.log(`No diff for ${id}: ${error instanceof Error ? error.message : String(error)}`);
+		}
+	}
+	return diffs;
+}
+
 const started = Date.now();
 if (flag("attach")) {
 	// A run is already going (this script was interrupted, or the run was started from the UI):
@@ -94,9 +120,9 @@ for (let quiet = 0; quiet < QUIET_CHECKS; ) {
 }
 
 const events = await allEvents();
+const diffs = await agentDiffs(events);
 mkdirSync(dirname(out), { recursive: true });
-// One event to a line: the file diffs, and is no bigger than it has to be.
-writeFileSync(out, `[\n${events.map((event) => JSON.stringify(event)).join(",\n")}\n]\n`);
+writeFileSync(out, formatRecording({ events, diffs }));
 
 const count = (type: PremiseEvent["t"]) => events.filter((event) => event.t === type).length;
 const ends: Record<string, number> = {};
@@ -113,6 +139,7 @@ for (const status of latest.values()) {
 }
 const span = (events.at(-1)?.ts ?? 0) - (events[0]?.ts ?? 0);
 console.log(`\nSaved ${events.length} events (${Math.round(span / 1000)} s of the run) to ${out}`);
+console.log(`Diffs kept for ${Object.keys(diffs).length} of the ${agentIntentIds(events).length} agents' Intents.`);
 console.log(`Intents: ${[...Object.entries(ends)].map(([status, n]) => `${n} ${status}`).join(", ")}`);
 console.log(`Premises broken: ${count("premise.broken")}. Calls for a person: ${count("human.needed")}.`);
 const waiting = (ends.escalated ?? 0) + (ends.quarantined ?? 0);

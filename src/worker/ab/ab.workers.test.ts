@@ -17,6 +17,7 @@ import { runAbMode } from "./run";
 
 const ADMIN = { "x-admin-token": "test-admin-token", "content-type": "application/json" };
 const T02_REFERENCE = "premise/hidden-tests/t02-audit-expired.test.ts#an expired session writes an audit entry and returns expired";
+const T11_PROBE = "premise/probes/t11-expired-rate-limit.test.ts#a client replaying an expired session is turned away on the fourth request";
 
 async function allEvents(): Promise<PremiseEvent[]> {
 	return hub(env).since(0, 5000);
@@ -29,7 +30,7 @@ async function landingOrder(events: PremiseEvent[]): Promise<string[]> {
 }
 
 describe("the A/B comparison, in memory, with 30 workload Intents", () => {
-	it("the baseline ships the behavioural regressions; Premise, on the same work, ships none", async () => {
+	it("typecheck alone ships all three regressions; a queue with tests ships the one tests miss; Premise ships none", async () => {
 		await using introspector = await introspectWorkflow(env.AGENT_WORKFLOW);
 		const spawn = spawnInProcess(env, getRepoStore(env), { concurrency: 15, backoffMs: 20 });
 		const settle = async () => void (await Promise.all((await introspector.get()).map((instance) => instance.waitForStatus("complete").catch(() => undefined))));
@@ -40,11 +41,13 @@ describe("the A/B comparison, in memory, with 30 workload Intents", () => {
 		const baseEvents = await allEvents();
 		expect(baseline).toMatchObject({ mode: "baseline", n: 30, seed: 7, tasksDispatched: 12, finalTypecheckOk: true, brokenBuildsOnTrunk: 0 });
 		// The t01 change landed first; the three Intents written against the old behaviour then rebased
-		// cleanly, typechecked, and landed. Their reference tests are red on trunk.
+		// cleanly, typechecked, and landed. Two have red reference checks on trunk; the third (t11) has
+		// green ones, because they use a stand-in for the session check, and a red end-to-end probe.
 		expect((await landingOrder(baseEvents))[0]).toBe("t01-null-expired");
 		expect(baseline.behaviouralRegressionsOnTrunk).toBeGreaterThanOrEqual(1);
 		expect(baseline.behaviouralRegressionsOnTrunk).toBe(3);
 		expect(baseline.redReferenceTests).toContain(T02_REFERENCE);
+		expect(baseline.redReferenceTests).toContain(T11_PROBE);
 		expect(baseline.redReferenceTests).toHaveLength(3);
 		expect(baseline.tasksLanded).toBe(12);
 		// It has no ledger, no premises and no re-derive, so none of that happened.
@@ -58,6 +61,27 @@ describe("the A/B comparison, in memory, with 30 workload Intents", () => {
 		expect(baseline.ends.landed + baseline.ends.failed).toBe(42);
 		expect(baseline.claimsLost).toBe(0);
 		expect(await hub(env).mode()).toBe("baseline");
+
+		// ---- A queue that runs tests: rebase, typecheck, the change's tests, its reference checks, trunk's suite.
+		const queue = await runAbMode(env, { mode: "queue", n: 30, seed: 7 }, { spawn, timeoutMs: 180_000, pollMs: 200 });
+		await settle();
+		const queueEvents = await allEvents();
+		expect(queue).toMatchObject({ mode: "queue", n: 30, seed: 7, tasksDispatched: 12, finalTypecheckOk: true, brokenBuildsOnTrunk: 0 });
+		expect((await landingOrder(queueEvents))[0]).toBe("t01-null-expired");
+		// t02 and t03 fail their own tests after the rebase, so the queue turns them away. Nothing redoes them.
+		expect(queue.tasksLanded).toBe(10);
+		expect(queue.rejected.checks).toBe(2);
+		// t11's tests all pass after the rebase, so it lands, and the real path is broken on trunk.
+		expect(queue.behaviouralRegressionsOnTrunk).toBe(1);
+		expect(queue.redReferenceTests).toEqual([T11_PROBE]);
+		// Still no ledger, no premises, no re-derive.
+		expect(queue.premisesBroken).toBe(0);
+		expect(queue.races).toEqual({ started: 0, rebaseWon: 0, rederiveWon: 0, failed: 0 });
+		expect(queueEvents.some((event) => event.t === "claim.decision" || event.t === "premise.broken" || event.t === "rederive.race" || event.t === "push.checked")).toBe(false);
+		// It did run tests: the first agent landing reports its own checks, its reference checks and trunk's suite.
+		const firstLanding = queueEvents.find((event) => event.t === "gate.result" && event.report.ok && event.report.tests.passed.length > 0);
+		expect(firstLanding).toMatchObject({ report: { path: "rebase", reference: { failed: [] }, suite: { failed: [] } } });
+		expect(await hub(env).mode()).toBe("queue");
 
 		// ---- Premise: the same tasks, the same workload, the same order.
 		const premise = await runAbMode(env, { mode: "premise", n: 30, seed: 7 }, { spawn, timeoutMs: 240_000, pollMs: 200 });
@@ -85,10 +109,19 @@ describe("the A/B comparison, in memory, with 30 workload Intents", () => {
 		expect(premise.forksCreated).toBeGreaterThanOrEqual(42);
 		expect(baseline.forksCreated).toBe(42);
 
-		const report = buildReport(baseline, premise);
-		expect(report.headline).toBe(`Baseline shipped 3 behavioural regressions and needed ${baseline.humanMerges} human merge${baseline.humanMerges === 1 ? "" : "s"}; Premise shipped 0 behavioural regressions and needed 0 human merges.`);
+		// All three of the agents' stale Intents needed the re-derive: none was a false positive.
+		expect(premise.agentRaces).toMatchObject({ started: 3, rebaseWon: 0, rederiveWon: 3 });
+		// t11 is the one whose rebase passed every test. Only its premise turned it back.
+		const taskOf = new Map(premEvents.flatMap((event) => (event.t === "intent.created" ? [[event.intent.id, event.intent.taskId] as const] : [])));
+		const t11Rebase = premEvents.find((event) => event.t === "gate.result" && !event.report.ok && taskOf.get(event.report.intentId) === "t11-expired-rate-limit");
+		expect(t11Rebase).toMatchObject({ report: { tests: { failed: [] }, reference: { failed: [] }, suite: { failed: [] }, assertions: { failed: [{ error: expect.stringContaining("SessionExpiredError") }] } } });
+
+		const report = buildReport([{ seed: 7, baseline, queue, premise }]);
+		expect(report.headline).toBe(
+			"A queue that only typechecks shipped 3 behavioural regressions and sent 0 of 12 tasks back to a person; a queue that also runs the tests shipped 1 behavioural regression and sent 2 of 12 tasks back to a person; Premise shipped 0 behavioural regressions and sent 0 of 12 tasks back to a person.",
+		);
 		expect(await landing(env).status()).toMatchObject({ queue: [], stale: [], rederiving: [] });
-	}, 420_000);
+	}, 600_000);
 });
 
 describe("the baseline landing rule", () => {

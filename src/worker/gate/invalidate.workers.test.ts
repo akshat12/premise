@@ -13,7 +13,7 @@ import { gateDeps, landIntent } from "./land";
 
 type Store = ReturnType<typeof seededStore>;
 const VERIFY = "src/auth/session.ts#verifySession";
-const THROWS = "verifySession throws SessionExpiredError on expired tokens";
+const THROWS = "verifySession throws SessionExpiredError for an expired session";
 
 async function waitFor(api: IntentApi, status: Intent["status"], timeoutMs = 10_000): Promise<Intent> {
 	const deadline = Date.now() + timeoutMs;
@@ -158,7 +158,8 @@ describe("invalidation, on the demo scenario", () => {
 		await reader.api.recordPremise({ symbol: VERIFY, source: "observed", surfaceHash: "at-base", state: "holding" });
 		await bystander.api.recordPremise({ symbol: "src/billing/tax.ts#taxFor", source: "observed", surfaceHash: "at-base", state: "holding" });
 
-		const lander = await startIntent(env, store, "t12-password-policy", { acceptance: [] });
+		// Not a real task: the gate would hold a real task's Intent to that task's reference checks.
+		const lander = await startIntent(env, store, "t12-password-policy", { acceptance: [], taskId: "x12-widen-session" });
 		for (const action of [{ a: "claim" }, { a: "granted" }] as const) {
 			await lander.api.act(action);
 		}

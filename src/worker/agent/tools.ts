@@ -5,6 +5,7 @@ import type { Assertion, Claim, CommitSha, Intent, IntentId, Premise, SymbolId }
 import { landing } from "../gate/client";
 import { currentMode } from "../hub/publish";
 import { judgeStanding, planStanding, type Standing, standingRequest } from "../gate/standing";
+import { suiteTests } from "../gate/suite";
 import type { IntentApi } from "../intent/client";
 import type { ToolDef } from "../ports/llm";
 import { applyChanges } from "../ports/memory-repo-store";
@@ -343,7 +344,10 @@ export async function runChecks(ctx: ToolContext, intent: Intent): Promise<Check
 	const tests = intent.acceptance.map((check) => ({ file: check.testFile, name: check.testName }));
 	const plan = planStanding(await ctx.standing(), intent, (await ctx.base()).files, files);
 	const extra = standingRequest(plan);
-	const run = await runInIsolate(ctx.env, { files, tests: [...tests, ...extra.tests], assertions: [...assertions, ...extra.assertions] });
+	// The gate also runs every test already in the repo, so the agent hears about one it broke here, not there.
+	// (It does not see the task's reference checks: those stay out of its reach until the gate.)
+	const suite = suiteTests(files, [...tests, ...extra.tests, ...plan.tampered]);
+	const run = await runInIsolate(ctx.env, { files, tests: [...tests, ...extra.tests, ...suite], assertions: [...assertions, ...extra.assertions] });
 	const lines = ["Typecheck: passed"];
 	run.tests.slice(0, tests.length).forEach((test, index) => {
 		lines.push(`${test.ok ? "PASS" : "FAIL"}  ${intent.acceptance[index]?.id ?? "test"}  ${test.file} > ${JSON.stringify(test.name)}${test.ok ? "" : `\n      ${test.error ?? "failed"}`}`);
@@ -353,7 +357,7 @@ export async function runChecks(ctx: ToolContext, intent: Intent): Promise<Check
 		lines.push(`${assertion.ok ? "HOLDS " : "BROKEN"}  premise ${assertion.id}${assertion.ok ? "" : `\n      ${assertion.error ?? "failed"}`}`);
 	}
 	// Work that has already landed: say nothing unless this change would break it.
-	const landed = run.loadError === undefined ? judgeStanding(plan, { tests: run.tests.slice(tests.length), assertions: run.assertions.slice(assertions.length) }).failures : [];
+	const landed = run.loadError === undefined ? judgeStanding(plan, { tests: run.tests.slice(tests.length, tests.length + extra.tests.length), assertions: run.assertions.slice(assertions.length) }).failures : [];
 	for (const failure of landed) {
 		for (const test of failure.tests) {
 			lines.push(`FAIL  landed Intent ${failure.intentId}  ${JSON.stringify(test.name)}\n      ${test.error}`);
@@ -362,7 +366,14 @@ export async function runChecks(ctx: ToolContext, intent: Intent): Promise<Check
 			lines.push(`      That Intent relied on: ${failure.relied.join("; ")}. Update the code that depended on it; do not edit its test.`);
 		}
 	}
-	const ok = run.loadError === undefined && run.tests.slice(0, tests.length).every((test) => test.ok) && own.every((assertion) => assertion.ok) && landed.length === 0;
+	const existing = run.tests.slice(tests.length + extra.tests.length).filter((test) => !test.ok);
+	for (const test of existing.slice(0, 8)) {
+		lines.push(`FAIL  already in the repo  ${test.file} > ${JSON.stringify(test.name)}\n      ${test.error ?? "failed"}`);
+	}
+	if (existing.length > 0) {
+		lines.push(`      ${existing.length === 1 ? "That test was" : `Those ${existing.length} tests were`} passing before your change. Fix your change; existing test files cannot be edited.`);
+	}
+	const ok = run.loadError === undefined && run.tests.slice(0, tests.length).every((test) => test.ok) && own.every((assertion) => assertion.ok) && landed.length === 0 && existing.length === 0;
 	lines.push(ok ? "All checks passed. You can submit." : "Not all checks pass yet.");
 	return { ok, text: lines.join("\n") };
 }
@@ -431,7 +442,7 @@ export function createToolContext(env: AgentEnv, store: RepoStore, intent: Inten
 		phase: "plan",
 		recorded: new Set(),
 		// If the gate cannot be asked, the agent simply finds out at the gate instead.
-		standing: standing ?? (async () => (env.LANDING === undefined || (await currentMode(env)) === "baseline" ? [] : landing({ LANDING: env.LANDING }).standing().catch(() => []))),
+		standing: standing ?? (async () => (env.LANDING === undefined || (await currentMode(env)) !== "premise" ? [] : landing({ LANDING: env.LANDING }).standing().catch(() => []))),
 		base() {
 			base ??= (async () => {
 				const record = await intent.get();

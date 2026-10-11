@@ -1218,3 +1218,22 @@ button.tape-label:focus-visible {
 		transition: none;
 	}
 }
+
+/* The replay's caption: one plain sentence under the bar saying what the screen is showing. */
+.caption {
+	margin: 0;
+	padding: 7px 16px;
+	background: #fff;
+	border-bottom: 1px solid var(--rule);
+	font-size: 14px;
+	line-height: 20px;
+	color: var(--ink);
+	min-height: 35px;
+}
+@media (max-width: 767px) {
+	.caption {
+		padding: 6px 12px;
+		font-size: 13px;
+		line-height: 18px;
+	}
+}

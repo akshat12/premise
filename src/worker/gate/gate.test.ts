@@ -6,7 +6,7 @@ import { type FileChanges, type FileMap, StaleHeadError } from "../ports/repo-st
 import type { RunRequest, RunResult } from "../runner";
 import { surface, typecheck } from "../surface";
 import { demoFiles, referencePatch } from "../testing/demo";
-import { changesBetween, describeFailure, gateBatch, type GateDeps, gateOne, landingMessage } from "./gate";
+import { changesBetween, describeFailure, gateBatch, type GateDeps, gateOne, landingMessage, REFERENCE_TAMPERED } from "./gate";
 import type { Standing } from "./standing";
 
 // A small repo where every answer is easy to see.
@@ -422,5 +422,88 @@ describe("helpers", () => {
 	it("changesBetween lists edits, additions and deletions", () => {
 		expect(changesBetween({ a: "1", b: "2", c: "3" }, { a: "1", b: "two", d: "4" })).toEqual({ b: "two", c: null, d: "4" });
 		expect(changesBetween({ a: "1" }, { a: "1" })).toEqual({});
+	});
+});
+
+describe("gateOne: what the agent cannot write", () => {
+	const REFERENCE = "premise/hidden-tests/t-test.test.ts";
+	const WITH_REFERENCE: FileMap = { ...REPO, [REFERENCE]: 'export const tests = { "adds": () => {} };\n', "tests/label.test.ts": 'export const tests = { "labels an item": () => {}, "labels nothing": () => {} };\n' };
+	const failing = (file: string, name: string, error: string) => (req: RunRequest): RunResult => ({
+		tests: req.tests.map((test) => (test.file === file && test.name === name ? { ...test, ok: false, error, ms: 1 } : { ...test, ok: true, ms: 1 })),
+		assertions: [],
+	});
+
+	it("runs the task's reference checks from trunk and every test already on trunk, and reports them apart from its own", async () => {
+		const h = harness(WITH_REFERENCE);
+		const intent = await h.intentWith({ "src/label.ts": 'export function label(name: string): string {\n\treturn "thing " + name;\n}\n' });
+		const { report } = await gateOne(h.deps, intent, "rebase");
+		expect(report.ok).toBe(true);
+		expect(h.runs[0]?.tests).toEqual([
+			{ file: "tests/math.test.ts", name: "adds" },
+			{ file: REFERENCE, name: "adds" },
+			{ file: "tests/label.test.ts", name: "labels an item" },
+			{ file: "tests/label.test.ts", name: "labels nothing" },
+		]);
+		expect(report.tests.passed).toEqual(["adds"]);
+		expect(report.reference).toEqual({ passed: ["adds"], failed: [] });
+		expect(report.suite).toEqual({ passed: 2, failed: [] });
+	});
+
+	it("does not land work whose own test passes but whose reference check fails", async () => {
+		const h = harness(WITH_REFERENCE);
+		h.state.runner = failing(REFERENCE, "adds", "expected 3, got 4");
+		const before = await h.store.head("trunk");
+		const intent = await h.intentWith({ "tests/math.test.ts": 'export const tests = { "adds": () => {} };\n' });
+		const { report } = await gateOne(h.deps, intent, "rebase");
+		expect(report.ok).toBe(false);
+		expect(report.tests).toEqual({ passed: ["adds"], failed: [] });
+		expect(report.reference?.failed).toEqual([{ name: "adds", error: "expected 3, got 4" }]);
+		expect(describeFailure(report)).toBe('Reference check failed on the new trunk: "adds": expected 3, got 4');
+		expect(await h.store.head("trunk")).toBe(before);
+	});
+
+	it("does not land work that changes the reference file, and does not run the changed copy", async () => {
+		const h = harness(WITH_REFERENCE);
+		const intent = await h.intentWith({ [REFERENCE]: 'export const tests = { "adds": () => { /* easier */ } };\n' });
+		const { report } = await gateOne(h.deps, intent, "rebase");
+		expect(report.ok).toBe(false);
+		expect(report.reference?.failed).toEqual([{ name: "adds", error: REFERENCE_TAMPERED }]);
+		expect(h.runs.every((run) => !run.tests.some((test) => test.file === REFERENCE))).toBe(true);
+	});
+
+	it("does not land work that breaks a test already on trunk", async () => {
+		const h = harness(WITH_REFERENCE);
+		h.state.runner = failing("tests/label.test.ts", "labels an item", 'expected "item a", got "thing a"');
+		const intent = await h.intentWith({ "src/label.ts": 'export function label(name: string): string {\n\treturn "thing " + name;\n}\n' });
+		const { report } = await gateOne(h.deps, intent, "rebase");
+		expect(report.ok).toBe(false);
+		expect(report.suite).toEqual({ passed: 1, failed: [{ name: "tests/label.test.ts: labels an item", error: 'expected "item a", got "thing a"' }] });
+		expect(describeFailure(report)).toBe('Breaks a test that is already on trunk: "tests/label.test.ts: labels an item": expected "item a", got "thing a"');
+	});
+
+	it("runs no tests of any kind for the comparison rule that lands on typecheck alone", async () => {
+		const h = harness(WITH_REFERENCE);
+		const intent = await h.intentWith({ "README.md": "# shop!\n" });
+		const { report } = await gateOne(h.deps, intent, "baseline", { skipTests: true, skipAssertions: true });
+		expect(report.ok).toBe(true);
+		expect(h.runs).toEqual([]);
+		expect(report.reference).toBeUndefined();
+		expect(report.suite).toBeUndefined();
+	});
+
+	it("runs trunk's tests once for a batch, and lands none of it if one breaks", async () => {
+		const h = harness(WITH_REFERENCE);
+		const members = [await h.intentWith({ "README.md": "# shop 1\n" }, { acceptance: [], kind: "workload" }), await h.intentWith({ "src/label.ts": 'export function label(name: string): string {\n\treturn "thing " + name;\n}\n' }, { acceptance: [], kind: "workload" })];
+		const landed = await gateBatch(h.deps, members);
+		expect(landed.landed?.members).toHaveLength(2);
+		expect(h.runs).toHaveLength(1);
+		expect(landed.landed?.reports[0]?.suite).toEqual({ passed: 2, failed: [] });
+
+		const again = harness(WITH_REFERENCE);
+		again.state.runner = failing("tests/label.test.ts", "labels nothing", "boom");
+		const more = [await again.intentWith({ "README.md": "# shop 2\n" }, { acceptance: [], kind: "workload" }), await again.intentWith({ "README.md": "# shop 3\n", "src/label.ts": 'export function label(name: string): string {\n\treturn name;\n}\n' }, { acceptance: [], kind: "workload" })];
+		const outcome = await gateBatch(again.deps, more);
+		expect(outcome.landed).toBeNull();
+		expect(outcome.reason).toContain('breaks a test that is already on trunk: "tests/label.test.ts: labels nothing"');
 	});
 });

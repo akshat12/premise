@@ -2,6 +2,7 @@
 // much was cut, and finding the moments worth jumping to. Used by scripts/compress-run.ts and
 // by the player.
 import type { PremiseEvent } from "../../shared/events";
+import { callsign, OUTSIDE, symbolName } from "./view";
 
 /** A stretch with no events longer than this is cut. */
 export const MAX_GAP_MS = 4000;
@@ -160,4 +161,68 @@ export function nextStop(events: readonly PremiseEvent[], position: number): num
 		end++;
 	}
 	return end + 1;
+}
+
+const and = (items: readonly string[]) => (items.length <= 1 ? (items[0] ?? "") : `${items.slice(0, -1).join(", ")} and ${items.at(-1)}`);
+const COUNT_WORDS = ["", "", "Both", "All three", "All four", "All five"];
+
+/**
+ * One sentence about what a replay is showing: the latest key moment among the first `position`
+ * events, said in plain words, or how to step through the recording when there has been none yet.
+ * It is what a visitor with no README beside them reads.
+ */
+export function captionAt(events: readonly PremiseEvent[], position: number): string {
+	const names = new Map<string, string>();
+	const workload = new Set<string>();
+	let lastMetrics = -1;
+	for (const [index, event] of events.entries()) {
+		if (event.t === "intent.created") {
+			names.set(event.intent.id, callsign(event.intent));
+			if (event.intent.kind === "workload") {
+				workload.add(event.intent.id);
+			}
+		} else if (event.t === "metrics") {
+			lastMetrics = index;
+		}
+	}
+	const named = (id: string) => (workload.has(id) ? "a workload Intent" : (names.get(id) ?? id));
+	const agents = names.size - workload.size;
+
+	for (let index = Math.min(position, events.length) - 1; index >= 0; index--) {
+		const event = events[index] as PremiseEvent;
+		if ("id" in event && (event.t === "premise.broken" || event.t === "rederive.race" || event.t === "human.needed") && workload.has(event.id)) {
+			continue;
+		}
+		const kind = momentKind(event, index === lastMetrics);
+		if (kind === null) {
+			continue;
+		}
+		if (event.t === "demo.marker") {
+			return `${event.label.replace(/^\S+\s*/, "").replace(" compressed", "")} of idle time was cut out of the recording here. Nothing else is edited.`;
+		}
+		if (event.t === "premise.broken") {
+			// Everything the same landing broke, among the agents' Intents shown so far.
+			const same = events.slice(0, position).filter((other) => other.t === "premise.broken" && other.commit === event.commit && !workload.has(other.id));
+			const symbols = [...new Set(same.map((other) => (other.t === "premise.broken" ? symbolName(other.symbol) : "")))];
+			const rows = [...new Set(same.map((other) => ("id" in other ? other.id : "")))].map(named).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+			const who = event.byIntent === OUTSIDE ? "A push to trunk from outside the gate" : `${named(event.byIntent).replace(/^a /, "A ")} landed and`;
+			const stopped = rows.length === 1 ? "It is stopped until its work is redone." : `${COUNT_WORDS[rows.length] ?? `All ${rows.length}`} are stopped until their work is redone.`;
+			return `${who} changed ${and(symbols)}. ${and(rows)} had recorded that ${rows.length === 1 ? "it relies" : "they rely"} on it. ${stopped}`;
+		}
+		if (event.t === "rederive.race") {
+			return event.winner === "rebase"
+				? `${named(event.id)}: a plain rebase passed the gate and landed. Nothing had to be redone.`
+				: `${named(event.id)}: ${event.rebase === "fail" ? "a plain rebase did not pass the gate. " : ""}Its agent redid the work on the new trunk (a re-derive), and that passed the gate and landed.`;
+		}
+		if (event.t === "human.needed") {
+			return event.kind === "stalemate"
+				? `${named(event.id)} edited a symbol another Intent is changing, and is held. A person may choose ${and(event.options).replace(/ and ([^ ]+)$/, " or $1")}; if nobody does, it is settled when the other Intent lands.`
+				: `${named(event.id)}: its re-derive failed twice, so it is waiting for a person to choose ${and(event.options).replace(/ and ([^ ]+)$/, " or $1")}.`;
+		}
+		if (event.t === "metrics") {
+			const m = event.metrics;
+			return `The run is over: ${m.intentsLanded} Intents landed, ${m.brokenBuildsOnTrunk} broken builds on trunk, ${m.humanMerges} human merges.`;
+		}
+	}
+	return `A recorded run on real Artifacts: ${agents} ${agents === 1 ? "agent" : "agents"}${workload.size > 0 ? ` and ${workload.size} scripted workload Intents` : ""}, each on its own fork. Step through the key moments with "Next moment" or the → key.`;
 }

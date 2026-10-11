@@ -13,7 +13,7 @@ export async function handOff(env: HandOffEnv, intent: Intent, _commit: CommitSh
 	if (intent.status !== "submitted" && intent.status !== "rederiving") {
 		return; // the Intent moved on while the agent was pushing
 	}
-	if ((await currentMode(env)) === "baseline") {
+	if ((await currentMode(env)) !== "premise") {
 		await straightToGate(env, intent, deps);
 		return;
 	}
@@ -21,7 +21,7 @@ export async function handOff(env: HandOffEnv, intent: Intent, _commit: CommitSh
 }
 
 /**
- * The comparison run (A/B baseline) has no post-push checker: nothing was claimed, so there is
+ * A comparison run (the A/B report's baseline or queue) has no post-push checker: nothing was claimed, so there is
  * nothing to check the push against. The push goes straight to the gate's queue.
  */
 export async function straightToGate(env: HandOffEnv, intent: Intent, deps: CheckerDeps = { enqueue: gateEnqueue(env) }): Promise<void> {

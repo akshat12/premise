@@ -57,7 +57,7 @@ const AUTHENTICATE_ON_TRUNK = `export function authenticate(request: ApiRequest,
 }`;
 
 const GUARD_TAIL_ON_TRUNK = `	try {
-		return { allowed: true, session: verifySession(token, deps.sessions, deps.now) };
+		return { allowed: true, session: verify(token, deps.sessions, deps.now) };
 	} catch (e) {
 		if (e instanceof SessionExpiredError) {
 			return { allowed: true, session: null };
@@ -151,7 +151,7 @@ export const SOLUTIONS: Solution[] = [
 		id: "t03-rederived",
 		task: "t03-expired-metrics",
 		appliesOn: "t01",
-		summary: "Same goal after t01: detect expiry from the stored session.",
+		summary: "Same goal after t01: verifySession no longer throws, so also detect expiry from the stored session.",
 		edits: [
 			{
 				file: "src/api/handlers.ts",
@@ -182,7 +182,7 @@ export const SOLUTIONS: Solution[] = [
 		id: "t11",
 		task: "t11-expired-rate-limit",
 		appliesOn: "trunk",
-		summary: "Limiter hit in the catch branch: relies on verifySession throwing.",
+		summary: "Limiter hit in the catch branch: relies on the session check throwing, which in production is verifySession.",
 		edits: [
 			{
 				file: "src/auth/rate-limit.ts",
@@ -201,14 +201,24 @@ export const SOLUTIONS: Solution[] = [
 			{
 				file: "src/auth/rate-limit.ts",
 				find: SESSION_IMPORT_IN_RATE_LIMIT,
-				replace: 'import { isExpired, type Session, type SessionStore, verifySession } from "./session.js";',
+				replace: 'import { isExpired, type Session, SessionExpiredError, type SessionStore, verifySession } from "./session.js";',
 			},
 			{
 				file: "src/auth/rate-limit.ts",
 				find: GUARD_TAIL_ON_TRUNK,
-				replace: `	const session = verifySession(token, deps.sessions, deps.now);
+				replace: `	let session: Session | null;
+	try {
+		session = verify(token, deps.sessions, deps.now);
+	} catch (e) {
+		if (e instanceof SessionExpiredError) {
+			// A verifier that still reports expiry by throwing.
+			deps.limiter.hit(clientKey, deps.now());
+			return { allowed: true, session: null };
+		}
+		throw e;
+	}
 	if (session === null && token !== undefined) {
-		// verifySession reports an expired session as null, so check the stored session ourselves.
+		// verifySession now reports an expired session as null, so look at the stored session ourselves.
 		const stored = deps.sessions.get(token);
 		if (stored !== undefined && isExpired(stored, deps.now)) {
 			deps.limiter.hit(clientKey, deps.now());
