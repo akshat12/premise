@@ -43,7 +43,8 @@
 					],
 					"why": [
 						"applyDiscounts takes the largest percentage and the largest fixed discount only."
-					]
+					],
+					"no_behaviour": true
 				}
 			}
 		],

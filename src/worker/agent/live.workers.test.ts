@@ -9,6 +9,7 @@
 // The provider's key is read from the shell or from .dev.vars (vitest.config.ts forwards it).
 // Optional: LIVE_TASK takes several ids separated by commas and runs them at the same moment;
 // LIVE_EFFORT sets the reasoning effort; LIVE_DEADLINE_S (default 900) bounds each run;
+// LIVE_LIBRARY=off removes the repo's assertion library, so the model has nothing to adopt;
 // LIVE_FILES=1 also prints the files the agent wrote; LIVE_HINT adds one hint line to each task's
 // briefing, to try a wording against a real model before it goes into tasks.json or the prompt.
 //
@@ -183,7 +184,13 @@ describe.skipIf(provider === "")("live: an agent run with the provider named by 
 			const originalFetch = globalThis.fetch;
 			// The adapter looks `fetch` up when it is called, so this is seen without changing the adapter.
 			globalThis.fetch = countingFetch(originalFetch.bind(globalThis), stats);
-			const store = seededStore(withHint(demoFiles(), vars.LIVE_HINT));
+			// LIVE_LIBRARY=off takes the repo's assertion library away, so the briefing offers nothing to adopt:
+			// whatever the model asserts, it thought of and wrote itself.
+			const seeded = { ...withHint(demoFiles(), vars.LIVE_HINT) };
+			if (vars.LIVE_LIBRARY === "off") {
+				delete seeded["premise/assertions.json"];
+			}
+			const store = seededStore(seeded);
 			try {
 				const results = await Promise.all(
 					taskIds.map(async (taskId) => {
@@ -225,6 +232,8 @@ describe.skipIf(provider === "")("live: an agent run with the provider named by 
 							status: intent.status,
 							claims: intent.claims,
 							asserted: intent.premises.filter((premise) => premise.source === "asserted").map((premise) => premise.assertion?.id ?? premise.symbol),
+							assertions: intent.premises.filter((premise) => premise.source === "asserted").map((premise) => ({ symbol: premise.symbol, description: premise.assertion?.description ?? "", code: clip(premise.assertion?.code ?? "", 400) })),
+							library: vars.LIVE_LIBRARY === "off" ? "off" : "on",
 							written,
 							overwrote: written.filter((path) => trunk[path] !== undefined && !claimedPaths.has(path)),
 							reference,

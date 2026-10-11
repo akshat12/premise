@@ -61,3 +61,21 @@ export function markBroken(premises: readonly Premise[], symbol: SymbolId, by: B
 export function premisesForRederive(premises: readonly Premise[]): Premise[] {
 	return premises.filter((premise) => premise.source === "asserted" && premise.state === "holding");
 }
+
+/**
+ * An Intent cannot rely on how a symbol behaves and also change that symbol: the assertion would
+ * be about the code it is replacing, and its own change would break it. So when an Intent declares
+ * what it will change, its assertions about those symbols are withdrawn. What it read stays.
+ */
+export function withdrawOwn(premises: readonly Premise[], changing: Iterable<SymbolId>): { kept: Premise[]; withdrawn: Premise[] } {
+	const own = new Set(changing);
+	// An assertion is also about a symbol when its code calls it, whichever symbol it was filed under.
+	const calls = [...own].map((symbol) => new RegExp(`(^|[^A-Za-z0-9_$])${(symbol.split("#")[1] ?? "").replace(/[$]/g, "\\$")}\\s*\\(`));
+	const exercisesOwn = (premise: Premise) => own.has(premise.symbol) || (premise.assertion !== undefined && calls.some((call) => call.test(premise.assertion?.code ?? "")));
+	const kept: Premise[] = [];
+	const withdrawn: Premise[] = [];
+	for (const premise of premises) {
+		(premise.source === "asserted" && exercisesOwn(premise) ? withdrawn : kept).push(premise);
+	}
+	return { kept, withdrawn };
+}

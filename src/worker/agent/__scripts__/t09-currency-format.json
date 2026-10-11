@@ -39,7 +39,8 @@
 					],
 					"why": [
 						"formatMoney uses each currency's own number of decimals."
-					]
+					],
+					"no_behaviour": true
 				}
 			}
 		],

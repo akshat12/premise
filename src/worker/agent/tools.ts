@@ -6,6 +6,8 @@ import { landing } from "../gate/client";
 import { currentMode } from "../hub/publish";
 import { judgeStanding, planStanding, type Standing, standingRequest } from "../gate/standing";
 import { suiteTests } from "../gate/suite";
+import { withdrawOwn } from "../intent/premises";
+import { functionsCalled, tidyAssertion } from "./assertion-input";
 import type { IntentApi } from "../intent/client";
 import type { ToolDef } from "../ports/llm";
 import { applyChanges } from "../ports/memory-repo-store";
@@ -37,6 +39,8 @@ export interface ToolContext {
 	recorded: Set<string>;
 	/** The checks landed Intents left behind, which the gate will run on this work too. */
 	standing(): Promise<Standing[]>;
+	/** Assertions that were withdrawn when the agent declared its changes, because they were about a symbol it is changing. */
+	withdrawn: string[];
 }
 
 export interface ToolOutcome {
@@ -47,6 +51,14 @@ export interface ToolOutcome {
 }
 
 export class ToolError extends Error {}
+
+/** What declare_changes answers when the agent has asserted nothing and has not said that it relies on no behaviour. */
+export const ASK_BEHAVIOUR = [
+	"Not declared yet. First: does your plan depend on how any function you are NOT changing behaves, beyond its types?",
+	"Examples: your new code sits in a catch block, so it depends on a function throwing; it branches on null, so it depends on a function returning null for some input; it reads a value another function is expected to have written.",
+	"If yes, call assert_premise for each such behaviour first: a description, a few lines of code that call that function and pass on the current code, and the files they import. Assert only about functions you will leave alone, never about the one you are about to change. Then call declare_changes again.",
+	'If no, call declare_changes again with "no_behaviour": true.',
+].join("\n");
 
 const MAX_RESULT_CHARS = 60_000;
 const MAX_FILE_CHARS = 200_000;
@@ -70,8 +82,8 @@ export const TOOLS: ToolDef[] = [
 			{
 				adopt: str("Id of a pre-written assertion to adopt."),
 				description: str("One line saying what must stay true."),
-				code: str("Statements that throw if the behaviour does not hold. No import statements."),
-				imports: { type: "array", items: { type: "string" }, description: 'Repo files whose exports the code uses, e.g. ["src/auth/session.ts"].' },
+				code: str("Statements that throw if the behaviour does not hold, e.g. assert.throws(() => f(x), SomeError). The body of an async function: no import statements."),
+				imports: { type: "array", items: { type: "string" }, description: 'Repo files whose exports the code uses, e.g. ["src/auth/session.ts"]. Their exports are in scope by name.' },
 				symbol: str("Optional. The symbol this is about, as <path>#<exportName>."),
 			},
 			[],
@@ -88,6 +100,7 @@ export const TOOLS: ToolDef[] = [
 				},
 				why: { type: "array", items: { type: "string" }, description: "At most three short lines on why you are doing it this way." },
 				rejected: { type: "array", items: { type: "string" }, description: "Optional. Alternatives you considered and set aside." },
+				no_behaviour: { type: "boolean", description: "Set true only if you have called assert_premise for nothing because your plan depends on no behaviour of code you are not changing." },
 			},
 			["claims", "why"],
 		),
@@ -227,15 +240,33 @@ async function assertPremise(ctx: ToolContext, input: Record<string, unknown>): 
 		}
 		assertion = found;
 	} else {
-		if (typeof input.description !== "string" || typeof input.code !== "string" || !Array.isArray(input.imports) || input.imports.some((path) => typeof path !== "string")) {
-			throw new ToolError('Give either { "adopt": "<id>" } or all of description (string), code (string) and imports (array of file paths).');
+		const listed = input.imports === undefined ? [] : input.imports;
+		if (typeof input.description !== "string" || typeof input.code !== "string" || !Array.isArray(listed) || listed.some((path) => typeof path !== "string")) {
+			throw new ToolError('Give either { "adopt": "<id>" } or description (string), code (string) and imports (array of repo file paths, e.g. ["src/auth/session.ts"]).');
+		}
+		// Import statements in the code are read for what they mean and removed (see assertion-input.ts).
+		const tidy = tidyAssertion(input.code, (listed as string[]).map(normalizeImportPath), files);
+		if (tidy.unknown.length > 0) {
+			throw new ToolError(`The code imports ${tidy.unknown.map((specifier) => `"${specifier}"`).join(", ")}, which is not a file in the repo. Do not write import statements: list repo files in imports (e.g. ["src/auth/session.ts"]) and use their exports by name.`);
+		}
+		if (tidy.imports.length === 0) {
+			throw new ToolError('imports is empty. List the repo files whose exports the code uses, e.g. ["src/auth/session.ts"]. Those exports are then in scope by name; do not write import statements.');
 		}
 		const taken = new Set(intent.premises.flatMap((premise) => (premise.assertion ? [premise.assertion.id] : [])));
 		let n = taken.size + 1;
 		while (taken.has(`a${n}`)) {
 			n++;
 		}
-		assertion = { id: `a${n}`, description: input.description.trim(), code: input.code, imports: (input.imports as string[]).map(normalizeImportPath) };
+		const missing = tidy.imports.filter((path) => files[path] === undefined);
+		if (missing.length > 0) {
+			throw new ToolError(`assertion imports a file that does not exist: ${missing.join(", ")}`);
+		}
+		if (functionsCalled(tidy.code, tidy.imports, files).length === 0) {
+			throw new ToolError(
+				"This check calls no function from the files it imports, so it would pass whatever they do, and cannot tell you when their behaviour changes. Call the function you depend on with an input that shows the behaviour, and check what it does. For example, to rely on a function throwing: assert.throws(() => theFunction(inputThatShouldFail), TheError).",
+			);
+		}
+		assertion = { id: `a${n}`, description: input.description.trim(), code: tidy.code, imports: tidy.imports };
 	}
 
 	const generated = assertionSource(assertion, files);
@@ -245,7 +276,10 @@ async function assertPremise(ctx: ToolContext, input: Record<string, unknown>): 
 	// A premise has to be true when it is recorded, or it could never break.
 	const [result] = (await runInIsolate(ctx.env, { files, tests: [], assertions: [assertion] })).assertions;
 	if (result === undefined || !result.ok) {
-		throw new ToolError(`This assertion does not hold on the current code, so it cannot be a premise: ${result?.error ?? "it did not run"}`);
+		const error = result?.error ?? "it did not run";
+		// A syntax error is about how the check is written, not about the code it checks. Say what the body may contain.
+		const how = /SyntaxError|does not parse|is not defined|No such module/.test(error) ? " The code is the body of an async function: no import or export statements, no type annotations beyond plain TypeScript; `assert` (ok, eq, deepEq, throws) and every export of the files in imports are already in scope by name." : "";
+		throw new ToolError(`This assertion does not hold on the current code, so it cannot be a premise: ${error}.${how}`);
 	}
 
 	const symbol = typeof input.symbol === "string" && input.symbol.includes("#") ? input.symbol.trim() : assertionSymbol(assertion, files);
@@ -292,6 +326,13 @@ export function parseDeclaration(input: Record<string, unknown>): { claims: Clai
 async function declareChanges(ctx: ToolContext, input: Record<string, unknown>): Promise<ToolOutcome> {
 	requirePhase(ctx, "plan", "declare_changes");
 	const { claims, why, rejected } = parseDeclaration(input);
+	const before = await ctx.intent.get();
+	// The one question every plan is asked before it is accepted. An agent that has asserted nothing must
+	// say that it relies on no behaviour, which makes it look; most missing premises are ones nobody thought about.
+	if (input.no_behaviour !== true && !before.premises.some((premise) => premise.source === "asserted")) {
+		throw new ToolError(ASK_BEHAVIOUR);
+	}
+	ctx.withdrawn = withdrawOwn(before.premises, claims.map((claim) => claim.symbol)).withdrawn.map((premise) => `"${premise.assertion?.description ?? premise.symbol}" (about ${premise.symbol})`);
 	await ctx.intent.setClaims(claims);
 	await ctx.intent.setWhy(why);
 	for (const alternative of rejected) {
@@ -441,6 +482,7 @@ export function createToolContext(env: AgentEnv, store: RepoStore, intent: Inten
 		store,
 		phase: "plan",
 		recorded: new Set(),
+		withdrawn: [],
 		// If the gate cannot be asked, the agent simply finds out at the gate instead.
 		standing: standing ?? (async () => (env.LANDING === undefined || (await currentMode(env)) !== "premise" ? [] : landing({ LANDING: env.LANDING }).standing().catch(() => []))),
 		base() {

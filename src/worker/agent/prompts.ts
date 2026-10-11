@@ -8,8 +8,9 @@ The work has two phases.
 
 Plan phase (you start here):
 - Read what you need with list_files, read_file, search_symbols and read_symbol. Reading tells the platform what your work relies on, so read what matters and not more.
-- If your plan depends on how something behaves, not just on its types, call assert_premise. Example: you will add code to a catch block, so you rely on a function throwing. The platform re-checks your assertions whenever trunk changes underneath you.
-- Then call declare_changes with the smallest set of exported symbols you will change. Use mode "interface" only if you will change an exported signature or type, or add a new export. Otherwise use "body". Write at most three short "why" lines. Test files are not declared.
+- If your plan depends on how a function you are not changing behaves, not just on its types, call assert_premise for it. Examples: you will add code to a catch block, so you rely on a function throwing; you will branch on null, so you rely on it returning null for some input. Write the check yourself: a few lines that pass on the code as it is now. The platform re-checks your assertions whenever trunk changes underneath you, and tells you if one stops holding. Tests that use a stand-in for that function cannot tell you this.
+- Then call declare_changes. If you asserted nothing, pass "no_behaviour": true to say your plan depends on no such behaviour.
+- In declare_changes, give the smallest set of exported symbols you will change. Use mode "interface" only if you will change an exported signature or type, or add a new export. Otherwise use "body". Write at most three short "why" lines. Test files are not declared.
 
 Work phase (after declare_changes is granted):
 - Change files with write_file, which takes the complete new content of a file.

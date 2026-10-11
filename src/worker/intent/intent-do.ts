@@ -8,7 +8,7 @@ import type { FileChanges } from "../ports/repo-store";
 import { capture, type RpcResult } from "../rpc";
 import { INTENT_METHODS } from "./client";
 import { CAN_GO_STALE, type IntentAction, transition } from "./machine";
-import { type BreakScope, type BrokenBy, markBroken, premisesForRederive, upsertPremise } from "./premises";
+import { type BreakScope, type BrokenBy, markBroken, premisesForRederive, upsertPremise, withdrawOwn } from "./premises";
 
 export const MAX_WHY_LINES = 3;
 
@@ -141,8 +141,10 @@ export class IntentDO extends DurableObject<Env> {
 		return { broken: true, intent: saved };
 	}
 
+	/** Sets what the Intent will change. Its assertions about those same symbols are withdrawn (see `withdrawOwn`). */
 	async setClaims(claims: Claim[]): Promise<Intent> {
-		return this.save({ ...this.load(), claims });
+		const intent = this.load();
+		return this.save({ ...intent, claims, premises: withdrawOwn(intent.premises, claims.map((claim) => claim.symbol)).kept });
 	}
 
 	/** Why the agent is doing it this way. At most three lines are kept. */

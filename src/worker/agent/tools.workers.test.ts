@@ -131,11 +131,23 @@ describe("assert_premise", () => {
 		expect((await api.get()).premises.map((premise) => premise.assertion?.id)).toEqual(["a1", "a2"]);
 	});
 
+	it("accepts a check that carries its own import statements, reading them as the files to import", async () => {
+		const { call, api } = await setup();
+		const code = 'import { SessionExpiredError, verifySession } from "../auth/session.js";\nimport * as stores from "./src/store/memory-store.ts";\nconst store = stores.createMemorySessionStore([{ id: "s1", userId: "u1", expiresAt: 0 }]);\nassert.throws(() => verifySession("s1", store, () => 10), SessionExpiredError);';
+		const result = await call("assert_premise", { description: "verifySession throws on expiry", code });
+		expect(result).toEqual({ text: `Recorded premise a1 on ${VERIFY}: verifySession throws on expiry` });
+		const assertion = (await api.get()).premises.find((premise) => premise.source === "asserted")?.assertion;
+		expect(assertion?.imports).toEqual(["src/auth/session.ts", "src/store/memory-store.ts"]);
+		expect(assertion?.code).not.toMatch(/^\s*import /m);
+	});
+
 	it("rejects an assertion that does not hold now, or cannot run", async () => {
 		const { call, api } = await setup();
 		expect(await call("assert_premise", { description: "wrong", code: "assert.eq(taxFor(100, 1000), 11);", imports: ["src/billing/tax.ts"] })).toMatchObject({ isError: true, text: expect.stringContaining("does not hold on the current code") });
 		expect(await call("assert_premise", { description: "syntax", code: "assert.ok(;", imports: ["src/billing/tax.ts"] })).toMatchObject({ isError: true });
 		expect(await call("assert_premise", { description: "missing file", code: "assert.ok(true);", imports: ["src/nope.ts"] })).toMatchObject({ isError: true, text: expect.stringContaining("does not exist") });
+		// A check that calls nothing from the code would pass whatever the code does.
+		expect(await call("assert_premise", { description: "vacuous", code: "assert.throws(() => { throw new SessionExpiredError('x'); }, SessionExpiredError);", imports: ["src/auth/session.ts"] })).toMatchObject({ isError: true, text: expect.stringContaining("calls no function from the files it imports") });
 		expect(await call("assert_premise", { adopt: "a-no-such" })).toMatchObject({ isError: true, text: expect.stringContaining("Available: a-session-throws") });
 		expect(await call("assert_premise", { description: "no code" })).toMatchObject({ isError: true });
 		expect((await api.get()).premises).toEqual([]);
@@ -155,9 +167,29 @@ describe("declare_changes", () => {
 
 	it("stores the claims, why and rejected alternatives, and signals the driver", async () => {
 		const { call, api } = await setup();
-		const result = await call("declare_changes", { claims, why: ["one", "two", "three", "four"], rejected: ["rewrite verifySession"] });
+		const result = await call("declare_changes", { claims, why: ["one", "two", "three", "four"], rejected: ["rewrite verifySession"], no_behaviour: true });
 		expect(result).toEqual({ text: "", signal: "claim" });
 		expect(await api.get()).toMatchObject({ claims, why: ["one", "two", "three"], rejectedAlternatives: ["rewrite verifySession"] });
+	});
+
+	it("asks an agent that has asserted nothing what behaviour its plan relies on, before accepting the plan", async () => {
+		const { call, api } = await setup();
+		const asked = await call("declare_changes", { claims, why: ["one"] });
+		expect(asked).toMatchObject({ isError: true, text: expect.stringContaining("does your plan depend on how any function you are NOT changing behaves") });
+		expect(asked.signal).toBeUndefined();
+		expect((await api.get()).claims).toEqual([]);
+		// Having asserted something, it is not asked again.
+		await call("assert_premise", { description: "tax is rounded half up", code: "assert.eq(taxFor(105, 1000), 11);", imports: ["src/billing/tax.ts"] });
+		expect(await call("declare_changes", { claims, why: ["one"] })).toEqual({ text: "", signal: "claim" });
+	});
+
+	it("withdraws an assertion about a symbol the agent then declares it will change", async () => {
+		const { call, api, ctx } = await setup();
+		await call("assert_premise", { description: "verifySession throws on expiry", code: "const store = createMemorySessionStore([{ id: 's1', userId: 'u1', expiresAt: 0 }]); assert.throws(() => verifySession('s1', store, () => 10), SessionExpiredError);", imports: ["src/auth/session.ts", "src/store/memory-store.ts"] });
+		expect((await api.get()).premises.filter((premise) => premise.source === "asserted")).toHaveLength(1);
+		expect(await call("declare_changes", { claims: [{ symbol: VERIFY, mode: "body" }], why: ["change how expiry is reported"] })).toEqual({ text: "", signal: "claim" });
+		expect((await api.get()).premises.filter((premise) => premise.source === "asserted")).toEqual([]);
+		expect(ctx.withdrawn).toEqual([`"verifySession throws on expiry" (about ${VERIFY})`]);
 	});
 
 	it("is rejected in the work phase", async () => {

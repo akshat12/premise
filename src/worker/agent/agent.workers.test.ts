@@ -255,7 +255,7 @@ describe("runAgent: the ledger's answers", () => {
 });
 
 describe("runAgent: when things go wrong", () => {
-	const declare = toolUse("d1", "declare_changes", { claims: [{ symbol: "src/users/roles.ts#hasRole", mode: "body" }], why: ["test"] });
+	const declare = toolUse("d1", "declare_changes", { claims: [{ symbol: "src/users/roles.ts#hasRole", mode: "body" }], why: ["test"], no_behaviour: true });
 
 	it("fails the Intent when the plan turns run out", async () => {
 		const store = seededStore();

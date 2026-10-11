@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { IntentStatus, Premise } from "../../shared/types";
 import { canTransition, CAN_GO_STALE, IllegalTransition, IN_FLIGHT, type IntentAction, TERMINAL, transition } from "./machine";
-import { markBroken, premisesForRederive, upsertPremise } from "./premises";
+import { markBroken, premisesForRederive, upsertPremise, withdrawOwn } from "./premises";
 
 const SHA = "a".repeat(40);
 const ALL: IntentStatus[] = ["planning", "claiming", "waiting", "working", "submitted", "checking", "quarantined", "queued", "gating", "landed", "stale", "rederiving", "escalated", "failed"];
@@ -182,5 +182,30 @@ describe("premisesForRederive", () => {
 		const premises = [observed(VERIFY), asserted(VERIFY, "a1"), asserted(VERIFY, "a2")];
 		const broken = markBroken(premises, VERIFY, BY, { assertionId: "a1" }).premises;
 		expect(premisesForRederive(broken)).toEqual([asserted(VERIFY, "a2")]);
+	});
+});
+
+describe("withdrawOwn", () => {
+	const VERIFY = "src/auth/session.ts#verifySession";
+	const asserted = (symbol: string, id: string): Premise => ({ symbol, source: "asserted", surfaceHash: null, state: "holding", assertion: { id, description: `premise ${id}`, code: "", imports: [] } });
+	const read = (symbol: string): Premise => ({ symbol, source: "observed", surfaceHash: "h", state: "holding" });
+
+	it("withdraws an assertion about a symbol the Intent is changing, and keeps everything else", () => {
+		const premises = [asserted(VERIFY, "a1"), read(VERIFY), asserted("src/auth/login.ts#handleLogin", "a2")];
+		const { kept, withdrawn } = withdrawOwn(premises, [VERIFY]);
+		expect(withdrawn).toEqual([premises[0]]);
+		expect(kept).toEqual([premises[1], premises[2]]);
+	});
+
+	it("also withdraws an assertion whose code calls the symbol being changed, whatever symbol it was filed under", () => {
+		const GUARD = "src/auth/rate-limit.ts#guardRequest";
+		const filedElsewhere: Premise = { symbol: "src/auth/rate-limit.ts#createRateLimiter", source: "asserted", surfaceHash: null, state: "holding", assertion: { id: "a1", description: "guardRequest lets expired sessions through", code: "const r = guardRequest('c', 't', deps); assert.ok(r.allowed);", imports: [] } };
+		const aboutSomethingElse: Premise = { ...filedElsewhere, assertion: { id: "a2", description: "the limiter counts", code: "assert.ok(createRateLimiter().hit('k', 0).allowed);", imports: [] } };
+		expect(withdrawOwn([filedElsewhere, aboutSomethingElse], [GUARD])).toEqual({ kept: [aboutSomethingElse], withdrawn: [filedElsewhere] });
+	});
+
+	it("changes nothing when the Intent asserts only about other symbols", () => {
+		const premises = [asserted(VERIFY, "a1"), read(VERIFY)];
+		expect(withdrawOwn(premises, ["src/auth/login.ts#handleLogin"])).toEqual({ kept: premises, withdrawn: [] });
 	});
 });

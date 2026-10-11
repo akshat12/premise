@@ -4,7 +4,7 @@ import { defineConfig } from "vitest/config";
 // A live agent run (src/worker/agent/live.workers.test.ts) is configured from the shell. When
 // LIVE_AGENT is set, these variables reach the test as bindings; otherwise none of them do.
 // A provider key that is not in the shell is taken from .dev.vars, which the plugin loads itself.
-const LIVE_VARS = ["LIVE_AGENT", "LIVE_MODEL", "LIVE_TASK", "LIVE_EFFORT", "LIVE_DEADLINE_S", "LIVE_FILES", "LIVE_HINT", "LLM_BASE_URL", "LLM_MAX_TOKENS", "LLM_API_KEY", "ANTHROPIC_API_KEY", "OPENAI_API_KEY", "GEMINI_API_KEY", "OPENROUTER_API_KEY", "GROQ_API_KEY", "CLOUDFLARE_API_TOKEN"];
+const LIVE_VARS = ["LIVE_AGENT", "LIVE_MODEL", "LIVE_TASK", "LIVE_EFFORT", "LIVE_DEADLINE_S", "LIVE_FILES", "LIVE_HINT", "LIVE_LIBRARY", "LLM_BASE_URL", "LLM_MAX_TOKENS", "LLM_API_KEY", "ANTHROPIC_API_KEY", "OPENAI_API_KEY", "GEMINI_API_KEY", "OPENROUTER_API_KEY", "GROQ_API_KEY", "CLOUDFLARE_API_TOKEN"];
 const live: Record<string, string> = process.env.LIVE_AGENT ? Object.fromEntries(LIVE_VARS.flatMap((name) => (process.env[name] ? [[name, process.env[name] as string]] : []))) : {};
 
 export default defineConfig({

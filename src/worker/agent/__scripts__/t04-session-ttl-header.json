@@ -47,7 +47,8 @@
 					],
 					"why": [
 						"Uses the Session type and sessionTtl only, so it is unaffected by t01."
-					]
+					],
+					"no_behaviour": true
 				}
 			}
 		],

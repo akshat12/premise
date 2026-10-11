@@ -58,7 +58,7 @@ export type AgentOutcome =
 	| { result: "submitted"; commit: CommitSha; turns: number; usage: { input: number; output: number } }
 	| { result: "failed" | "stopped"; reason: string; turns: number; usage: { input: number; output: number } };
 
-export const PLAN_TURNS = 12;
+export const PLAN_TURNS = 16;
 export const WORK_TURNS = 20;
 /** How many times an agent asks the ledger before giving up. With the wait below, about 20 minutes. */
 export const MAX_CLAIM_ROUNDS = 40;
@@ -319,9 +319,10 @@ export async function runAgent(deps: AgentDeps, params: AgentParams, steps: Step
 			}
 		}
 		await act({ a: "granted" });
+		const withdrawn = ctx.withdrawn.length > 0 ? `\nWithdrew your premise ${ctx.withdrawn.join(", ")}: you are changing that symbol, so you cannot also rely on how it behaves now.` : "";
 		messages.push({
 			role: "user",
-			content: [...planned.done.results, { type: "tool_result", tool_use_id: planned.done.signal?.toolUseId ?? "", content: `${claimText}\n${WORK_PHASE_NOTE}` }],
+			content: [...planned.done.results, { type: "tool_result", tool_use_id: planned.done.signal?.toolUseId ?? "", content: `${claimText}${withdrawn}\n${WORK_PHASE_NOTE}` }],
 		});
 
 		// Work: write, check, submit.

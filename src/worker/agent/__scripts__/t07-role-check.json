@@ -47,7 +47,8 @@
 					],
 					"why": [
 						"Adds canAccess and the resource-to-minimum-role table."
-					]
+					],
+					"no_behaviour": true
 				}
 			}
 		],

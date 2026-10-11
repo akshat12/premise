@@ -39,7 +39,8 @@
 					],
 					"why": [
 						"nextInvoiceNumber restarts at 0001 when the year changes."
-					]
+					],
+					"no_behaviour": true
 				}
 			}
 		],

@@ -39,7 +39,8 @@
 					],
 					"why": [
 						"verifySession returns null for an expired session instead of throwing. Signature unchanged."
-					]
+					],
+					"no_behaviour": true
 				}
 			}
 		],

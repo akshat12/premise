@@ -95,7 +95,8 @@ for (const solution of SOLUTIONS) {
 				: turn("My plan relies on verifySession throwing on expiry.", [call("assert_premise", OLD_PREMISE)]),
 		);
 	}
-	turns.push(turn("Declaring what I will change.", [call("declare_changes", { claims, why: [solution.summary] })]));
+	// An agent that asserted nothing has to say so: the plan depends on no behaviour of code it does not change.
+	turns.push(turn("Declaring what I will change.", [call("declare_changes", { claims, why: [solution.summary], ...(RELIES_ON_THROW.has(task.id) ? {} : { no_behaviour: true }) })]));
 	turns.push(turn("Writing the change and its acceptance tests.", [...sources, ...tests].map((path) => call("write_file", { path, content: changes[path] }))));
 	turns.push(turn("Checking.", [call("run_checks", {})]));
 	turns.push(turn("Done.", [call("submit", { message: task.title })]));

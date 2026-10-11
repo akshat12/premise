@@ -43,7 +43,8 @@
 					],
 					"why": [
 						"validateProfile rejects display names longer than 64 visible characters."
-					]
+					],
+					"no_behaviour": true
 				}
 			}
 		],
