@@ -248,6 +248,11 @@ export class Landing extends DurableObject<Env> {
 		return new Set(sql.exec<{ intent_id: string }>("SELECT DISTINCT intent_id FROM holds").toArray().map((row) => row.intent_id));
 	}
 
+	/** The Intents a hold is waiting for. Call after `held()`, which drops the ones that have landed or stopped. */
+	private ahead(): Set<IntentId> {
+		return new Set(this.ctx.storage.sql.exec<{ waits_for: string }>("SELECT DISTINCT waits_for FROM holds").toArray().map((row) => row.waits_for));
+	}
+
 	/** An Intent went stale: get it re-derived. Whoever made it stale calls this (invalidation, or the gate itself). */
 	async noteStale(intentId: IntentId, rebaseFailedAt: CommitSha | null = null): Promise<void> {
 		await this.queueStale(intentId, rebaseFailedAt);
@@ -374,10 +379,12 @@ export class Landing extends DurableObject<Env> {
 		const sql = this.ctx.storage.sql;
 		const held = await this.held();
 		const rows = this.rows();
-		// While a hold is in force, the scripted workload waits too: "lands first" means before anything else.
-		// Otherwise a workload landing can change a type the held agents read and turn them stale early.
-		const holding = held.size > 0;
-		const next = pickBatch(rows.filter((entry) => !held.has(entry.intentId) && !(holding && entry.kind === "workload")), WORKLOAD_BATCH_SIZE);
+		// While a hold is in force, only the Intents it is waiting for may be gated: "lands first" means before
+		// anything else, the scripted workload included. Otherwise a workload landing can change a type the held
+		// agents read and turn them stale early. (Decided by id, not by kind: a queue entry's kind is a guess
+		// when the Intent could not be read at the moment it was queued.)
+		const first = held.size > 0 ? this.ahead() : null;
+		const next = pickBatch(rows.filter((entry) => (first === null ? !held.has(entry.intentId) : first.has(entry.intentId))), WORKLOAD_BATCH_SIZE);
 		this.onlyHeldLeft = next.length === 0 && rows.length > 0;
 		const together = next.filter((entry) => entry.kind === "workload" && entry.attempts === 0);
 		const batched = new Set(together.length > 1 ? together.map((entry) => entry.intentId) : []);
@@ -538,7 +545,7 @@ export class Landing extends DurableObject<Env> {
 		// A run's choreography (see `hold`) orders landings. A held Intent that went stale early must not
 		// get round it: its rebase is a landing too, so it waits like the queue does.
 		const held = await this.held();
-		if (held.has(id) || (held.size > 0 && (await this.describe(id)).kind === "workload")) {
+		if (held.size > 0 && !this.ahead().has(id)) {
 			this.deferred.push(entry);
 			return { kind: "done" };
 		}

@@ -1,7 +1,7 @@
 // Records one real run of a deployed (or local) Worker, for the demo and the video.
 //
 //   npx tsx scripts/record-run.ts --url https://premise.<account>.workers.dev --out demo/runs/main.json
-//       [--workload 300] [--seed 7] [--land-first t01-null-expired] [--timeout-minutes 30] [--attach]
+//       [--tasks t01,t02,t04,t11] [--workload 300] [--seed 7] [--land-first t01-null-expired] [--timeout-minutes 30] [--attach]
 //
 // It resets the demo, dispatches every task and the scripted workload, waits until nothing is
 // moving, and saves the whole event log, with what each agent's Intent changed (its diff) beside
@@ -91,7 +91,12 @@ if (flag("attach")) {
 	console.log(`Reset. Trunk is ${reset.trunk}.`);
 
 	const tasks = await api.get<TaskDef[]>("/api/tasks");
-	const taskIds = tasks.map((task) => task.id);
+	// --tasks t01,t02 picks tasks by the start of their id; without it every task is dispatched.
+	const wanted = (arg("tasks") ?? "").split(",").map((part) => part.trim()).filter(Boolean);
+	const taskIds = tasks.map((task) => task.id).filter((id) => wanted.length === 0 || wanted.some((part) => id.startsWith(part)));
+	if (taskIds.length === 0 || (wanted.length > 0 && taskIds.length !== wanted.length)) {
+		throw new Error(`--tasks ${wanted.join(",")} matched ${taskIds.length} of the tasks on trunk (${tasks.map((task) => task.id).join(", ")}).`);
+	}
 	await api.post("/api/dispatch", { taskIds, ...(landFirst.length > 0 ? { landFirst } : {}) });
 	console.log(`Dispatched ${taskIds.length} tasks${landFirst.length > 0 ? ` (landing ${landFirst.join(", ")} first)` : ""}.`);
 	if (workload > 0) {

@@ -2,6 +2,7 @@
 // much was cut, and finding the moments worth jumping to. Used by scripts/compress-run.ts and
 // by the player.
 import type { PremiseEvent } from "../../shared/events";
+import type { GateReport } from "../../shared/types";
 import { callsign, OUTSIDE, symbolName } from "./view";
 
 /** A stretch with no events longer than this is cut. */
@@ -210,9 +211,21 @@ export function captionAt(events: readonly PremiseEvent[], position: number): st
 			return `${who} changed ${and(symbols)}. ${and(rows)} had recorded that ${rows.length === 1 ? "it relies" : "they rely"} on it. ${stopped}`;
 		}
 		if (event.t === "rederive.race") {
-			return event.winner === "rebase"
-				? `${named(event.id)}: a plain rebase passed the gate and landed. Nothing had to be redone.`
-				: `${named(event.id)}: ${event.rebase === "fail" ? "a plain rebase did not pass the gate. " : ""}Its agent redid the work on the new trunk (a re-derive), and that passed the gate and landed.`;
+			if (event.winner === "rebase") {
+				return `${named(event.id)}: a plain rebase passed the gate and landed. Nothing had to be redone.`;
+			}
+			// What the gate said about the rebase. When every test passed and only the premise failed, say so:
+			// that is the case a queue that runs tests would have let through.
+			let report: GateReport | undefined;
+			for (let at = index - 1; at >= 0 && report === undefined; at--) {
+				const other = events[at] as PremiseEvent;
+				if (other.t === "gate.result" && other.report.intentId === event.id && other.report.path === "rebase" && !other.report.ok) {
+					report = other.report;
+				}
+			}
+			const onlyPremise = report !== undefined && !report.textConflict && report.typecheck.ok && report.assertions.failed.length > 0 && report.tests.failed.length + (report.reference?.failed.length ?? 0) + (report.suite?.failed.length ?? 0) === 0;
+			const why = event.rebase !== "fail" ? "" : onlyPremise ? "after a plain rebase every test passed, but its premise no longer held, so the gate turned it back. " : "a plain rebase did not pass the gate. ";
+			return `${named(event.id)}: ${why}Its agent redid the work on the new trunk (a re-derive), and that passed the gate and landed.`;
 		}
 		if (event.t === "human.needed") {
 			return event.kind === "stalemate"
