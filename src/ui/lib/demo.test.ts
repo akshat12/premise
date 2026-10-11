@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import type { PremiseEvent } from "../../shared/events";
-import recording from "../../../demo/runs/main.json";
+import main from "../../../demo/runs/main.json";
+import recording from "../fixtures/run-2026-10-09.json";
 import { captionAt, compressRun, formatCut, momentKind, nextStop, parseCut, realTimes } from "./demo";
+import { readRecording } from "./recording";
 import { replayDelays } from "./stream";
 
 const status = (ts: number, id = "i00000001", state: "working" | "stale" | "landed" = "working"): PremiseEvent => ({ t: "intent.status", id, status: state, seq: 0, ts });
@@ -114,8 +116,8 @@ describe("nextStop", () => {
 		expect(nextStop(run, 6)).toBe(9);
 	});
 
-	it("stops at markers, at a call for a person, and at the final numbers", () => {
-		expect(nextStop(run, 9)).toBe(10);
+	it("passes a marker, and stops at a call for a person and at the final numbers", () => {
+		expect(nextStop(run, 9)).toBe(12);
 		expect(nextStop(run, 10)).toBe(12);
 		expect(nextStop(run, 12)).toBe(14);
 	});
@@ -143,7 +145,7 @@ describe("nextStop", () => {
 	});
 });
 
-describe("captionAt, on the recorded run", () => {
+describe("captionAt, on the Oct 9 run of twelve agents and a workload", () => {
 	const run = recording as PremiseEvent[];
 	const stops: number[] = [];
 	for (let at = 0; at < run.length; ) {
@@ -158,13 +160,44 @@ describe("captionAt, on the recorded run", () => {
 
 	it("explains each key moment in a sentence", () => {
 		expect(captionAt(run, stops[0] ?? 0)).toBe("T05 TAX edited a symbol another Intent is changing, and is held. A person may choose Wait, Split or Depend; if nobody does, it is settled when the other Intent lands.");
-		expect(captionAt(run, stops[1] ?? 0)).toBe("T01 NULL landed and changed verifySession. T02 AUDIT, T03 EXPIRED and T11 EXPIRED had recorded that they rely on it. All three are stopped until their work is redone.");
+		expect(captionAt(run, stops[1] ?? 0)).toBe("T01 NULL landed and changed verifySession. T02 AUDIT, T03 EXPIRED and T11 EXPIRED had recorded that they rely on it. All three are stopped until their work is redone. T04 SESSION read it too, but relies only on its type, which did not change.");
 		expect(captionAt(run, stops[2] ?? 0)).toBe("T02 AUDIT: a plain rebase did not pass the gate. Its agent redid the work on the new trunk (a re-derive), and that passed the gate and landed.");
-		expect(captionAt(run, stops[5] ?? 0)).toBe("5s of idle time was cut out of the recording here. Nothing else is edited.");
 		expect(captionAt(run, run.length)).toBe("The run is over: 264 Intents landed, 0 broken builds on trunk, 0 human merges.");
 	});
 
 	it("keeps saying the last moment until the next one", () => {
 		expect(captionAt(run, (stops[1] ?? 0) + 40)).toBe(captionAt(run, stops[1] ?? 0));
+	});
+});
+
+describe("the front-page demo recording: four agents, one break", () => {
+	const run = readRecording(main).events;
+	const stops: number[] = [];
+	for (let at = 0; at < run.length; ) {
+		at = nextStop(run, at);
+		stops.push(at);
+	}
+
+	it("has four stops: the break, the two re-derives, and the end", () => {
+		expect(stops).toHaveLength(4);
+		expect(stops.at(-1)).toBe(run.length);
+	});
+
+	it("tells the whole story in five sentences", () => {
+		expect(captionAt(run, 0)).toBe('A recorded run on real Artifacts: 4 agents, each on its own fork. Step through the key moments with "Next moment" or the → key.');
+		expect(captionAt(run, stops[0] ?? 0)).toBe(
+			"T01 NULL landed and changed verifySession. T02 AUDIT and T11 EXPIRED had recorded that they rely on it. Both are stopped until their work is redone. T04 SESSION read it too, but relies only on its type, which did not change.",
+		);
+		expect(captionAt(run, stops[1] ?? 0)).toBe("T02 AUDIT: a plain rebase did not pass the gate. Its agent redid the work on the new trunk (a re-derive), and that passed the gate and landed.");
+		expect(captionAt(run, stops[2] ?? 0)).toBe(
+			"T11 EXPIRED: after a plain rebase every test passed, but its premise no longer held, so the gate turned it back. Its agent redid the work on the new trunk (a re-derive), and that passed the gate and landed.",
+		);
+		expect(captionAt(run, run.length)).toBe("The run is over: 4 Intents landed, 0 broken builds on trunk, 0 human merges.");
+	});
+
+	it("carries what each of the four agents changed", () => {
+		const recorded = readRecording(main);
+		expect(Object.keys(recorded.diffs)).toHaveLength(4);
+		expect(Object.values(recorded.diffs).every((diff) => diff.files.length > 0)).toBe(true);
 	});
 });

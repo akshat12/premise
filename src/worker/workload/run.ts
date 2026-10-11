@@ -108,6 +108,12 @@ export async function runWorkloadIntent(env: WorkloadEnv, store: RepoStore, job:
 		return { id, status: (await api.get()).status };
 	} catch (error) {
 		const reason = error instanceof Error ? error.message : String(error);
+		// A premise can break between two of the steps above. The Intent is then stale and the gate is already
+		// seeing to it (a rebase, for a workload Intent). That is not this runner's failure to report.
+		const now = (await api.get().catch(() => null))?.status;
+		if (now === "stale" || now === "rederiving") {
+			return { id, status: now };
+		}
 		await api.act({ a: "fail" }, reason.slice(0, 300)).catch(() => undefined);
 		return { id, status: "failed", error: reason };
 	}

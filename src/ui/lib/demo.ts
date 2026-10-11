@@ -86,13 +86,12 @@ const SAME_MOMENT_MS = 1500;
 const TRAIL_MS = 300;
 
 /** The kinds of moment the → key stops at. */
-export type MomentKind = "marker" | "break" | "race" | "human" | "end";
+export type MomentKind = "break" | "race" | "human" | "end";
 
 /** Which kind of moment this event is, if any. `last` is whether it is the log's final `metrics` event. */
 export function momentKind(event: PremiseEvent, last: boolean): MomentKind | null {
 	switch (event.t) {
-		case "demo.marker":
-			return "marker";
+		// A "⏩ compressed" marker is shown where idle time was cut, but it is not part of the story: the → key passes it.
 		case "premise.broken":
 			return "break";
 		case "rederive.race":
@@ -107,8 +106,8 @@ export function momentKind(event: PremiseEvent, last: boolean): MomentKind | nul
 }
 
 /**
- * Where the → key takes a player that has shown `position` events: just past the next marker
- * or key moment (an agent's premise breaking, its re-derive race won, a person needed, the final
+ * Where the → key takes a player that has shown `position` events: just past the next key
+ * moment (an agent's premise breaking, its re-derive race won, a person needed, the final
  * numbers). What happens to scripted workload Intents is not a moment.
  * Returns how many events are shown after the jump; the whole log when nothing is left.
  */
@@ -198,9 +197,6 @@ export function captionAt(events: readonly PremiseEvent[], position: number): st
 		if (kind === null) {
 			continue;
 		}
-		if (event.t === "demo.marker") {
-			return `${event.label.replace(/^\S+\s*/, "").replace(" compressed", "")} of idle time was cut out of the recording here. Nothing else is edited.`;
-		}
 		if (event.t === "premise.broken") {
 			// Everything the same landing broke, among the agents' Intents shown so far.
 			const same = events.slice(0, position).filter((other) => other.t === "premise.broken" && other.commit === event.commit && !workload.has(other.id));
@@ -208,7 +204,12 @@ export function captionAt(events: readonly PremiseEvent[], position: number): st
 			const rows = [...new Set(same.map((other) => ("id" in other ? other.id : "")))].map(named).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
 			const who = event.byIntent === OUTSIDE ? "A push to trunk from outside the gate" : `${named(event.byIntent).replace(/^a /, "A ")} landed and`;
 			const stopped = rows.length === 1 ? "It is stopped until its work is redone." : `${COUNT_WORDS[rows.length] ?? `All ${rows.length}`} are stopped until their work is redone.`;
-			return `${who} changed ${and(symbols)}. ${and(rows)} had recorded that ${rows.length === 1 ? "it relies" : "they rely"} on it. ${stopped}`;
+			// The control: an agent that read the same symbol and is not stopped, because nothing it relied on changed.
+			const hit = new Set(same.map((other) => ("id" in other ? other.id : "")));
+			const changed = new Set(same.map((other) => (other.t === "premise.broken" ? other.symbol : "")));
+			const untouched = [...new Set(events.slice(0, position).flatMap((other) => (other.t === "premise.recorded" && changed.has(other.premise.symbol) && !hit.has(other.id) && !workload.has(other.id) && other.id !== event.byIntent ? [other.id] : [])))].map(named).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+			const control = untouched.length === 0 || untouched.length > 2 ? "" : ` ${and(untouched)} read it too, but ${untouched.length === 1 ? "relies" : "rely"} only on its type, which did not change.`;
+			return `${who} changed ${and(symbols)}. ${and(rows)} had recorded that ${rows.length === 1 ? "it relies" : "they rely"} on it. ${stopped}${control}`;
 		}
 		if (event.t === "rederive.race") {
 			if (event.winner === "rebase") {

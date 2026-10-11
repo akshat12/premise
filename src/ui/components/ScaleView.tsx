@@ -58,10 +58,12 @@ interface ScaleViewProps {
 	events: readonly PremiseEvent[];
 	metrics: Metrics;
 	intents: Record<string, IntentView>;
+	/** Set when these numbers are from a different demo recording than the one playing: its name and where to play it. */
+	otherRun?: { name: string; href: string };
 }
 
 /** The run as numbers: how much was asked of Artifacts and the gate, and how fast work landed. */
-export function ScaleView({ events, metrics, intents }: ScaleViewProps) {
+export function ScaleView({ events, metrics, intents, otherRun }: ScaleViewProps) {
 	const stats = useMemo(() => scaleStats(events), [events]);
 	const tally = useMemo(() => {
 		const all = Object.values(intents);
@@ -75,6 +77,14 @@ export function ScaleView({ events, metrics, intents }: ScaleViewProps) {
 	return (
 		<section aria-label="Scale" className="plane">
 			<h2 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>Scale</h2>
+			{otherRun ? (
+				<p style={{ margin: "8px 0 0", fontSize: 13, maxWidth: 720, borderLeft: "4px solid var(--holds)", paddingLeft: 12 }}>
+					The run on the Lanes tab is four agents, to keep the story easy to follow. These numbers are from a larger run of the same system on real Artifacts, shown as it ended.{" "}
+					<a href={otherRun.href} style={{ color: "var(--bluestamp)", fontWeight: 600 }}>
+						Play that run
+					</a>
+				</p>
+			) : null}
 			<p style={{ margin: "4px 0 0", fontSize: 13, color: "var(--ink-soft)" }}>
 				{tally.all === 0
 					? "Nothing has been dispatched yet."

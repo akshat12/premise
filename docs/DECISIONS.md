@@ -860,3 +860,18 @@ At the user's request four reviewer agents graded the project against the offici
 - **Scripted re-derives write whole files from a fixed script,** so a re-derive whose file the workload also edited silently drops the workload's edit. A real agent reads the current file. Found while reading the three-seed results; not fixed.
 - **One test is timing-sensitive:** `standing.workers.test.ts`, "t02 lands, then t01 is stopped…", reads the events right after the status turns `escalated` and once saw no `human.needed` yet. It passed on every later run.
 - `npm run typecheck && npm test`: 833 passed, 4 skipped.
+
+### Later on Oct 11: deployed, measured on Artifacts, and a smaller front page
+
+- **Deployed and published,** on the user's go-ahead ("Let's push"): `scripts/publish-demo-repo.sh akshat12/acme-accounts`, then `npm run deploy`.
+- **The three-rule comparison on real Artifacts** (seeds 7, 11, 23; `docs/ab-results.*`): 3, 1 and 0 regressions and 0, 2 and 0 of 12 tasks sent back, on every seed, the same as locally. Artifacts refused some forks under load (one run got 93 of 112). These runs were made before the ordering hold covered the workload, so in them a workload landing could precede T01; the report's sentence about the hold describes the build as it is now.
+- **Two words, at the user's request:** the *screen recording* is the video; a *demo recording* is a saved run from Cloudflare that the site replays. Never bare "recording".
+- **The front page is now four agents** (T01, T02, T04, T11; no workload; about a minute), chosen by the user from three options because it is the easiest to follow. One cause, three outcomes: T02 is caught by its tests and its premise, T11 by its premise alone, and T04 (the control) is untouched because it relies only on types. `demo/runs/main.json`.
+- **The larger run is `demo/runs/scale.json`** (twelve agents, 294 workload Intents, 309 forks, 266 landed, 4:20). The Scale tab shows its end state with a note saying so and a link to play it (`/?demo=scale`), whenever the front-page run is the one playing.
+- **The Oct 9 demo recording is now a test fixture,** `src/ui/fixtures/run-2026-10-09.json`. The tape and caption tests were written against it and still read it; new tests cover the four-agent story.
+- **`record-run.ts --tasks t01,t02,t04,t11`** dispatches a subset.
+- **The ordering hold** now covers everything that is not one of the Intents being waited for, by id. Two earlier versions leaked: holding by kind missed a workload Intent whose kind was a guess (its Intent could not be read when it was queued), and before that the workload was not held at all, so its type changes turned held agents stale before T01 landed.
+- **The `→` key no longer stops at "⏩ compressed" markers.** With four stops in the whole run, two extra stops for cut idle time got in the way. The marker still shows, at the end of the caption's line.
+- **The break's caption names the control:** "T04 SESSION read it too, but relies only on its type, which did not change."
+- **A bug in the scripted workload runner, fixed:** when a premise broke between two of its steps, the runner's next step threw and it marked the Intent failed, although the gate was already rebasing it. 7 of the 40 workload Intents that did not land in the larger demo recording went this way; the README says so.
+- **Not re-run:** the A/B after the hold change (the headline rows do not depend on it), and the clean-clone check of the README's local steps.

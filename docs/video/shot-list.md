@@ -1,6 +1,6 @@
 # Shot list
 
-> **Revised Oct 11.** The script was rewritten after the review (cold open on the premise break, six minutes, the Tape view and T11's drawer added, no rewind, no dispatch panel, no code shot). The set-up below still holds. The table of `→` stops and the times in it describe the Oct 9 recording and must be read again from the new recording once it is made. The shots are listed afresh under "Shots (Oct 11 script)"; the older table after it is kept only for its checks.
+> **Revised Oct 11.** The script was rewritten after the review (cold open on the premise break, six minutes, the Tape view and T11's drawer added, no rewind, no dispatch panel, no code shot), and the front page now plays a four-agent demo recording. The set-up below still holds, except that the address is the bare domain. The table of `→` stops just below describes the Oct 9 demo recording and no longer applies. Use "Shots (Oct 11 script, four-agent demo recording)"; the older table after it is kept only for reference.
 
 One shot per row of `script.md`. Every shot except 8 and 10 is the same page.
 
@@ -26,21 +26,22 @@ The `→` key stops at these moments, in this order. A paused replay stays pause
 | 7th to 11th | 2:54 to 4:33 | Five more markers |
 | 12th | 4:35 | The end: 264 landed, everything green |
 
-## Shots (Oct 11 script)
+## Shots (Oct 11 script, four-agent demo recording)
+
+The `→` key now makes four stops in the front-page demo recording: the premise break, T02 redone, T11 redone, the end. It no longer stops at "⏩ compressed" markers.
 
 | # | Script row | Do this | Check before you speak |
 |---|---|---|---|
-| 1 | 0:00 Cold open | Load the address. Press `Space` at once to pause, then `→` until the caption under the top bar begins "T01 NULL landed and changed verifySession". | T02, T03 and T11 are red with `verifySession` struck through. The pill says "paused". |
-| 2 | 0:35 What it is | Click **Play again** (the circular arrow). Start speaking as you click. | The pill says "Replay 1×" and strips start to appear. |
-| 3 | 1:05 The break | Keep it playing until the three strips turn red, then press `Space`. Rest the pointer on the struck-through `verifySession` chip on T02. | "Broken builds on trunk" is 0. If a strip already says "re-deriving", click Play again and pause sooner. |
-| 4 | 1:30 Re-derive | Click the **T02** strip. Press `Space` to resume and watch its strip: "rebase ✗", then green with R1. | The drawer is open on T02. |
-| 5 | 2:05 T11 | Press `Space` to pause once T11 is green. Press `Esc`, click **T11**. Point at the timeline line that ends "Every test passed (…)", then at the **Changes** column. Use "Expand" on it if the diff is cramped. | The line reads "Gate turned back the rebased work: its premise no longer holds" and names three kinds of test that passed. |
-| 6 | 2:55 Tape | Press `Esc`. Click **Tape**. | The red line and its flag are on screen; three rows stop at it. |
-| 7 | 3:20 Ledger | Click **Lanes**. Hover the `computeTotal` row in the ledger rail. | The strips that touch it stay lit. |
-| 8 | 3:40 Scale | Press `→` until the caption says the run is over. Click **Scale**. Read the numbers from the screen. | The chart has reached the end of the run. |
-| 9 | 4:10 Architecture | Second browser tab: `docs/architecture.svg`. | The whole diagram fits without scrolling. |
-| 10 | 4:35 A/B | First tab. Click **A/B**. After the headline, scroll until the amber "What it cost" paragraph is in view. | The three columns read 3, 1, 0 in the first row and 0, 2, 0 of 12 in the second. |
-| 11 | 5:35 End frame | Open `docs/video/end-frame.html?repo=github.com/OWNER/premise` (replace OWNER with the account the repo is published under). Hold five seconds after the last word. | The repo address on the frame is the real, public one. |
+| 1 | 0:00 Cold open | Load `https://premise.akshatdivekar.workers.dev/`. Press `Space` at once to pause, then `→` once. | Four strips. T01 green; T02 and T11 red with `verifySession` struck through; T04 "at the gate". The caption begins "T01 NULL landed and changed verifySession". |
+| 2 | 0:35 What it is | Click **Play again** (the circular arrow). Start speaking as you click. | The pill says "Replay 1×" and four strips appear. |
+| 3 | 1:05 The break | Keep it playing; about 30 seconds in, T01 turns green and two strips turn red. Press `Space`. Rest the pointer on the struck-through `verifySession` chip on T02. | "Broken builds on trunk" is 0. T04 is not red. |
+| 4 | 1:30 Re-derive | Click the **T02** strip. Press `Space` to resume and watch its strip: "rebase ✗", then green with R1 (about 25 seconds). | The drawer is open on T02. |
+| 5 | 2:05 T11 | Press `Space` to pause once T11 is green. Press `Esc`, click **T11**. Point at the timeline line that ends "Every test passed (3 acceptance checks, 3 reference checks, 91 tests already on trunk)", then at the **Changes** column. Use "Expand" on it if the diff is cramped. | The line begins "Gate turned back the rebased work: its premise no longer holds". |
+| 6 | 2:55 Tape | Press `Esc`. Click **Tape**. | The red line and its flag are on screen; two rows stop at it. |
+| 7 | 3:15 Scale | Click **Scale**. | The green-edged note at the top says these numbers are from a larger run. The figures read 309, 315, 61.4. |
+| 8 | 3:50 Architecture | Second browser tab: `docs/architecture.svg`. | The whole diagram fits without scrolling. |
+| 9 | 4:15 A/B | First tab. Click **A/B**. After the headline, scroll until the amber "What it cost" paragraph is in view. | The three columns read 3, 1, 0 in the first row and 0, 2, 0 of 12 in the second. |
+| 10 | 5:15 End frame | Open `docs/video/end-frame.html?repo=github.com/OWNER/premise` (replace OWNER with the account the repo is published under). Hold five seconds after the last word. | The repo address on the frame is the real, public one. |
 
 ## Shots (Oct 9 script, superseded)
 

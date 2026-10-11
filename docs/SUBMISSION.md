@@ -12,11 +12,11 @@ Four reviewer passes on Oct 11 led to changes in the gate, the comparison and th
 
 | | Item | Owner | Link or command |
 |---|---|---|---|
-| [ ] | Publish the updated `demo-repo/` to its public GitHub repo (the deployed Worker imports trunk from there on every reset). | Akshat says go; Claude can do this | `scripts/publish-demo-repo.sh akshat12/acme-accounts` |
-| [ ] | Deploy the Worker. | Akshat says go; Claude can do this | `npm run deploy` |
-| [ ] | Re-run the three-rule comparison on real Artifacts (about 30 minutes). It rewrites `docs/ab-results.*`; then update the README's table and the sentence that says the numbers are local. | Claude can do this | `npx tsx scripts/ab.ts --url https://premise.akshatdivekar.workers.dev --n 100 --seeds 7,11,23` |
-| [ ] | Re-record the main run (it will carry each agent's changes for the drawer), compress it, and update the numbers in the README, the script and the tests that read the recording. | Claude can do this | `npm run demo:record -- --url https://premise.akshatdivekar.workers.dev --out demo/raw/main.json`, then `npm run demo:compress` |
-| [ ] | Optional: one recorded run with a live model, published as `/?demo=live`, reported as it comes out. | Akshat decides (uses the Gemini free quota) | `npm run demo:record` after `POST /api/admin/llm` |
+| [x] | Publish the updated `demo-repo/` to its public GitHub repo. Done Oct 11. | Claude | `scripts/publish-demo-repo.sh akshat12/acme-accounts` |
+| [x] | Deploy the Worker. Done Oct 11. | Claude | `npm run deploy` |
+| [x] | Run the three-rule comparison on real Artifacts. Done Oct 11 (`docs/ab-results.*`). | Claude | `npx tsx scripts/ab.ts --url https://premise.akshatdivekar.workers.dev --n 100 --seeds 7,11,23` |
+| [x] | Make the demo recordings again. Done Oct 11: `demo/runs/main.json` is four agents (the front page), `demo/runs/scale.json` is twelve agents and 294 workload Intents (the Scale tab, and `/?demo=scale`). | Claude | `npm run demo:record -- --url <worker> --out demo/runs/main.json --tasks t01,t02,t04,t11 --workload 0`, then `npm run demo:compress -- demo/runs/main.json` |
+| [ ] | Optional: one demo recording with a live model, published as `/?demo=live`, reported as it comes out. | Akshat decides (uses the Gemini free quota) | `npm run demo:record` after `POST /api/admin/llm` |
 
 ## Before recording
 
@@ -26,7 +26,7 @@ Four reviewer passes on Oct 11 led to changes in the gate, the comparison and th
 | [ ] | Put the repo address in the README's clone line, in `docs/video/shot-list.md` (shot 10) and in the end-frame address. | Akshat; Claude can do this | Sat Oct 10 | `README.md`, `docs/video/end-frame.html?repo=…` |
 | [ ] | Create the two event subscriptions on the deployed Worker's queue (the demo does not depend on them; the "pushes from outside the gate" path does). | Akshat | Sat Oct 10 | The two `wrangler queues subscription create` commands in `README.md`, step 7 |
 | [ ] | Dry run: every box in `docs/video/dry-run.md` down to "The read". | Akshat | Sun Oct 11 | [dry-run.md](video/dry-run.md) |
-| [ ] | Read the script aloud once against `/?demo=main`; it lands between 7:30 and 9:00. | Akshat | Sun Oct 11 | [script.md](video/script.md), [shot-list.md](video/shot-list.md) |
+| [ ] | Read the script aloud once against `/?demo=main`; it comes to about 6:00, and must not be under 5:00. | Akshat | Sun Oct 11 | [script.md](video/script.md), [shot-list.md](video/shot-list.md) |
 
 ## The video
 
@@ -42,7 +42,7 @@ Four reviewer passes on Oct 11 led to changes in the gate, the comparison and th
 | | Item | Owner | When | Link or command |
 |---|---|---|---|---|
 | [ ] | **The public GitHub repo has a LICENSE (MIT), the README and run instructions.** Open it logged out to check. | Akshat | Tue Oct 13 | Repo link: ______ |
-| [ ] | **The deployed URL works in a private window.** `/?demo=main` works without auth: press `→` twice and three strips are red. | Akshat | Tue Oct 13, and again Wed Oct 14 before submitting | <https://premise.akshatdivekar.workers.dev/?demo=main> |
+| [ ] | **The deployed URL works in a private window.** `/` works without auth: press `→` once and two strips are red (T02 and T11), with T04 untouched. | Akshat | Tue Oct 13, and again Wed Oct 14 before submitting | <https://premise.akshatdivekar.workers.dev/?demo=main> |
 | [ ] | The deployed build is the published code: `git status` is clean, then `npm run deploy`. | Akshat; Claude can do this | Tue Oct 13 | `npm run deploy` |
 | [ ] | A stranger's path works: on another machine or a fresh clone, the README's "Local only" steps run. (Done once on Oct 10 from a clean clone with no Cloudflare login; repeat from the public repo.) | Akshat | Tue Oct 13 | `README.md`, "Run it yourself" |
 
@@ -66,7 +66,7 @@ Four reviewer passes on Oct 11 led to changes in the gate, the comparison and th
 
 **How you used Cloudflare**
 
-> - Artifacts: trunk and one fork per Intent (forks and reads through the Worker binding, writes as git over HTTPS with isomorphic-git and a short-lived token for that one fork). The recorded run made about 300 forks and landed 264 Intents.
+> - Artifacts: trunk and one fork per Intent (forks and reads through the Worker binding, writes as git over HTTPS with isomorphic-git and a short-lived token for that one fork). The larger demo recording made 309 forks and landed 266 Intents in about four minutes.
 > - Workers: one Worker serves the API, the UI and the queue consumer. The TypeScript compiler runs inside it for typechecks and type-surface hashes.
 > - Durable Objects (SQLite): the ledger, sharded by module path; one object per Intent; the gate, one per trunk; the event log with WebSocket fan-out.
 > - Workflows: one durable run per agent, with waits for the ledger and for a person.

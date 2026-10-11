@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { PremiseEvent, PremiseEventBody } from "../../shared/events";
-import recording from "../../../demo/runs/main.json";
+import recording from "../fixtures/run-2026-10-09.json";
 import { reduceAll } from "./reduce";
 import { buildTape, clock, positionAt, spanFor, ticksFor } from "./tape";
 

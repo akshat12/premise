@@ -1221,6 +1221,9 @@ button.tape-label:focus-visible {
 
 /* The replay's caption: one plain sentence under the bar saying what the screen is showing. */
 .caption {
+	display: flex;
+	align-items: flex-start;
+	gap: 12px;
 	margin: 0;
 	padding: 7px 16px;
 	background: #fff;

@@ -5,6 +5,7 @@ import type { PremiseEvent } from "../shared/events";
 import type { IntentId, SymbolId } from "../shared/types";
 import type { IntentDiff } from "./lib/diff";
 import { readRecording } from "./lib/recording";
+import { reduceAll } from "./lib/reduce";
 import { useIntentDiff } from "./lib/useIntentDiff";
 import { AbPanel, type AbResults } from "./components/AbPanel";
 import { DispatchPanel } from "./components/DispatchPanel";
@@ -52,6 +53,11 @@ const FRAME = query.has("frame") ? Math.max(0, Number(query.get("frame")) || 0) 
  * "main", so the bare address and `/?demo=main` show the same run and the same numbers.
  */
 const DEFAULT_RUN = "main";
+/**
+ * The front-page run is small on purpose (four agents, one break). The Scale tab is about volume,
+ * so beside that run it shows the end of this other one: twelve agents and a few hundred workload Intents.
+ */
+const SCALE_RUN = "scale";
 const DEMO = query.get("demo") ?? DEFAULT_RUN;
 
 // Recorded runs are bundled, each as a chunk of its own that is fetched only when it is asked for.
@@ -168,6 +174,21 @@ export function App() {
 	const live: LiveState = mode === "live" ? (connected ? { kind: "live" } : { kind: "reconnecting" }) : still !== null ? { kind: "still", at: still.length } : { kind: "replay", speed, done: replayDone, paused };
 	const loading = mode === "live" ? !connected && events.length === 0 : recording === null;
 	const selectedIntent = selected === null ? undefined : state.intents[selected];
+
+	// The larger run, loaded the first time the Scale tab is opened while the front-page run is playing.
+	const [scaleRun, setScaleRun] = useState<PremiseEvent[] | null>(null);
+	const scaleFromOtherRun = mode === "replay" && DEMO === DEFAULT_RUN && RUNS[`../../demo/runs/${SCALE_RUN}.json`] !== undefined;
+	useEffect(() => {
+		if (view !== "scale" || !scaleFromOtherRun || scaleRun !== null) {
+			return;
+		}
+		let current = true;
+		void RUNS[`../../demo/runs/${SCALE_RUN}.json`]?.().then((data) => current && setScaleRun(readRecording(data).events));
+		return () => {
+			current = false;
+		};
+	}, [view, scaleFromOtherRun, scaleRun]);
+	const scaleState = useMemo(() => (scaleRun === null ? null : reduceAll(scaleRun)), [scaleRun]);
 	const diff = useIntentDiff(selectedIntent, mode, recordedDiffs);
 
 	// j / k move between strips, Enter opens the drawer, Esc closes it.
@@ -339,7 +360,8 @@ export function App() {
 				trunk={state.trunk.commit}
 				live={live}
 				// The tape marks cut time on its own trunk line, so the pill would only cover its playhead.
-				marker={view === "tape" ? undefined : marker}
+				// With a caption on screen the marker sits at the end of the caption's line, where it cannot cover it.
+				marker={view === "tape" || (caption !== null && INTENT_VIEWS.includes(view)) ? undefined : marker}
 				views={
 					<Tabs
 						// The tab marker is measured when it moves. A new layout moves every tab, so start it afresh.
@@ -357,15 +379,22 @@ export function App() {
 				mode={modeTabs}
 				transport={transport}
 				// The A/B tab is about a different pair of runs: this recording's counters beside its table only confuse.
-				quiet={view === "ab"}
+				quiet={view === "ab" || (view === "scale" && scaleFromOtherRun)}
 				// Watching a recording, dispatching is not the next thing to do: it needs the admin token and a live Worker.
 				dispatchQuiet={mode === "replay"}
 				onDispatch={() => setDispatching(true)}
 			/>
 			{caption !== null && INTENT_VIEWS.includes(view) ? (
-				<p className="caption" role="status" aria-live="polite">
-					{caption}
-				</p>
+				<div className="caption">
+					<p role="status" aria-live="polite" style={{ margin: 0, flex: 1, minWidth: 0 }}>
+						{caption}
+					</p>
+					{marker && view !== "tape" ? (
+						<span role="status" style={{ flex: "none", fontSize: 12, color: "var(--ink-soft)", border: "1px solid var(--rule)", borderRadius: 3, padding: "1px 6px", whiteSpace: "nowrap" }}>
+							{marker}
+						</span>
+					) : null}
+				</div>
 			) : null}
 			{notice ? (
 				<div role="status" className="flex items-center justify-between" style={{ padding: "6px 16px", background: "#fff", borderBottom: "1px solid var(--rule)", fontSize: 13 }}>
@@ -381,7 +410,15 @@ export function App() {
 					{view === "ab" ? (
 						<AbPanel results={AB_RESULTS} />
 					) : view === "scale" ? (
-						<ScaleView events={events} metrics={state.metrics} intents={state.intents} />
+						scaleFromOtherRun ? (
+							scaleRun === null || scaleState === null ? (
+								<p style={{ fontSize: 13, color: "var(--ink-soft)" }}>Loading the larger run…</p>
+							) : (
+								<ScaleView events={scaleRun} metrics={scaleState.metrics} intents={scaleState.intents} otherRun={{ name: SCALE_RUN, href: `/?demo=${SCALE_RUN}` }} />
+							)
+						) : (
+							<ScaleView events={events} metrics={state.metrics} intents={state.intents} />
+						)
 					) : view === "tape" && tape !== null && !loading && !empty ? (
 						<TapeView
 							tape={tape}
