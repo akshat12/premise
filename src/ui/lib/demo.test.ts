@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { PremiseEvent } from "../../shared/events";
+import live from "../../../demo/runs/live.json";
 import main from "../../../demo/runs/main.json";
 import recording from "../fixtures/run-2026-10-09.json";
 import { captionAt, compressRun, formatCut, momentKind, nextStop, parseCut, realTimes } from "./demo";
@@ -199,5 +200,25 @@ describe("the front-page demo recording: four agents, one break", () => {
 		const recorded = readRecording(main);
 		expect(Object.keys(recorded.diffs)).toHaveLength(4);
 		expect(Object.values(recorded.diffs).every((diff) => diff.files.length > 0)).toBe(true);
+	});
+});
+
+describe("the live-model demo recording", () => {
+	const run = readRecording(live).events;
+
+	it("opens with what is different about it, when told", () => {
+		expect(captionAt(run, 0, "Four agents, a live model.")).toBe('Four agents, a live model. Step through the key moments with "Next moment" or the → key.');
+	});
+
+	it("says an Intent was stopped before it had pushed, where that is what happened, and that T11's tests all passed", () => {
+		const captions: string[] = [];
+		for (let at = 0; at < run.length; ) {
+			at = nextStop(run, at);
+			captions.push(captionAt(run, at));
+		}
+		expect(captions[0]).toBe("T01 NULL landed and changed verifySession. T02 AUDIT, T04 SESSION and T11 EXPIRED had recorded that they rely on it. All three are stopped until their work is redone.");
+		expect(captions).toContain("T02 AUDIT: it was stopped before it had pushed anything, so there was nothing to rebase. Its agent redid the work on the new trunk (a re-derive), and that passed the gate and landed.");
+		expect(captions).toContain("T11 EXPIRED: after a plain rebase every test passed, but its premise no longer held, so the gate turned it back. Its agent redid the work on the new trunk (a re-derive), and that passed the gate and landed.");
+		expect(captions.at(-1)).toBe("The run is over: 4 Intents landed, 0 broken builds on trunk, 0 human merges.");
 	});
 });

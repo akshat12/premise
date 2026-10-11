@@ -16,7 +16,7 @@ Four reviewer passes on Oct 11 led to changes in the gate, the comparison and th
 | [x] | Deploy the Worker. Done Oct 11. | Claude | `npm run deploy` |
 | [x] | Run the three-rule comparison on real Artifacts. Done Oct 11 (`docs/ab-results.*`). | Claude | `npx tsx scripts/ab.ts --url https://premise.akshatdivekar.workers.dev --n 100 --seeds 7,11,23` |
 | [x] | Make the demo recordings again. Done Oct 11: `demo/runs/main.json` is four agents (the front page), `demo/runs/scale.json` is twelve agents and 294 workload Intents (the Scale tab, and `/?demo=scale`). | Claude | `npm run demo:record -- --url <worker> --out demo/runs/main.json --tasks t01,t02,t04,t11 --workload 0`, then `npm run demo:compress -- demo/runs/main.json` |
-| [ ] | Optional: one demo recording with a live model, published as `/?demo=live`, reported as it comes out. | Akshat decides (uses the Gemini free quota) | `npm run demo:record` after `POST /api/admin/llm` |
+| [x] | One demo recording with a live model, published as `/?demo=live`. Done Oct 11 (four tasks, Gemini 3.5 Flash-Lite, all four landed; the README says what happened, including the control task being stopped for nothing). | Claude | `npm run demo:record` after `POST /api/admin/llm` |
 
 ## Before recording
 

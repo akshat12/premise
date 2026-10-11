@@ -51,9 +51,10 @@ Every row, what it means, and the per-seed results are in [docs/ab-results.md](d
 - **Tape:** the tab next to "Lanes". The same run with time running left to right: the red line is the landing that broke two premises.
 - **Scale:** the numbers from a larger run of the same system, twelve agents and 294 scripted workload Intents (309 forks, 266 Intents landed in about four minutes). <https://premise.akshatdivekar.workers.dev/?demo=scale> plays it.
 - **A/B:** the comparison above.
+- **With a live model:** <https://premise.akshatdivekar.workers.dev/?demo=live> replays the same four tasks with Gemini 3.5 Flash-Lite as every agent. See "What a model does on its own" for what happened.
 - **Video:** _link to come_.
 
-The agents in both demo recordings are scripted: their turns are generated from reference solutions, so a run is repeatable and needs no model key. Everything else is real: the forks, pushes, typechecks, tests, premise checks and landings happened on Cloudflare on 2026-10-11, and the replay is that run's event log.
+The agents in the first two demo recordings are scripted: their turns are generated from reference solutions, so a run is repeatable and needs no model key. Everything else is real: the forks, pushes, typechecks, tests, premise checks and landings happened on Cloudflare on 2026-10-11, and the replay is that run's event log.
 
 ![T11's drawer: why it did what it did, what it relies on, its story, and its changes](docs/screens/t11-drawer.jpg)
 
@@ -73,7 +74,17 @@ Premises are the early warning; the gate is the guarantee. When an Intent lands,
 
 ## What a model does on its own
 
-The recording and the A/B use scripted agents. With a live model (Gemini 3.1 Flash-Lite, the three tasks that depend on `verifySession`, no hint in any task, on the in-memory repo, 2026-10-11):
+The front-page demo recording and the A/B use scripted agents. Two things have been run with a live model, with no hint in any task about what to assert.
+
+**The four front-page tasks on the deployed Worker and real Artifacts** (Gemini 3.5 Flash-Lite as all four agents, 2026-10-11; replay it at [`/?demo=live`](https://premise.akshatdivekar.workers.dev/?demo=live)). All four landed in seven minutes with nobody involved, most of that waiting on the model's rate limit.
+
+- Every agent adopted the assertion "`verifySession` throws on expired tokens" from the repo's assertion library.
+- T01, which changes that function, had its own assertion withdrawn when it declared the change, and landed.
+- T11 went the way the scripted run does: the model wrote its tests with a stand-in, so after the rebase all its tests, the reference checks and trunk's suite passed, and only its premise failed. Its work was redone and landed.
+- T02 was stopped while still working, redone, and landed.
+- T04, the control, also adopted the assertion, although its code does not depend on it. So it was stopped and redone for nothing. That is a false positive caused by a model asserting more than it needs.
+
+**Whether a model asserts unprompted** (Gemini 3.1 Flash-Lite, the tasks that depend on `verifySession`, on the in-memory repo):
 
 | Setup | Wrote or adopted a correct assertion about `verifySession` |
 |---|---|
@@ -81,7 +92,7 @@ The recording and the A/B use scripted agents. With a live model (Gemini 3.1 Fla
 | No library, and the plan is not asked the question | 0 of 3 runs |
 | No library, and the plan is asked the question | 2 of 6 runs (wrote its own) |
 
-In every one of those runs the work itself passed the task's reference checks. So a small model reliably takes an assertion it is offered, and writes a good one of its own about a third of the time. Without an assertion, the two tasks whose tests cover the behaviour are still stopped at the gate; the third would land broken. Earlier records: 27 of 27 single-task runs with Gemini 3.5 Flash-Lite passed the reference checks, and one deployed run of three live agents had a premise break and a re-derive that landed. Twelve live agents at once has not been run.
+In every one of those runs the work itself passed the task's reference checks. So a small model reliably takes an assertion it is offered, sometimes when it should not, and writes a good one of its own about a third of the time. Without an assertion, a task whose tests cover the behaviour is still stopped at the gate; one whose tests use a stand-in would land broken. Twelve live agents at once has not been run.
 
 ## Where this comes from
 

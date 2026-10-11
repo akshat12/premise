@@ -58,6 +58,10 @@ const DEFAULT_RUN = "main";
  * so beside that run it shows the end of this other one: twelve agents and a few hundred workload Intents.
  */
 const SCALE_RUN = "scale";
+/** What a demo recording's first caption says, where the usual sentence would leave out something that matters. */
+const OPENINGS: Record<string, string> = {
+	live: "A recorded run on real Artifacts in which the four agents are a live model (Gemini 3.5 Flash-Lite), not scripts. About five and a half minutes of waiting for the model are cut out.",
+};
 const DEMO = query.get("demo") ?? DEFAULT_RUN;
 
 // Recorded runs are bundled, each as a chunk of its own that is fetched only when it is asked for.
@@ -335,7 +339,7 @@ export function App() {
 	const jumps = useMemo<Command[]>(() => lanes.agents.map((intent) => ({ id: `jump-${intent.id}`, title: `Jump to ${callsign(intent)}`, run: () => jumpTo(intent.id) })), [lanes.agents, jumpTo]);
 
 	// In a replay, one sentence under the bar says what the screen is showing: the latest key moment in plain words.
-	const caption = useMemo(() => (mode === "replay" && still === null && playing.length > 0 ? captionAt(playing, position) : null), [mode, still, playing, position]);
+	const caption = useMemo(() => (mode === "replay" && still === null && playing.length > 0 ? captionAt(playing, position, OPENINGS[DEMO]) : null), [mode, still, playing, position]);
 	const empty = !loading && lanes.agents.length === 0 && lanes.workload === null;
 	// "Nothing in flight" is only true once every Intent has landed or stopped, not while they are still planning.
 	const settled = useMemo(() => !empty && !loading && Object.values(state.intents).every((intent) => intent.status === "landed" || intent.status === "failed" || intent.status === "escalated"), [empty, loading, state.intents]);

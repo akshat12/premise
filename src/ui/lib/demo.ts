@@ -171,7 +171,7 @@ const COUNT_WORDS = ["", "", "Both", "All three", "All four", "All five"];
  * events, said in plain words, or how to step through the recording when there has been none yet.
  * It is what a visitor with no README beside them reads.
  */
-export function captionAt(events: readonly PremiseEvent[], position: number): string {
+export function captionAt(events: readonly PremiseEvent[], position: number, opening?: string): string {
 	const names = new Map<string, string>();
 	const workload = new Set<string>();
 	let lastMetrics = -1;
@@ -225,7 +225,8 @@ export function captionAt(events: readonly PremiseEvent[], position: number): st
 				}
 			}
 			const onlyPremise = report !== undefined && !report.textConflict && report.typecheck.ok && report.assertions.failed.length > 0 && report.tests.failed.length + (report.reference?.failed.length ?? 0) + (report.suite?.failed.length ?? 0) === 0;
-			const why = event.rebase !== "fail" ? "" : onlyPremise ? "after a plain rebase every test passed, but its premise no longer held, so the gate turned it back. " : "a plain rebase did not pass the gate. ";
+			// No report at all means there was nothing to rebase: it was stopped while its agent was still working.
+			const why = event.rebase !== "fail" ? "" : report === undefined ? "it was stopped before it had pushed anything, so there was nothing to rebase. " : onlyPremise ? "after a plain rebase every test passed, but its premise no longer held, so the gate turned it back. " : "a plain rebase did not pass the gate. ";
 			return `${named(event.id)}: ${why}Its agent redid the work on the new trunk (a re-derive), and that passed the gate and landed.`;
 		}
 		if (event.t === "human.needed") {
@@ -238,5 +239,6 @@ export function captionAt(events: readonly PremiseEvent[], position: number): st
 			return `The run is over: ${m.intentsLanded} Intents landed, ${m.brokenBuildsOnTrunk} broken builds on trunk, ${m.humanMerges} human merges.`;
 		}
 	}
-	return `A recorded run on real Artifacts: ${agents} ${agents === 1 ? "agent" : "agents"}${workload.size > 0 ? ` and ${workload.size} scripted workload Intents` : ""}, each on its own fork. Step through the key moments with "Next moment" or the → key.`;
+	const what = opening ?? `A recorded run on real Artifacts: ${agents} ${agents === 1 ? "agent" : "agents"}${workload.size > 0 ? ` and ${workload.size} scripted workload Intents` : ""}, each on its own fork.`;
+	return `${what} Step through the key moments with "Next moment" or the → key.`;
 }
