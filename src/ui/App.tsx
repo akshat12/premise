@@ -289,16 +289,23 @@ export function App() {
 	const empty = !loading && lanes.agents.length === 0 && lanes.workload === null;
 	// A replay's length, and a way to move it to a moment: the tape's time axis is a slider.
 	const recordingLength = playing.length > 0 ? (playing[playing.length - 1] as PremiseEvent).ts - (playing[0] as PremiseEvent).ts : 0;
-	const seekToTime = (ms: number) => seek(positionAt(playing, ms));
+	const seekToTime = (ms: number, nudge?: -1 | 1) => {
+		const target = positionAt(playing, ms);
+		// A step must move even when no event falls inside it (the recording has quiet stretches of several seconds).
+		seek(nudge === 1 ? Math.max(position + 1, target) : nudge === -1 ? Math.max(1, Math.min(position - 1, target)) : target);
+	};
 	const toggleSelected = (id: IntentId) => setSelected((current) => (current === id ? null : id));
-	const humanCards = <HumanCards inline={!wide} cards={cards} intents={state.intents} readOnly={mode === "replay"} token={token} named={named} onNeedToken={() => setDispatching(true)} />;
+	// On the tape a floating card would sit on "now", the part being watched: there it goes above the tape instead.
+	const cardsInline = !wide || view === "tape";
+	const humanCards = <HumanCards inline={cardsInline} cards={cards} intents={state.intents} readOnly={mode === "replay"} token={token} named={named} onNeedToken={() => setDispatching(true)} />;
 	return (
 		<div className="flex h-full flex-col" style={wide ? { minWidth: 1280 } : undefined}>
 			<TopBar
 				metrics={state.metrics}
 				trunk={state.trunk.commit}
 				live={live}
-				marker={marker}
+				// The tape marks cut time on its own trunk line, so the pill would only cover its playhead.
+				marker={view === "tape" ? undefined : marker}
 				views={
 					<Tabs
 						// The tab marker is measured when it moves. A new layout moves every tab, so start it afresh.
@@ -327,7 +334,7 @@ export function App() {
 			) : null}
 			<div className="flex min-h-0 flex-1">
 				<main className="min-w-0 flex-1 overflow-auto" style={{ padding: !wide ? 12 : view === "lanes" ? "8px 16px" : 16 }} aria-label={VIEW_LABEL[view]}>
-					{!wide && INTENT_VIEWS.includes(view) ? humanCards : null}
+					{cardsInline && INTENT_VIEWS.includes(view) ? humanCards : null}
 					{view === "ab" ? (
 						<AbPanel results={AB_RESULTS} />
 					) : view === "scale" ? (
@@ -380,7 +387,7 @@ export function App() {
 				</main>
 				{wide && view === "lanes" ? <LedgerRail rows={rows} quiet={!empty && !loading} callsignOf={callsignOf} hoverSymbol={hoverSymbol} onHoverSymbol={setHoverSymbol} /> : null}
 			</div>
-			{wide ? humanCards : null}
+			{cardsInline ? null : humanCards}
 			{dispatching ? (
 				<DispatchPanel
 					token={token}

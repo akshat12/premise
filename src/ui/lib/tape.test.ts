@@ -51,7 +51,7 @@ describe("buildTape, on the recorded run", () => {
 	it("draws one break, where T01 landed, with a short flag and a full sentence", () => {
 		expect(tape.breaks).toHaveLength(1);
 		const line = tape.breaks[0];
-		expect(line).toMatchObject({ n: 1, flag: "T01 landed · verifySession changed", flagged: true });
+		expect(line).toMatchObject({ n: 1, flag: "T01 landed · verifySession changed" });
 		expect(line?.sentence).toBe("0:25 · T01 NULL landed and changed verifySession. T02 AUDIT, T03 EXPIRED and T11 EXPIRED relied on it and went stale.");
 		expect(seconds(line?.at ?? 0)).toBeCloseTo(25.4, 0);
 	});
@@ -97,6 +97,18 @@ describe("buildTape, on the recorded run", () => {
 		expect(wait).toMatchObject({ label: "quarantined · waiting on T06", open: false });
 		expect(wait?.tip).toBe("Quarantined: it edited a symbol it had not claimed, held until T06 DISCOUNT lands, 0:20 to 0:51");
 		expect(row("T05 TAX").segments.at(-1)).toMatchObject({ kind: "gate", open: true, label: "at the gate" });
+	});
+
+	it("shows that a person was asked about T05, and that nobody had to answer", () => {
+		// At the premise break (event 2205) T05 is still quarantined and its card is open.
+		const during = tapeAt(2205).rows.find((r) => r.callsign === "T05 TAX");
+		expect(during?.asks).toEqual([{ at: during?.asks[0]?.at, open: true, tip: "Asked a person at 0:20: Wait, Split or Depend. Nobody has answered yet." }]);
+		expect(seconds(during?.asks[0]?.at ?? 0)).toBe(20.3);
+		// By 0:57 T06 has landed, T05 was checked again and went on by itself.
+		const after = row("T05 TAX");
+		expect(after.asks).toEqual([{ at: during?.asks[0]?.at, open: false, tip: "Asked a person at 0:20: Wait, Split or Depend. Nobody had to choose: it moved on by itself." }]);
+		expect(after.summary).toContain("A person was asked at 0:20: Wait, Split or Depend. Nobody had to choose: it moved on by itself.");
+		expect(row("T02 AUDIT").asks).toEqual([]);
 	});
 
 	it("puts every landing on trunk, agents' and the workload's", () => {
@@ -179,7 +191,7 @@ describe("buildTape, cases the recording does not have", () => {
 		]);
 	});
 
-	it("writes out only the break flags that have room, and numbers them all", () => {
+	it("numbers every break in time order, and counts the other symbols a landing changed", () => {
 		const tape = build(
 			numbered([
 				created("i00000001", "t01-alpha", 0),
@@ -194,11 +206,44 @@ describe("buildTape, cases the recording does not have", () => {
 				{ t: "premise.broken", id: "i00000003", symbol: "src/a.ts#h", byIntent: "i00000002", commit: "c2", reason: "r", at: 31_100 },
 			]),
 		);
-		expect(tape.breaks.map((line) => [line.n, line.flag, line.flagged])).toEqual([
-			[1, "T01 landed · f changed", true],
-			[2, "T02 landed · g +1 changed", false],
+		expect(tape.breaks.map((line) => [line.n, line.flag])).toEqual([
+			[1, "T01 landed · f changed"],
+			[2, "T02 landed · g +1 changed"],
 		]);
 		expect(tape.breaks[1]?.sentence).toBe("0:31 · T02 BETA landed and changed g and h. T03 GAMMA relied on them and went stale.");
+	});
+
+	it("records an answer when a person gave one", () => {
+		const tape = build(
+			numbered([
+				created("i00000001", "t01-alpha", 0),
+				status("i00000001", "waiting", 4000),
+				{ t: "human.needed", id: "i00000001", kind: "stalemate", message: "m", options: ["Wait", "Split", "Depend"], at: 5000 },
+				{ t: "human.resolved", id: "i00000001", choice: "Split", at: 9000 },
+				status("i00000001", "working", 9100),
+			]),
+		);
+		expect(tape.rows[0]?.asks).toEqual([{ at: 5000, open: false, tip: "Asked a person at 0:05: Wait, Split or Depend. The answer was Split, at 0:09." }]);
+	});
+
+	it("marks a row the landing stopped even when it went stale some seconds later, without moving its bars", () => {
+		const tape = build(
+			numbered([
+				created("i00000001", "t01-alpha", 0),
+				created("i00000002", "t02-beta", 0),
+				status("i00000001", "landed", 10_000),
+				{ t: "trunk.advanced", commit: "c1", byIntent: "i00000001", changedSymbols: [], at: 10_000 },
+				{ t: "premise.broken", id: "i00000002", symbol: "src/a.ts#f", byIntent: "i00000001", commit: "c1", reason: "r", at: 16_000 },
+				status("i00000002", "stale", 16_000),
+			]),
+		);
+		const late = tape.rows[1];
+		expect(late?.hits).toEqual([10_000]);
+		// Six seconds is too far to pretend it stopped at the line: the bars keep their true times.
+		expect(late?.segments.map((s) => [s.kind, s.from, s.to])).toEqual([
+			["work", 0, 16_000],
+			["stale", 16_000, 16_000],
+		]);
 	});
 
 	it("says so when the change came from the workload or from outside the gate", () => {

@@ -789,3 +789,18 @@ The user picked the "tape" direction from three design mockups (a Claude Design 
   - A counter could flash a negative number for one frame while rolling (the first animation frame's timestamp can precede the start time). Progress is clamped.
   - `--amber` was 4.43:1 on white, just under AA for text; it is now `#8F5B0E` (5.7:1). `docs/UI.md`'s token table is updated.
 - **Checked** at 1440×900 (0:56, end of run, drawer open, flag chosen, slider keys), 768×1024 and 375×812: no sideways scrolling, top bar not clipped. `npm run typecheck && npm test`: 728 passed, 4 skipped.
+
+### The critic's second pass, on the built view (same day)
+
+It read the built screenshots and code and reported the view now does its job ("at 0:56 the red flag is the loudest thing on screen and the three stopped rows read in one glance"), would not insist on any of the gaps listed above, and found these, all applied:
+
+- **The tape hid a moment when a person was asked.** T05's stalemate card (0:20, never answered) did not appear on it at all. `buildTape` now reads `human.needed` and `human.resolved`: a bell on the row at that time (solid while the ask is open, hollow once it is over), a bell in the label column while open, and the row's summary and the live region say what was asked and whether anyone answered. The solid red bar is still only for `escalated`.
+- **Arrow-key seeking stalled** wherever no event fell inside the next second (46 such stretches in the recording, up to 3.9 s). A step now always moves at least one event in its direction; Home and End go to the ends.
+- **The end frame was louder than the story:** six full-height hatched gutters and solid green blocks. Cut time is now a hatched mark on the trunk line only, with a key item giving the total ("idle time cut from the recording (24 s in all)"), and the workload's density bars are a tint with an outline.
+- **The "⏩ compressed" pill covered the tape's playhead.** It is not shown on the Tape view, which marks cuts itself.
+- **The break drew itself in every time the tape was opened.** The draw-in and the fade-in of "premise broke" now run only when the break is less than 1.5 s old.
+- **The generated sentence was in the footer,** out of sight with the drawer open. It is under the flag lane in the sticky header. Clicking anywhere on a row's marks selects the row.
+- **Smaller:** a row is marked as hit even when it went stale more than 3 s after the landing (its bars then keep their true times); flags are fitted in pixels in the view, not by a share of the axis; the tablet's workload label shows two counts, with the rest in its tooltip; the selected row is scrolled into view.
+- **Counters:** it saw the top bar disagree with the tape in screenshots (0 landed beside "15 landings", and a "-8"). The numbers in the page were right; the screenshots caught the rolling animation, which depends on animation frames the preview pane does not always deliver. Hardened anyway: a change of more than 5 is shown at once, progress is clamped, and the number is set to its final value after 400 ms whether or not a frame ever ran.
+- **Also changed:** on the Tape view a human card sits above the tape at every width, because floating at the top right it covered "now".
+- `npm run typecheck && npm test`: 731 passed, 4 skipped.

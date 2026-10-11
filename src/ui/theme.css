@@ -755,15 +755,20 @@ kbd {
 .tape-now {
 	background: var(--ink-soft);
 }
-/* Idle time that was cut out of a recording. */
+/* Idle time that was cut out of a recording: a hatched mark on trunk, not a stripe down the whole tape. */
 .tape-cut {
 	position: absolute;
-	top: 0;
-	bottom: 0;
+	top: 4px;
+	bottom: 4px;
 	width: 8px;
 	margin-left: -4px;
-	background: repeating-linear-gradient(135deg, #c3cad4 0 2px, transparent 2px 5px);
-	pointer-events: auto;
+	background: repeating-linear-gradient(135deg, var(--tape-edge) 0 2px, #fff 2px 5px);
+}
+.tape-swatch-cut {
+	position: static;
+	width: 8px;
+	height: 14px;
+	margin: 0 7px;
 }
 
 .tape-rows {
@@ -927,6 +932,9 @@ button.tape-label:focus-visible {
 	font-weight: 600;
 	line-height: 20px;
 	white-space: nowrap;
+}
+/* Only a break that has just happened is drawn in. Opening the tape later shows it already there. */
+.tape-stale[data-fresh="true"] .tape-stale-label {
 	animation: annotation-in 150ms linear 350ms both;
 }
 /* The break line, heavy, through a row it stopped. */
@@ -939,6 +947,8 @@ button.tape-label:focus-visible {
 	margin-left: -1px;
 	background: var(--redpen);
 	transform-origin: top;
+}
+[data-fresh="true"] > .tape-hit {
 	animation: tape-hit-in 350ms ease-out both;
 }
 @keyframes tape-hit-in {
@@ -1010,10 +1020,13 @@ button.tape-label:focus-visible {
 	box-sizing: border-box;
 	padding: 0 1px;
 }
+/* A tint with an outline: the workload is the crowd, and must not out-shout the one red line. */
 .tape-density-bar {
+	box-sizing: border-box;
 	width: 100%;
+	border: 1px solid var(--holds);
 	border-radius: 1px 1px 0 0;
-	background: var(--holds);
+	background: #dcefe5;
 }
 .tape-density-stale {
 	position: absolute;
@@ -1031,9 +1044,48 @@ button.tape-label:focus-visible {
 	padding: 8px 16px;
 	border-top: 1px solid var(--rule);
 }
+/* What the chosen flag means, in a sentence, in the header where it stays in view. */
 .tape-sentence {
 	margin: 0;
+	padding: 6px 16px;
+	border-top: 1px solid var(--tape-line);
 	font-size: 13px;
+}
+/* A person was asked to settle something here. Hollow once it is over. */
+.tape-ask {
+	position: absolute;
+	top: 1px;
+	z-index: 2;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	box-sizing: border-box;
+	width: 16px;
+	height: 16px;
+	margin-left: -8px;
+	border: 1px solid var(--redpen);
+	border-radius: 50%;
+	background: #fff;
+	color: var(--redpen);
+}
+.tape-ask[data-open="true"] {
+	background: var(--redpen);
+	color: #fff;
+}
+.tape-track[data-bare="true"] .tape-ask {
+	top: -7px;
+	width: 14px;
+	height: 14px;
+	margin-left: -7px;
+}
+.tape-trackwrap {
+	display: flex;
+	flex: 1;
+	min-width: 0;
+	cursor: pointer;
+}
+.tape-row {
+	scroll-margin-top: 110px;
 }
 .tape-key {
 	display: flex;
@@ -1160,8 +1212,8 @@ button.tape-label:focus-visible {
 @media (prefers-reduced-motion: reduce) {
 	.tape-row,
 	.tape-band,
-	.tape-hit,
-	.tape-stale-label {
+	[data-fresh="true"] > .tape-hit,
+	.tape-stale[data-fresh="true"] .tape-stale-label {
 		animation: none;
 		transition: none;
 	}

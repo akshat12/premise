@@ -1,5 +1,5 @@
 import { ArrowsClockwise, Bell, CheckCircle, XCircle } from "@phosphor-icons/react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { IntentId } from "../../shared/types";
 import { clock, type Tape, type TapeBreak, type TapeRow, type TapeSegment } from "../lib/tape";
 import { type Lanes, type Layout, STATUS_LOOK } from "../lib/view";
@@ -18,7 +18,8 @@ interface TapeViewProps {
 	ended: boolean;
 	/** In a replay: how long the recording is, and how to move it. With these the time axis is a slider. */
 	total?: number;
-	onSeek?: (ms: number) => void;
+	/** `nudge` says the move is a step in that direction, and must not stand still when no event falls inside it. */
+	onSeek?: (ms: number, nudge?: -1 | 1) => void;
 }
 
 /** The width of an element in pixels, kept up to date. Words on the tape are drawn only where they fit. */
@@ -41,6 +42,9 @@ function useWidth<T extends HTMLElement>(): [React.RefObject<T | null>, number] 
 	return [ref, width];
 }
 
+/** A break this recent is drawn in (350ms); an older one is simply there. */
+const FRESH_MS = 1500;
+
 /** Roughly how wide a 12 to 13px label is, with its padding. Close enough to decide whether to draw it. */
 const wide = (label: string, icon = false) => label.length * 6.8 + 16 + (icon ? 18 : 0);
 
@@ -61,7 +65,7 @@ function Segment({ segment, tape, width, bare }: { segment: TapeSegment; tape: T
 	if (segment.kind === "stale") {
 		// The Intent has stopped: a red line from where it stopped to where its re-derive begins.
 		return (
-			<span className="tape-stale" style={style} title={segment.tip}>
+			<span className="tape-stale" data-fresh={tape.now - segment.from < FRESH_MS} style={style} title={segment.tip}>
 				{words ? <span className="tape-stale-label">{segment.label}</span> : null}
 			</span>
 		);
@@ -90,9 +94,15 @@ function Marks({ row, tape, width, bare }: MarksProps) {
 				<Segment key={`${segment.kind}-${segment.from}`} segment={segment} tape={tape} width={width} bare={bare} />
 			))}
 			{row.hits.map((hit) => (
-				<span key={hit}>
+				// The line draws itself in only when the break has just happened, not every time the tape is opened.
+				<span key={hit} data-fresh={tape.now - hit < FRESH_MS}>
 					<span className="tape-hit" style={{ left: pct(hit) }} />
 					<span className="tape-dot" style={{ left: pct(hit) }} />
+				</span>
+			))}
+			{row.asks.map((ask) => (
+				<span key={ask.at} className="tape-ask" data-open={ask.open} style={{ left: pct(ask.at) }} title={ask.tip}>
+					<Bell size={bare ? 10 : 12} weight="fill" />
 				</span>
 			))}
 			{end ? (
@@ -106,7 +116,7 @@ function Marks({ row, tape, width, bare }: MarksProps) {
 }
 
 /** What each mark means: a mark and a word, never a colour alone. */
-function Key() {
+function Key({ cutMs }: { cutMs: number }) {
 	return (
 		<ul className="tape-key" aria-label="Key">
 			<li>
@@ -139,6 +149,12 @@ function Key() {
 				<CheckCircle size={16} weight="fill" color="var(--holds)" aria-hidden="true" />
 				landed
 			</li>
+			{cutMs > 0 ? (
+				<li>
+					<span className="tape-cut tape-swatch-cut" />
+					idle time cut from the recording ({Math.round(cutMs / 1000)} s in all)
+				</li>
+			) : null}
 		</ul>
 	);
 }
@@ -159,6 +175,7 @@ export function TapeView({ tape, workload, layout, selected, onSelect, live, end
 	const shown: TapeBreak | undefined = tape.breaks.find((line) => line.n === (hot ?? chosen));
 	const dimmed = (id: IntentId) => shown !== undefined && !shown.rows.includes(id);
 	const needing = tape.rows.filter((row) => row.status === "escalated");
+	const asked = tape.rows.filter((row) => row.status !== "escalated" && row.asks.some((ask) => ask.open));
 	const latest = tape.breaks.at(-1);
 	const landings = tape.landings.length;
 
@@ -173,14 +190,19 @@ export function TapeView({ tape, workload, layout, selected, onSelect, live, end
 				"aria-valuenow": Math.round(tape.now / 1000),
 				"aria-valuetext": `${clock(tape.now)} of ${clock(total)}`,
 				onKeyDown: (event: React.KeyboardEvent) => {
+					if (event.key === "Home" || event.key === "End") {
+						event.preventDefault();
+						onSeek(event.key === "Home" ? 0 : total);
+						return;
+					}
 					if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") {
 						return;
 					}
 					// These arrows move the replay by seconds. They do not go on to the page's "next key moment" key.
 					event.preventDefault();
 					event.stopPropagation();
-					const step = (event.shiftKey ? 10_000 : 1000) * (event.key === "ArrowLeft" ? -1 : 1);
-					onSeek(Math.min(total, Math.max(0, tape.now + step)));
+					const direction = event.key === "ArrowLeft" ? -1 : 1;
+					onSeek(Math.min(total, Math.max(0, tape.now + (event.shiftKey ? 10_000 : 1000) * direction)), direction);
 				},
 				onClick: (event: React.MouseEvent<HTMLDivElement>) => {
 					const box = event.currentTarget.getBoundingClientRect();
@@ -189,9 +211,23 @@ export function TapeView({ tape, workload, layout, selected, onSelect, live, end
 			}
 		: {};
 
-	const flags = tape.breaks.map((line) => {
-		const written = !phone && line.flagged;
-		const flip = written && px(line.at) + Math.min(260, wide(line.flag) + 8) > width;
+	// Which flags have room for their words, worked out in pixels: one that would run into the flag before it
+	// (or off either edge) is a numbered marker instead.
+	const fitted = useMemo(() => {
+		let taken = -Infinity;
+		return tape.breaks.map((line) => {
+			const x = (line.at / tape.span) * width;
+			const size = Math.min(260, wide(line.flag) + 8);
+			const flip = x + size > width;
+			const [from, to] = flip ? [x - size, x] : [x, x + size];
+			const written = !phone && width > 0 && from >= Math.max(0, taken + 8);
+			taken = Math.max(taken, written ? to : x + 12);
+			return { written, flip: written && flip };
+		});
+	}, [tape.breaks, tape.span, width, phone]);
+
+	const flags = tape.breaks.map((line, index) => {
+		const { written, flip } = fitted[index] ?? { written: false, flip: false };
 		return (
 			<button
 				key={line.n}
@@ -220,6 +256,9 @@ export function TapeView({ tape, workload, layout, selected, onSelect, live, end
 			{tape.landings.map((landing) => (
 				<span key={landing.id} className="tape-landing" data-agent={landing.agent} style={{ left: pct(landing.at) }} title={landing.tip} />
 			))}
+			{tape.cuts.map((cut) => (
+				<span key={cut.at} className="tape-cut" style={{ left: pct(cut.at) }} title={cut.label} />
+			))}
 			{tape.breaks.map((line) => (
 				<span key={line.n}>
 					<span className="tape-stem" style={{ left: pct(line.at) }} />
@@ -234,9 +273,6 @@ export function TapeView({ tape, workload, layout, selected, onSelect, live, end
 			{ended ? null : <span className="tape-future" style={{ left: pct(tape.now) }} />}
 			{tape.ticks.slice(1).map((tick) => (
 				<span key={tick} className="tape-gridline" style={{ left: pct(tick) }} />
-			))}
-			{tape.cuts.map((cut) => (
-				<span key={cut.at} className="tape-cut" style={{ left: pct(cut.at) }} title={cut.label} />
 			))}
 			{tape.breaks.map((line) => (
 				<span key={line.n} className="tape-break" style={{ left: pct(line.at) }} />
@@ -266,7 +302,20 @@ export function TapeView({ tape, workload, layout, selected, onSelect, live, end
 			})}
 		</span>
 	) : null;
-	const workloadCounts = workload ? [`${workload.landed} landed`, workload.moving > 0 ? `${workload.moving} in flight` : null, workload.stale > 0 ? `${workload.stale} stale` : null, workload.failed > 0 ? `${workload.failed} gave up` : null].filter(Boolean).join(" · ") : "";
+	const allCounts = workload ? [`${workload.landed} landed`, workload.moving > 0 ? `${workload.moving} in flight` : null, workload.stale > 0 ? `${workload.stale} stale` : null, workload.failed > 0 ? `${workload.failed} gave up` : null].filter((part): part is string => part !== null) : [];
+	// The narrow label column has room for two of them; the rest are in its tooltip.
+	const workloadCounts = (layout === "medium" ? allCounts.slice(0, 2) : allCounts).join(" · ");
+	const cutMs = tape.cuts.reduce((sum, cut) => sum + cut.ms, 0);
+
+	// With the drawer open the selected row can be under it: bring it into view.
+	const sectionRef = useRef<HTMLElement | null>(null);
+	useEffect(() => {
+		if (selected === null) {
+			return;
+		}
+		const frame = requestAnimationFrame(() => sectionRef.current?.querySelector('.tape-row[data-selected="true"]')?.scrollIntoView({ block: "nearest" }));
+		return () => cancelAnimationFrame(frame);
+	}, [selected]);
 
 	const rows = (
 		<ol className="tape-rows" aria-label="Intents over time">
@@ -277,23 +326,29 @@ export function TapeView({ tape, workload, layout, selected, onSelect, live, end
 						<span className="tape-name">
 							<span className="callsign tape-callsign">{row.callsign}</span>
 							{row.races > 0 ? <span className="stamp callsign tape-stamp">R{row.races}</span> : null}
+							{row.asks.some((ask) => ask.open) && row.status !== "escalated" ? <Bell size={14} weight="fill" color="var(--redpen)" aria-hidden="true" /> : null}
 						</span>
 						<span className="tape-status">
 							<StatusMark status={row.status} size={12} />
 						</span>
 						{phone ? <Marks row={row} tape={tape} width={width} bare /> : null}
 					</button>
-					{phone ? null : <Marks row={row} tape={tape} width={width} bare={false} />}
+					{phone ? null : (
+						// Clicking anywhere on the row's marks selects it, as its button does. The button is the keyboard's way in.
+						<span className="tape-trackwrap" onClick={() => onSelect(row.id)}>
+							<Marks row={row} tape={tape} width={width} bare={false} />
+						</span>
+					)}
 				</li>
 			))}
 		</ol>
 	);
 
 	return (
-		<section className="tape" data-layout={layout} data-seekable={seekable} aria-label="Tape">
-			{/* Said aloud when it changes: a landing that broke premises, and any Intent that needs a person. */}
+		<section ref={sectionRef} className="tape" data-layout={layout} data-seekable={seekable} aria-label="Tape">
+			{/* Said aloud when it changes: a landing that broke premises, and any Intent that is waiting on a person. */}
 			<p className="tape-sr" aria-live="polite">
-				{[latest?.sentence, ...needing.map((row) => `${row.callsign} needs you.`)].filter(Boolean).join(" ")}
+				{[latest?.sentence, ...needing.map((row) => `${row.callsign} needs you.`), ...asked.map((row) => `${row.callsign}: ${row.asks.at(-1)?.tip ?? ""}`)].filter(Boolean).join(" ")}
 			</p>
 
 			{phone && tape.breaks.length > 0 ? (
@@ -328,6 +383,11 @@ export function TapeView({ tape, workload, layout, selected, onSelect, live, end
 						<div className="tape-flags">{flags}</div>
 					</div>
 				</div>
+				{shown ? (
+					<p className="tape-sentence" role="status">
+						{shown.sentence}
+					</p>
+				) : null}
 				<div className="tape-headrow">
 					<div className="tape-headcell">
 						<b>Trunk</b>
@@ -350,7 +410,7 @@ export function TapeView({ tape, workload, layout, selected, onSelect, live, end
 								<span className="callsign tape-callsign">WORKLOAD {workload.total}</span>
 								{phone ? null : <span className="tape-soft">scripted</span>}
 							</span>
-							<span className="tape-soft" title="Scripted, not a model">
+							<span className="tape-soft" title={`Scripted, not a model. ${allCounts.join(", ")}`}>
 								{phone ? `scripted, no model · ${workloadCounts}` : workloadCounts}
 							</span>
 							{phone ? density : null}
@@ -362,12 +422,7 @@ export function TapeView({ tape, workload, layout, selected, onSelect, live, end
 			</div>
 
 			<footer className="tape-foot">
-				{shown ? (
-					<p className="tape-sentence" role="status">
-						{shown.sentence}
-					</p>
-				) : null}
-				<Key />
+				<Key cutMs={cutMs} />
 			</footer>
 		</section>
 	);

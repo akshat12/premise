@@ -1,5 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 
+/** Changes bigger than this are not rolled through. */
+const ROLL_LIMIT = 5;
+
 /** A number that rolls from its old value to its new one over 300 ms. Tabular figures, so nothing jitters. */
 export function RollingNumber({ value }: { value: number }) {
 	const [shown, setShown] = useState(value);
@@ -10,7 +13,8 @@ export function RollingNumber({ value }: { value: number }) {
 		if (start === value) {
 			return;
 		}
-		if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+		// A jump (a seek, a backlog arriving) is shown at once: rolling through it would show numbers that never were.
+		if (Math.abs(value - start) > ROLL_LIMIT || window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
 			from.current = value;
 			setShown(value);
 			return;
@@ -29,7 +33,15 @@ export function RollingNumber({ value }: { value: number }) {
 			}
 		};
 		frame = requestAnimationFrame(tick);
-		return () => cancelAnimationFrame(frame);
+		// Frames are not guaranteed (a hidden or throttled tab gets none): the number is right by the end regardless.
+		const settle = setTimeout(() => {
+			from.current = value;
+			setShown(value);
+		}, 400);
+		return () => {
+			cancelAnimationFrame(frame);
+			clearTimeout(settle);
+		};
 	}, [value]);
 
 	return <span style={{ fontVariantNumeric: "tabular-nums" }}>{shown}</span>;

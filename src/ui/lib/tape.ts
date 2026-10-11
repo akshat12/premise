@@ -57,6 +57,8 @@ export interface TapeRow {
 	end?: { at: number; kind: "landed" | "failed"; sha: string | null };
 	/** Landings that broke one of its premises: where the red line is drawn through this row. */
 	hits: number[];
+	/** Times a person was asked to settle something for it (a human card), answered or not. */
+	asks: { at: number; open: boolean; tip: string }[];
 	/** The row in words, for a screen reader. */
 	summary: string;
 }
@@ -80,8 +82,6 @@ export interface TapeBreak {
 	sentence: string;
 	/** Rows whose premise it broke. */
 	rows: IntentId[];
-	/** Far enough from the flag before it to be written out. */
-	flagged: boolean;
 }
 
 export interface TapeWorkload {
@@ -98,7 +98,7 @@ export interface Tape {
 	landings: TapeLanding[];
 	breaks: TapeBreak[];
 	/** Places where idle time was cut out of a recording, and how much. */
-	cuts: { at: number; label: string }[];
+	cuts: { at: number; ms: number; label: string }[];
 	workload: TapeWorkload | null;
 	/** Where the log has got to. */
 	now: number;
@@ -140,8 +140,6 @@ export function ticksFor(span: number): number[] {
 
 /** A stale stretch that begins within this long of the landing that caused it is drawn from that landing. */
 const SNAP_MS = 3000;
-/** Two break flags closer than this share of the axis cannot both be written out. */
-const FLAG_GAP = 0.24;
 const WORKLOAD_BUCKET_MS = 5000;
 
 const brief = (goal: string) => (goal.split(". ")[0] ?? goal).replace(/`/g, "").replace(/\.$/, "");
@@ -167,6 +165,7 @@ interface Building {
 	current: Stretch | null;
 	waitOn?: IntentId;
 	end?: { at: number; kind: "landed" | "failed" };
+	asks: { at: number; options: string[]; answer?: string; answeredAt?: number }[];
 }
 
 export function buildTape(events: readonly PremiseEvent[], intents: Readonly<Record<IntentId, IntentView>>): Tape {
@@ -185,7 +184,7 @@ export function buildTape(events: readonly PremiseEvent[], intents: Readonly<Rec
 	const workloadStale: number[] = [];
 	const trunkAt = new Map<string, number>();
 	const broken = new Map<string, { firstSeen: number; by: IntentId; symbols: Set<string>; rows: Set<IntentId> }>();
-	const cuts: { at: number; label: string }[] = [];
+	const cuts: { at: number; ms: number; label: string }[] = [];
 
 	const move = (row: Building, status: IntentStatus, time: number) => {
 		const kind = KIND[status];
@@ -212,7 +211,7 @@ export function buildTape(events: readonly PremiseEvent[], intents: Readonly<Rec
 				kinds.set(event.intent.id, event.intent.kind === "workload" ? "workload" : "agent");
 				const intent = intents[event.intent.id];
 				if (event.intent.kind !== "workload" && intent !== undefined && !building.has(intent.id)) {
-					const row: Building = { intent, done: [], current: null };
+					const row: Building = { intent, done: [], current: null, asks: [] };
 					building.set(intent.id, row);
 					move(row, event.intent.status, time);
 				}
@@ -261,6 +260,17 @@ export function buildTape(events: readonly PremiseEvent[], intents: Readonly<Rec
 			case "trunk.advanced":
 				trunkAt.set(event.commit, time);
 				break;
+			case "human.needed":
+				building.get(event.id)?.asks.push({ at: time, options: event.options });
+				break;
+			case "human.resolved": {
+				const ask = building.get(event.id)?.asks.at(-1);
+				if (ask !== undefined && ask.answer === undefined) {
+					ask.answer = event.choice;
+					ask.answeredAt = time;
+				}
+				break;
+			}
 			case "premise.broken": {
 				if (!building.has(event.id)) {
 					break; // the scripted workload's breaks are the crowd, not the story: they show in its own row
@@ -275,7 +285,7 @@ export function buildTape(events: readonly PremiseEvent[], intents: Readonly<Rec
 				const cut = parseCut(event.label);
 				if (cut !== null) {
 					const seconds = Math.round(cut / 1000);
-					cuts.push({ at: time, label: `${seconds >= 60 ? `${Math.floor(seconds / 60)}m ${seconds % 60}s` : `${seconds}s`} of idle time cut here` });
+					cuts.push({ at: time, ms: cut, label: `${seconds >= 60 ? `${Math.floor(seconds / 60)}m ${seconds % 60}s` : `${seconds}s`} of idle time cut here` });
 				}
 				break;
 			}
@@ -285,7 +295,6 @@ export function buildTape(events: readonly PremiseEvent[], intents: Readonly<Rec
 	}
 
 	// The landings that broke an agent's premise, in time order.
-	let lastFlag = -Infinity;
 	const breaks: TapeBreak[] = [...broken.entries()]
 		.map(([commit, entry]) => ({ when: trunkAt.get(commit) ?? entry.firstSeen, entry }))
 		.sort((a, b) => a.when - b.when)
@@ -296,24 +305,22 @@ export function buildTape(events: readonly PremiseEvent[], intents: Readonly<Rec
 			const workload = kinds.get(entry.by) === "workload";
 			const who = outside ? "Pushed to trunk outside the gate" : workload ? "Workload landed" : `${short(named(entry.by))} landed`;
 			const rows = [...entry.rows].sort((a, b) => named(a).localeCompare(named(b), undefined, { numeric: true }));
-			const flagged = (when - lastFlag) / span >= FLAG_GAP;
-			if (flagged) {
-				lastFlag = when;
-			}
 			const actor = outside ? "A push to trunk from outside the gate" : workload ? "A scripted workload Intent landed and" : `${named(entry.by)} landed and`;
 			const sentence = `${clock(when)} · ${actor} changed ${list(symbols.slice(0, 3))}${symbols.length > 3 ? ` and ${symbols.length - 3} more` : ""}. ${list(rows.map(named))} relied on ${symbols.length === 1 ? "it" : "them"} and went stale.`;
-			return { n: index + 1, at: when, flag: `${who} · ${what}`, sentence, rows, flagged };
+			return { n: index + 1, at: when, flag: `${who} · ${what}`, sentence, rows };
 		});
-	/** The landing that made this Intent stale at `staleAt`: the latest one just before it that broke one of its premises. */
+	/** The landing that made this Intent stale at `staleAt`: the latest one before it that broke one of its premises. */
 	const breakOf = (id: IntentId, staleAt: number): TapeBreak | undefined => {
 		for (let index = breaks.length - 1; index >= 0; index--) {
 			const line = breaks[index] as TapeBreak;
-			if (line.rows.includes(id) && line.at <= staleAt && staleAt - line.at <= SNAP_MS) {
+			if (line.rows.includes(id) && line.at <= staleAt) {
 				return line;
 			}
 		}
 		return undefined;
 	};
+	/** Close enough that the stale stretch is drawn from the landing itself. */
+	const snaps = (cause: TapeBreak | undefined, staleAt: number): cause is TapeBreak => cause !== undefined && staleAt - cause.at <= SNAP_MS;
 
 	// Rows are in task order (T01, T02, ...), as on the lanes board, not in the order the forks happened to be made.
 	const rows: TapeRow[] = [...building.values()]
@@ -351,10 +358,12 @@ export function buildTape(events: readonly PremiseEvent[], intents: Readonly<Rec
 						break;
 					case "stale": {
 						const cause = breakOf(row.intent.id, stretch.from);
-						if (cause !== undefined) {
+						if (cause !== undefined && !hits.includes(cause.at)) {
+							hits.push(cause.at);
+						}
+						if (snaps(cause, stretch.from)) {
 							// Drawn from the landing itself, so the Intent visibly stops at the line. The true time is in the tip.
 							from = cause.at;
-							hits.push(cause.at);
 						}
 						label = "premise broke";
 						tip = `Premise broke at ${clock(stretch.from)}${cause === undefined ? "" : `: ${cause.flag}`}`;
@@ -375,8 +384,17 @@ export function buildTape(events: readonly PremiseEvent[], intents: Readonly<Rec
 				// The stretch before a snapped stale one ends at the same line.
 				const next = stretches[index + 1];
 				const nextCause = next?.kind === "stale" ? breakOf(row.intent.id, next.from) : undefined;
-				const to = nextCause === undefined ? stretch.to : Math.max(from, nextCause.at);
+				const to = next !== undefined && snaps(nextCause, next.from) ? Math.max(from, nextCause.at) : stretch.to;
 				return { kind: stretch.kind, from, to, open: stretch.open, label, tip, rebased };
+			});
+			// A person was asked. The ask is open until it is answered or the Intent moves on by itself.
+			const waitingNow = row.current?.kind === "wait" || row.current?.kind === "person";
+			const asks = row.asks.map((ask, index) => {
+				const open = ask.answer === undefined && index === row.asks.length - 1 && waitingNow;
+				const choices = list(ask.options).replace(/ and ([^ ]+)$/, " or $1");
+				const outcome = ask.answer !== undefined ? `The answer was ${ask.answer}, at ${clock(ask.answeredAt ?? ask.at)}.` : open ? "Nobody has answered yet." : "Nobody had to choose: it moved on by itself.";
+				told.push(`A person was asked at ${clock(ask.at)}: ${choices}. ${outcome.replace(/\.$/, "")}`);
+				return { at: ask.at, open, tip: `Asked a person at ${clock(ask.at)}: ${choices}. ${outcome}` };
 			});
 			const ended = row.end === undefined ? undefined : { ...row.end, sha: row.end.kind === "landed" ? (row.intent.headCommit ?? null) : null };
 			const name = callsign(row.intent);
@@ -391,6 +409,7 @@ export function buildTape(events: readonly PremiseEvent[], intents: Readonly<Rec
 				segments,
 				...(ended === undefined ? {} : { end: ended }),
 				hits,
+				asks,
 				summary: `${name}, ${title}. ${[state, ...told].join(". ")}.`,
 			};
 		});
