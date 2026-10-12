@@ -196,3 +196,16 @@ export function ledgerRows(state: ViewState, limit = 40): LedgerRow[] {
 	const rank = (row: LedgerRow) => (row.broken.length > 0 ? 0 : row.contested ? 1 : row.writer !== undefined ? 2 : 3);
 	return rows.sort((a, b) => rank(a) - rank(b) || b.readers.length - a.readers.length || (symbolName(a.symbol) < symbolName(b.symbol) ? -1 : 1)).slice(0, limit);
 }
+
+/** The drawer is never dragged shorter than this (its header and a couple of lines stay readable). */
+export const DRAWER_MIN_HEIGHT = 140;
+/** What stays visible above the drawer however far up it is dragged: the top bar and one strip. */
+export const DRAWER_TOP_ROOM = 150;
+/** One press of an arrow key on the drawer's handle. */
+export const DRAWER_STEP = 32;
+
+/** The height a dragged drawer may have in a window `viewport` pixels high. Pure. */
+export function clampDrawerHeight(wanted: number, viewport: number): number {
+	const most = Math.max(DRAWER_MIN_HEIGHT, viewport - DRAWER_TOP_ROOM);
+	return Math.round(Math.min(most, Math.max(DRAWER_MIN_HEIGHT, wanted)));
+}

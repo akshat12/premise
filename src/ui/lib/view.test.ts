@@ -3,7 +3,7 @@ import type { PremiseEvent } from "../../shared/events";
 import type { Premise } from "../../shared/types";
 import realRun from "../fixtures/real-run.json";
 import { type IntentView, reduceAll } from "./reduce";
-import { annotation, baysReached, callsign, chipsFor, lanesOf, layoutFor, ledgerRows, shortSha, STATUS_LOOK, symbolFile, symbolName, touches, waitingOn } from "./view";
+import { annotation, baysReached, callsign, chipsFor, lanesOf, layoutFor, ledgerRows, shortSha, STATUS_LOOK, symbolFile, symbolName, touches, waitingOn, clampDrawerHeight, DRAWER_MIN_HEIGHT, DRAWER_TOP_ROOM } from "./view";
 
 const VERIFY = "src/auth/session.ts#verifySession";
 const LOGIN = "src/auth/login.ts#handleLogin";
@@ -153,5 +153,18 @@ describe("layoutFor", () => {
 		expect([1920, 1440, 1280].map(layoutFor)).toEqual(["wide", "wide", "wide"]);
 		expect([1279, 1024, 768].map(layoutFor)).toEqual(["medium", "medium", "medium"]);
 		expect([767, 430, 375, 320].map(layoutFor)).toEqual(["phone", "phone", "phone", "phone"]);
+	});
+});
+
+describe("clampDrawerHeight", () => {
+	it("keeps a dragged drawer between its smallest size and what leaves the top of the page in view", () => {
+		expect(clampDrawerHeight(400, 900)).toBe(400);
+		expect(clampDrawerHeight(20, 900)).toBe(DRAWER_MIN_HEIGHT);
+		expect(clampDrawerHeight(5000, 900)).toBe(900 - DRAWER_TOP_ROOM);
+		expect(clampDrawerHeight(333.6, 900)).toBe(334);
+	});
+
+	it("never goes below the smallest size, even in a very short window", () => {
+		expect(clampDrawerHeight(300, 200)).toBe(DRAWER_MIN_HEIGHT);
 	});
 });

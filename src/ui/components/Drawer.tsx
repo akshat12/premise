@@ -1,12 +1,12 @@
 import { Button } from "@cloudflare/kumo";
 import { Eye, Flag, LinkSimple } from "@phosphor-icons/react";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import type { PremiseEvent } from "../../shared/events";
 import type { IntentId, Premise } from "../../shared/types";
 import { ago, groupPremises, SOURCE_TITLE, timelineFor, type TimelineEntry } from "../lib/chips";
 import type { DiffState } from "../lib/diff";
 import type { IntentView } from "../lib/reduce";
-import { callsign, OUTSIDE, symbolFile, symbolName } from "../lib/view";
+import { callsign, OUTSIDE, symbolFile, symbolName, clampDrawerHeight, DRAWER_MIN_HEIGHT, DRAWER_STEP } from "../lib/view";
 import { Changes } from "./Changes";
 import { RaceIndicator, StatusMark } from "./Strip";
 
@@ -62,6 +62,9 @@ interface DrawerProps {
 	replay?: boolean;
 }
 
+/** The height the drawer was last dragged to, or null for the stylesheet's. Kept while the page is open, so it holds from one Intent to the next and across closing the drawer. */
+let rememberedHeight: number | null = null;
+
 /** The selected Intent in full: why it did what it did, what it relies on and where each premise came from, its story so far, and what it changed. */
 export function Drawer({ intent, events, callsignOf, named, onSelect, onClose, diff, replay = false }: DrawerProps) {
 	// Reviewing: the Changes column has the whole drawer. It stays that way from one Intent to the next, until the drawer is closed.
@@ -75,8 +78,77 @@ export function Drawer({ intent, events, callsignOf, named, onSelect, onClose, d
 	}, [events, intent.id, intent.premises]);
 	const now = events.at(-1)?.ts ?? 0;
 	const stale = intent.status === "stale" || intent.status === "rederiving";
+
+	// The drawer's top edge can be dragged. Its height is remembered for as long as the page is open,
+	// and a double-click on the handle goes back to the size the stylesheet gives it.
+	const [height, setHeight] = useState<number | null>(rememberedHeight);
+	const [dragging, setDragging] = useState(false);
+	const section = useRef<HTMLElement>(null);
+	const lastPress = useRef(-1000);
+	// Read by the move handler. A ref, because a move can arrive before the render that follows a press.
+	const held = useRef(false);
+	const drag = (on: boolean) => {
+		held.current = on;
+		setDragging(on);
+	};
+	const resize = (wanted: number | null) => {
+		rememberedHeight = wanted === null ? null : clampDrawerHeight(wanted, window.innerHeight);
+		setHeight(rememberedHeight);
+	};
+	// The drawer sits at the bottom of the window, so its height is the distance from the pointer to the bottom.
+	const follow = (event: React.PointerEvent) => resize((section.current?.getBoundingClientRect().bottom ?? window.innerHeight) - event.clientY);
+	const current = () => height ?? section.current?.getBoundingClientRect().height ?? 280;
+	const onHandleKey = (event: React.KeyboardEvent) => {
+		const to = event.key === "ArrowUp" ? current() + DRAWER_STEP : event.key === "ArrowDown" ? current() - DRAWER_STEP : event.key === "Home" ? window.innerHeight : event.key === "End" ? 0 : null;
+		if (to !== null) {
+			event.preventDefault();
+			event.stopPropagation();
+			resize(to);
+		}
+	};
 	return (
-		<section className="drawer flex flex-col" data-review={review} aria-label={`${callsign(intent)} details`}>
+		<section ref={section} className="drawer flex flex-col" data-review={review} data-dragging={dragging} style={height === null ? undefined : { height }} aria-label={`${callsign(intent)} details`}>
+			<div
+				className="drawer-handle"
+				role="separator"
+				aria-orientation="horizontal"
+				aria-label="Resize the details panel"
+				aria-valuenow={Math.round(current())}
+				aria-valuemin={DRAWER_MIN_HEIGHT}
+				tabIndex={0}
+				title="Drag to resize. Double-click to reset."
+				onPointerDown={(event) => {
+					// Two presses in quick succession put the drawer back to its usual size. (Timed here rather than
+					// left to the double-click event, which a captured pointer does not always deliver.)
+					const again = event.timeStamp - lastPress.current < 350;
+					lastPress.current = event.timeStamp;
+					if (again) {
+						drag(false);
+						resize(null);
+						return;
+					}
+					event.currentTarget.setPointerCapture(event.pointerId);
+					drag(true);
+					event.preventDefault();
+				}}
+				onPointerMove={(event) => {
+					if (held.current) {
+						follow(event);
+					}
+				}}
+				onPointerUp={(event) => {
+					if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+						event.currentTarget.releasePointerCapture(event.pointerId);
+					}
+					drag(false);
+				}}
+				onPointerCancel={() => drag(false)}
+				onDoubleClick={() => {
+					drag(false);
+					resize(null);
+				}}
+				onKeyDown={onHandleKey}
+			/>
 			<header className="drawer-head flex items-start justify-between gap-4">
 				<div style={{ minWidth: 0 }}>
 					<div className="flex items-center gap-3">

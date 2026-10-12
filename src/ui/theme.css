@@ -337,6 +337,47 @@ kbd {
 	flex: none;
 	height: 280px;
 }
+.drawer {
+	position: relative;
+}
+/* The drawer's top edge: drag it to make the drawer taller or shorter. */
+.drawer-handle {
+	position: absolute;
+	top: -5px;
+	right: 0;
+	left: 0;
+	z-index: 2;
+	height: 11px;
+	cursor: ns-resize;
+	touch-action: none;
+}
+.drawer-handle::after {
+	content: "";
+	position: absolute;
+	top: 8px;
+	left: 50%;
+	width: 44px;
+	height: 4px;
+	border-radius: 2px;
+	background: var(--ink-soft);
+	opacity: 0.45;
+	transform: translateX(-50%);
+	transition: opacity 120ms linear;
+}
+.drawer-handle:hover::after,
+.drawer-handle:focus-visible::after,
+.drawer[data-dragging="true"] .drawer-handle::after {
+	opacity: 1;
+}
+.drawer-handle:focus-visible {
+	outline: 2px solid var(--bluestamp);
+	outline-offset: -2px;
+}
+/* While it is being dragged nothing in it should be selected, and it should not ease towards the pointer. */
+.drawer[data-dragging="true"] {
+	user-select: none;
+	animation: none;
+}
 .drawer-head {
 	padding: 12px 24px 8px;
 }
