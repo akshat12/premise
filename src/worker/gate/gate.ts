@@ -217,8 +217,34 @@ export async function gateOne(deps: GateDeps, intent: Intent, path: GatePath, op
 	}
 }
 
+/** A path that is the Intent's own source: not a test, and not one of Premise's files. */
+export const isSourcePath = (path: string) => !path.startsWith("tests/") && !path.startsWith("premise/") && !path.startsWith(".intent/");
+
+/**
+ * Whether a re-derive is the stopped work over again. An Intent is only re-derived by its agent
+ * once the gate has turned its work back, or it was stopped before it had pushed. If the agent
+ * then makes exactly the same change to the source, that change still rests on whatever broke;
+ * it could only pass now because the premise that failed is no longer attached to it, or its
+ * tests were rewritten. So it is not run.
+ *   base      the redo's fork as it was forked (the new trunk)
+ *   head      the redo's fork with the redone work
+ *   previous  the stopped attempt's fork, as it was left
+ * Returns the source paths the redo changed when every one of them is byte for byte what the
+ * stopped attempt had; null when the redo changed no source, or differs anywhere. Pure.
+ */
+export function sameAsStopped(base: FileMap, head: FileMap, previous: FileMap): string[] | null {
+	const changed = [...new Set([...Object.keys(base), ...Object.keys(head)])].filter((path) => isSourcePath(path) && base[path] !== head[path]).sort();
+	if (changed.length === 0) {
+		return null;
+	}
+	return changed.every((path) => previous[path] === head[path]) ? changed : null;
+}
+
 /** One line saying why an Intent did not get through the gate. Shown as the note on its status change. */
 export function describeFailure(report: GateReport, conflicts: readonly string[] = [], standingFailures: readonly StandingFailure[] = []): string {
+	if (report.unchanged !== undefined && report.unchanged.length > 0) {
+		return `The redone work is the same as the work that was stopped (${report.unchanged.join(", ")} ${report.unchanged.length === 1 ? "is" : "are"} unchanged from that attempt), so it still rests on what broke. Read how the code you rely on behaves now, and change your code to fit it.`;
+	}
 	if (report.textConflict) {
 		return `Text conflict with trunk in ${conflicts.join(", ") || "a file both changed"}`;
 	}

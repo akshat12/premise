@@ -6,7 +6,7 @@ import { type FileChanges, type FileMap, StaleHeadError } from "../ports/repo-st
 import type { RunRequest, RunResult } from "../runner";
 import { surface, typecheck } from "../surface";
 import { demoFiles, referencePatch } from "../testing/demo";
-import { changesBetween, describeFailure, gateBatch, type GateDeps, gateOne, landingMessage, REFERENCE_TAMPERED } from "./gate";
+import { changesBetween, describeFailure, gateBatch, type GateDeps, gateOne, landingMessage, REFERENCE_TAMPERED, sameAsStopped } from "./gate";
 import type { Standing } from "./standing";
 
 // A small repo where every answer is easy to see.
@@ -505,5 +505,36 @@ describe("gateOne: what the agent cannot write", () => {
 		const outcome = await gateBatch(again.deps, more);
 		expect(outcome.landed).toBeNull();
 		expect(outcome.reason).toContain('breaks a test that is already on trunk: "tests/label.test.ts: labels nothing"');
+	});
+});
+
+describe("sameAsStopped", () => {
+	const base: FileMap = { "src/a.ts": "a0", "src/b.ts": "b0", "tests/a.test.ts": "t0", "README.md": "r" };
+
+	it("is the changed source paths when the redo is byte for byte the stopped attempt", () => {
+		const stopped: FileMap = { ...base, "src/a.ts": "a1", "tests/a.test.ts": "t1" };
+		// The redo rewrote its tests and made exactly the same change to the source.
+		const redo: FileMap = { ...base, "src/a.ts": "a1", "tests/a.test.ts": "t2-easier" };
+		expect(sameAsStopped(base, redo, stopped)).toEqual(["src/a.ts"]);
+	});
+
+	it("is null as soon as one changed source file differs from the stopped attempt", () => {
+		const stopped: FileMap = { ...base, "src/a.ts": "a1" };
+		expect(sameAsStopped(base, { ...base, "src/a.ts": "a2" }, stopped)).toBeNull();
+		expect(sameAsStopped(base, { ...base, "src/a.ts": "a1", "src/b.ts": "b1" }, stopped)).toBeNull();
+	});
+
+	it("is null when the stopped attempt never changed the file (it was stopped before it pushed)", () => {
+		expect(sameAsStopped(base, { ...base, "src/a.ts": "a1" }, base)).toBeNull();
+	});
+
+	it("is null when the redo changed no source at all, and ignores tests and Premise's own files", () => {
+		expect(sameAsStopped(base, { ...base, "tests/a.test.ts": "t1", "premise/x.json": "{}", ".intent/i.json": "{}" }, { ...base, "tests/a.test.ts": "t1" })).toBeNull();
+		expect(sameAsStopped(base, base, base)).toBeNull();
+	});
+
+	it("says so in words the agent can act on", () => {
+		const report = { intentId: "i1", path: "rederive" as const, textConflict: false, typecheck: { ok: true, errors: [] }, tests: { passed: [], failed: [] }, assertions: { passed: [], failed: [] }, unchanged: ["src/auth/rate-limit.ts"], ok: false, landedCommit: null, durationMs: 0 };
+		expect(describeFailure(report)).toBe("The redone work is the same as the work that was stopped (src/auth/rate-limit.ts is unchanged from that attempt), so it still rests on what broke. Read how the code you rely on behaves now, and change your code to fit it.");
 	});
 });

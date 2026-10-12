@@ -206,6 +206,53 @@ describe("landIntent", () => {
 	});
 });
 
+describe("a re-derive that repeats the stopped work", () => {
+	/** t01 lands; t11, written against the old behaviour, has pushed and is stale. Returns t11 pointed at a fresh fork of the new trunk, as a re-derive is. */
+	async function staleT11(store: ReturnType<typeof seededStore>) {
+		const deps = { gate: gateDeps(env, store, "trunk") };
+		const t01 = await queuedTask(store, "t01-null-expired", "t01");
+		const t11 = await queuedTask(store, "t11-expired-rate-limit", "t11");
+		expect((await landIntent(env, t01.id, "rebase", deps)).kind).toBe("landed");
+		await t11.api.act({ a: "stale" });
+		await t11.api.act({ a: "rederive" });
+		const attempt = (await t11.api.incRederive()).rederiveAttempts;
+		const fork = `${t11.id}-r${attempt}`;
+		const { head } = await store.fork("trunk", fork);
+		await t11.api.restartOn(fork, head);
+		return { deps, t11, fork, head };
+	}
+
+	it("is turned back without being run, and the agent is told why", async () => {
+		const store = seededStore();
+		const { deps, t11, fork, head } = await staleT11(store);
+		// The redo: the very same edit, with nothing asserted this time. Every test would pass.
+		const commit = await store.commit(fork, head, referencePatch("t11"), "the same work again");
+		await t11.api.setHead(commit);
+		const before = await store.head("trunk");
+
+		const outcome = await landIntent(env, t11.id, "rederive", deps);
+		expect(outcome.kind).toBe("failed");
+		if (outcome.kind !== "failed") {
+			throw new Error("unreachable");
+		}
+		expect(outcome.report).toMatchObject({ ok: false, path: "rederive", unchanged: ["src/auth/rate-limit.ts"], tests: { passed: [], failed: [] }, landedCommit: null });
+		expect(outcome.note).toContain("The redone work is the same as the work that was stopped (src/auth/rate-limit.ts is unchanged from that attempt)");
+		expect(await store.head("trunk")).toBe(before);
+		await t11.api.act({ a: "fail" }, "test cleanup");
+	}, 30_000);
+
+	it("lands when the redo is different work", async () => {
+		const store = seededStore();
+		const { deps, t11, fork, head } = await staleT11(store);
+		const commit = await store.commit(fork, head, referencePatch("t11-rederived"), "handles the new behaviour");
+		await t11.api.setHead(commit);
+
+		const outcome = await landIntent(env, t11.id, "rederive", deps);
+		expect(outcome).toMatchObject({ kind: "landed", report: { ok: true, path: "rederive" } });
+		expect(outcome.kind === "landed" ? outcome.report.unchanged : "x").toBeUndefined();
+	}, 30_000);
+});
+
 describe("the Landing Durable Object", () => {
 	/** A queued Intent on the store the Worker itself uses, adding one new source file and its own test. */
 	async function queuedOnTrunk(taskId: string) {

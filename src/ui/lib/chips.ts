@@ -83,7 +83,9 @@ export function timelineFor(events: readonly PremiseEvent[], id: IntentId, descr
 		} else if (event.t === "gate.result" && event.report.intentId === id) {
 			const report = event.report;
 			const what = report.path === "rederive" ? "the re-derived work" : "the rebased work";
-			const why = report.textConflict
+			const why = report.unchanged !== undefined && report.unchanged.length > 0
+				? `it is the same change as the work that was stopped (${report.unchanged.join(", ")}), so it was not run`
+				: report.textConflict
 				? "text conflict"
 				: !report.typecheck.ok
 					? "type error"

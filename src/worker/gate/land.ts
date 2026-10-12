@@ -9,7 +9,7 @@ import { runInIsolate } from "../runner";
 import { analyze, surface, type SurfaceMap } from "../surface";
 import type { QueuePath } from "./client";
 import { mapLimit } from "../ports/git-tree";
-import { describeFailure, gateBatch, type GateDeps, gateOne } from "./gate";
+import { describeFailure, gateBatch, type GateDeps, gateOne, sameAsStopped } from "./gate";
 import { type Invalidate, invalidate } from "./invalidate";
 import { type StandingFailure, standingOf, type StandingStore } from "./standing";
 import { referenceChecks } from "./suite";
@@ -171,6 +171,24 @@ export async function landWork(env: LandEnv, intent: Intent, path: QueuePath, de
 }
 
 /**
+ * The source paths a re-derive changed, when they are exactly what the attempt before it had; null
+ * otherwise. The attempt before is the Intent's first fork, or the fork of the re-derive before this one.
+ */
+async function redoneTheSame(gate: GateDeps, intent: Intent, headCommit: CommitSha): Promise<string[] | null> {
+	const attempt = intent.rederiveAttempts;
+	if (attempt < 1) {
+		return null;
+	}
+	// The same names rederive.ts gives its forks: "<id>-r<attempt>".
+	const previousRepo = attempt === 1 ? intent.id : `${intent.id}-r${attempt - 1}`;
+	if (previousRepo === intent.repo) {
+		return null;
+	}
+	const [base, head, previous] = await Promise.all([gate.snapshot(intent.repo, intent.baseCommit), gate.snapshot(intent.repo, headCommit), gate.head(previousRepo).then((sha) => gate.snapshot(previousRepo, sha))]);
+	return sameAsStopped(base, head, previous);
+}
+
+/**
  * Takes one queued Intent through the gate. Publishes `gate.result`, and `trunk.advanced` when
  * trunk moved.
  *   - Path "rebase" (a first attempt): it lands, or it turns `stale`, which starts a re-derive.
@@ -189,6 +207,16 @@ export async function landIntent(env: LandEnv, intentId: IntentId, path: QueuePa
 	// `gating` without the step above means an earlier attempt was cut short: carry on from there.
 	if (intent.status !== (path === "rebase" ? "gating" : "rederiving")) {
 		return { kind: "skipped", status: intent.status };
+	}
+
+	// A re-derive that is the stopped work over again is turned back before anything is run (see `sameAsStopped`).
+	if (path === "rederive" && !plain(deps) && intent.kind === "agent" && intent.headCommit !== null) {
+		const unchanged = await redoneTheSame(deps.gate, intent, intent.headCommit).catch(() => null);
+		if (unchanged !== null) {
+			const report: GateReport = { intentId, path, textConflict: false, typecheck: { ok: true, errors: [] }, tests: { passed: [], failed: [] }, assertions: { passed: [], failed: [] }, unchanged, ok: false, landedCommit: null, durationMs: 0 };
+			await publish(env, { t: "gate.result", report });
+			return { kind: "failed", report, note: describeFailure(report), trunkAt: await deps.gate.head(deps.gate.trunk ?? "trunk"), standingFailures: [] };
+		}
 	}
 
 	const outcome = await landWork(env, intent, path, deps);

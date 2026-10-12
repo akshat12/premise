@@ -89,6 +89,11 @@ export interface GateReport {
   reference?: { passed: string[]; failed: { name: string; error: string }[] };
   /** Trunk's existing tests (tests/**) on the merged files. Absent when they were not run. */
   suite?: { passed: number; failed: { name: string; error: string }[] };
+  /**
+   * Set when a re-derive was turned back without being run: the source files it changed are
+   * exactly as the stopped attempt left them, so it still rests on whatever broke.
+   */
+  unchanged?: string[];
   ok: boolean;
   landedCommit: CommitSha | null;
   durationMs: number;
