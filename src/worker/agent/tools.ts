@@ -6,7 +6,7 @@ import { landing } from "../gate/client";
 import { currentMode } from "../hub/publish";
 import { judgeStanding, planStanding, type Standing, standingRequest } from "../gate/standing";
 import { suiteTests } from "../gate/suite";
-import { isAbout, withdrawOwn, withoutComments } from "../intent/premises";
+import { callsFunction, isAbout, withdrawOwn, withoutComments } from "../intent/premises";
 import { functionsCalled, tidyAssertion } from "./assertion-input";
 import type { IntentApi } from "../intent/client";
 import type { ToolDef } from "../ports/llm";
@@ -254,10 +254,14 @@ async function readSymbol(ctx: ToolContext, input: Record<string, unknown>): Pro
 	return { text: clip(content.split("\n").slice(info.startLine - 1, info.endLine).join("\n")) };
 }
 
-/** The symbol an assertion is about: the first function from its imports that its code calls. */
+/**
+ * The symbol an assertion is about: the first function from its imports that its code calls, by name or
+ * through a namespace of the import (`session.verifySession(...)`). Without the second, a check written
+ * with `import * as session` would be filed under whatever export the namespace happens to list first.
+ */
 export function assertionSymbol(assertion: Pick<Assertion, "code" | "imports">, files: FileMap): SymbolId | null {
 	const candidates = assertion.imports.map(normalizeImportPath).flatMap((path) => (files[path] === undefined ? [] : indexFile(path, files[path])));
-	const called = (name: string) => new RegExp(`(^|[^A-Za-z0-9_$.])${name}\\s*\\(`).test(assertion.code);
+	const called = (name: string) => callsFunction(assertion.code, name);
 	const mentioned = (name: string) => new RegExp(`(^|[^A-Za-z0-9_$])${name}([^A-Za-z0-9_$]|$)`).test(assertion.code);
 	return (candidates.find((symbol) => symbol.kind === "function" && called(symbol.name)) ?? candidates.find((symbol) => mentioned(symbol.name)) ?? candidates[0])?.id ?? null;
 }

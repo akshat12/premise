@@ -160,6 +160,8 @@ describe("assert_premise", () => {
 		expect(assertionSymbol(library[0], files)).toBe(VERIFY);
 		expect(assertionSymbol({ code: "assert.ok(DEFAULT_LOGIN_LIMIT.limit > 0);", imports: ["src/auth/rate-limit.ts"] }, files)).toBe("src/auth/rate-limit.ts#DEFAULT_LOGIN_LIMIT");
 		expect(assertionSymbol({ code: "assert.ok(true);", imports: [] }, files)).toBeNull();
+		// Written through a namespace of the import, it is still filed under the function it calls, not the first export listed.
+		expect(assertionSymbol({ code: "const session = { SessionExpiredError, verifySession, createSession }; assert.throws(() => session.verifySession('s1', store, () => 10), session.SessionExpiredError);", imports: ["src/auth/session.ts"] }, files)).toBe(VERIFY);
 	});
 });
 

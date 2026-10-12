@@ -16,7 +16,8 @@ import { type InvalidateDeps, invalidateWith, type Landed } from "./invalidate";
 import { MemoryRederiveStore, RederiveScheduler } from "./rederive";
 
 const lines = (...items: string[]) => `${items.join("\n")}\n`;
-const say = (label: string, value: unknown) => console.log(`${label}: ${JSON.stringify(value)}`);
+/** The verifier printed its evidence with this. Kept as a no-op so the tests read as they were written, without the noise. */
+const say = (_label: string, _value: unknown): void => undefined;
 
 describe("C2 sameAsStopped with the trunk the stopped work started from", () => {
 	const old: FileMap = { "src/a.ts": lines("a1", "a2", "a3", "a4", "a5", "a6"), "src/b.ts": lines("b1", "b2"), "src/gone.ts": lines("g1"), "tests/a.test.ts": "t0" };

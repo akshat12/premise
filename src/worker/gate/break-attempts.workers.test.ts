@@ -36,7 +36,8 @@ const sessionThrows: Premise = { symbol: VERIFY, source: "asserted", surfaceHash
 const noInvalidate = async (): Promise<InvalidateResult> => ({ skipped: false, broken: [], intents: [], stale: [] });
 const ADMIN = { "x-admin-token": "test-admin-token", "content-type": "application/json" };
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
-const say = (label: string, value: unknown) => console.log(`${label}: ${JSON.stringify(value)}`);
+/** The verifier printed its evidence with this. Kept as a no-op so the tests read as they were written, without the noise. */
+const say = (_label: string, _value: unknown): void => undefined;
 
 async function queued(api: IntentApi, store: RepoStore, intent: Intent, changes: FileChanges): Promise<Intent> {
 	await api.act({ a: "claim" });
