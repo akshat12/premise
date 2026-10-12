@@ -214,8 +214,9 @@ export const isWorkloadParams = (params: unknown): params is WorkloadParams => t
  * Starts each job as its own Workflow instance, so each has its own request budget (one
  * invocation could not make the tens of thousands of requests that 300 Intents need). Instances
  * are created in batches, paced so that their Artifacts calls stay near `callsPerSecond` in total.
+ * `singly` creates them one at a time instead (the local runtime: see below).
  */
-export function spawnWorkflows(env: Pick<Env, "AGENT_WORKFLOW">, options: { callsPerSecond?: number; bucket?: TokenBucket } = {}): Spawn {
+export function spawnWorkflows(env: Pick<Env, "AGENT_WORKFLOW">, options: { callsPerSecond?: number; bucket?: TokenBucket; singly?: boolean } = {}): Spawn {
 	return async (plan) => {
 		const rate = options.callsPerSecond ?? ARTIFACTS_CALLS_PER_SECOND;
 		const bucket = options.bucket ?? new TokenBucket(rate);
@@ -225,7 +226,15 @@ export function spawnWorkflows(env: Pick<Env, "AGENT_WORKFLOW">, options: { call
 			const batch = plan.jobs.slice(from, from + perBatch);
 			await bucket.take(batch.length * CALLS_PER_INTENT);
 			const params = (job: WorkloadJob): WorkloadParams => ({ mode: "workload", job, trunk: plan.trunk });
-			release(await env.AGENT_WORKFLOW.createBatch({ instances: batch.map((job) => ({ id: workflowInstanceId(job.intentId, 0), params: params(job) })) } as never));
+			if (options.singly) {
+				// The local runtime's own batch call leaves an RPC stub undisposed, and that runtime has been seen
+				// to crash on it (see ports/release.ts). Locally there is no rate to keep to, so each is created alone.
+				for (const job of batch) {
+					release(await env.AGENT_WORKFLOW.create({ id: workflowInstanceId(job.intentId, 0), params: params(job) }));
+				}
+			} else {
+				release(await env.AGENT_WORKFLOW.createBatch({ instances: batch.map((job) => ({ id: workflowInstanceId(job.intentId, 0), params: params(job) })) } as never));
+			}
 			started += batch.length;
 		}
 		return { started };
@@ -256,7 +265,8 @@ export async function runWorkload(env: Env, options: WorkloadOptions, deps: { st
 	const begun = Date.now();
 	const store = deps.store ?? getRepoStore(env);
 	const plan = await planWorkload(env, store, options);
-	const spawned = await (deps.spawn ?? spawnWorkflows(env, options.concurrency === undefined ? {} : { callsPerSecond: options.concurrency * CALLS_PER_INTENT }))(plan);
+	// In-memory repos mean the local runtime, where instances are created one at a time (see `spawnWorkflows`).
+	const spawned = await (deps.spawn ?? spawnWorkflows(env, { ...(options.concurrency === undefined ? {} : { callsPerSecond: options.concurrency * CALLS_PER_INTENT }), singly: env.REPO_STORE === "memory" }))(plan);
 	await publishMetrics(env);
 	return { n: options.n, seed: options.seed, trunk: plan.trunk, started: spawned.started, kinds: plan.kinds, intents: plan.jobs.map((job) => job.intentId), ...(spawned.results ? { results: spawned.results } : {}), ms: Date.now() - begun };
 }
