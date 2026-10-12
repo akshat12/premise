@@ -76,11 +76,12 @@ Premises are the early warning; the gate is the guarantee. When an Intent lands,
 
 The front-page demo recording and the A/B use scripted agents. Two things have been run with a live model, with no hint in any task about what to assert.
 
-**The four front-page tasks on the deployed Worker and real Artifacts** (Gemini 3.5 Flash-Lite as all four agents, 2026-10-11; replay it at [`/?demo=live`](https://premise.akshatdivekar.workers.dev/?demo=live)). All four landed in seven minutes with nobody involved, most of that waiting on the model's rate limit.
+**The four front-page tasks on the deployed Worker and real Artifacts** (Gemini 3.5 Flash-Lite as all four agents, 2026-10-11; replay it at [`/?demo=live`](https://premise.akshatdivekar.workers.dev/?demo=live)). All four landed in seven minutes with nobody involved, most of that waiting on the model's rate limit. **One of them landed wrong:** the run ended with one behavioural regression on trunk.
 
 - Every agent adopted the assertion "`verifySession` throws on expired tokens" from the repo's assertion library.
 - T01, which changes that function, had its own assertion withdrawn when it declared the change, and landed.
-- T11 went the way the scripted run does: the model wrote its tests with a stand-in, so after the rebase all its tests, the reference checks and trunk's suite passed, and only its premise failed. Its work was redone and landed.
+- T11's first attempt went the way the scripted run does: the model wrote its tests with a stand-in, so after the rebase all its tests, the reference checks and trunk's suite passed, and only its premise failed. It was stopped.
+- **T11's redo was the same change again, and it landed.** The model did not adapt to the new behaviour; it made the identical edit and asserted something weaker. Every test passed, as before, and this time no premise failed. The end-to-end probe is red on trunk: a client replaying an expired session is not rate-limited. So the premise caught the problem once, and the re-derive let it back in. Nothing in Premise yet checks that redone work differs from the work that was stopped, or that it no longer relies on the premise that broke.
 - T02 was stopped while still working, redone, and landed.
 - T04, the control, also adopted the assertion, although its code does not depend on it. So it was stopped and redone for nothing. That is a false positive caused by a model asserting more than it needs.
 
@@ -92,7 +93,7 @@ The front-page demo recording and the A/B use scripted agents. Two things have b
 | No library, and the plan is not asked the question | 0 of 3 runs |
 | No library, and the plan is asked the question | 2 of 6 runs (wrote its own) |
 
-In every one of those runs the work itself passed the task's reference checks. So a small model reliably takes an assertion it is offered, sometimes when it should not, and writes a good one of its own about a third of the time. Without an assertion, a task whose tests cover the behaviour is still stopped at the gate; one whose tests use a stand-in would land broken. Twelve live agents at once has not been run.
+In every one of those runs the work itself passed the task's reference checks. So a small model reliably takes an assertion it is offered, sometimes when it should not, writes a good one of its own about a third of the time, and may redo stopped work without fixing it. Without an assertion, a task whose tests cover the behaviour is still stopped at the gate; one whose tests use a stand-in would land broken. Twelve live agents at once has not been run.
 
 ## Where this comes from
 
