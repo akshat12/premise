@@ -14,7 +14,7 @@
 			"baseline": "3",
 			"queue": "1",
 			"premise": "0",
-			"note": "Reference checks and end-to-end probes of landed tasks that went red after a landing. No rule runs the probes before landing; they stand for what the running system does."
+			"note": "Reference checks and end-to-end probes of landed tasks that failed after a landing. No rule runs the probes before landing; they stand for what the running system does."
 		},
 		{
 			"metric": "Demo tasks sent back to a person",
@@ -24,7 +24,7 @@
 			"note": "Tasks whose work did not land and that nothing will pick up again. The two queues turn the work away and stop there. Premise re-derives it, and asks a person only after two re-derives have failed."
 		},
 		{
-			"metric": "Stale Intents redone and landed with nobody involved",
+			"metric": "Stopped Intents redone and landed with nobody involved",
 			"baseline": "0",
 			"queue": "0",
 			"premise": "3",
@@ -66,7 +66,7 @@
 			"note": "The two queues have no premises, so nobody is told."
 		},
 		{
-			"metric": "Stale Intents a plain rebase settled",
+			"metric": "Stopped Intents a plain rebase settled",
 			"baseline": "0",
 			"queue": "0",
 			"premise": "14 to 22"
@@ -76,14 +76,14 @@
 			"baseline": "n/a",
 			"queue": "n/a",
 			"premise": "0% (0 of 3) to 25% (1 of 4)",
-			"note": "Of the agents' Intents that went stale, the share whose plain rebase then passed the whole gate: the broken premise cost time and changed nothing."
+			"note": "Of the agents' Intents that were stopped, the share whose plain rebase then passed the whole gate: the broken premise cost time and changed nothing."
 		},
 		{
 			"metric": "False positives: scripted workload",
 			"baseline": "n/a",
 			"queue": "n/a",
 			"premise": "100% (14 of 14) to 100% (21 of 21)",
-			"note": "The same for the scripted workload. These Intents have no tests or assertions of their own, so a stale one whose rebase is clean and passes trunk's suite always counts here. Read it as the cost of treating every type-surface change as a broken premise."
+			"note": "The same for the scripted workload. These Intents have no tests or assertions of their own, so a stopped one whose rebase is clean and passes trunk's suite always counts here. Read it as the cost of treating every type-surface change as a broken premise."
 		},
 		{
 			"metric": "Turned away at the gate",
@@ -112,7 +112,7 @@
 			"premise": "103.2 s to 144.5 s"
 		},
 		{
-			"metric": "Reference checks and probes red at the end",
+			"metric": "Reference checks and probes failing at the end",
 			"baseline": "3",
 			"queue": "1",
 			"premise": "0"

@@ -23,63 +23,63 @@ Read the table knowing how the run is set up. None of this is hidden in the code
 |---|---|---|---|
 | Behavioural regressions that reached trunk | 3 | 1 | 0 |
 | Demo tasks sent back to a person | 0 of 12 | 2 of 12 | 0 of 12 |
-| Stale Intents redone and landed with nobody involved | 0 | 0 | 3 |
+| Stopped Intents redone and landed with nobody involved | 0 | 0 | 3 |
 | Broken builds on trunk | 0 | 0 | 0 |
 | Scripted workload Intents that did not land | 9 to 11 | 10 to 11 | 12 to 14 |
 | Human merges | 9 to 11 | 10 to 11 | 0 |
 | Intents landed | 84 of 93 to 99 of 110 | 94 of 107 to 98 of 111 | 93 of 107 to 100 of 112 |
 | Premises broken | 0 | 0 | 20 to 26 |
-| Stale Intents a plain rebase settled | 0 | 0 | 14 to 22 |
+| Stopped Intents a plain rebase settled | 0 | 0 | 14 to 22 |
 | False positives: agents | n/a | n/a | 0% (0 of 3) to 25% (1 of 4) |
 | False positives: scripted workload | n/a | n/a | 100% (14 of 14) to 100% (21 of 21) |
 | Turned away at the gate | 9 text, 0 type, 0 checks to 11 text, 0 type, 0 checks | 10 text, 0 type, 2 checks to 11 text, 0 type, 2 checks | 0 text, 0 type, 0 checks to 0 text, 0 type, 3 checks |
 | Gave up waiting for a claim | 0 | 0 | 12 to 14 |
 | Landings per minute | 56.2 to 70.3 | 64.6 to 71.4 | 41.5 to 54.1 |
 | Wall time | 84.5 s to 89.8 s | 79.0 s to 91.1 s | 103.2 s to 144.5 s |
-| Reference checks and probes red at the end | 3 | 1 | 0 |
+| Reference checks and probes failing at the end | 3 | 1 | 0 |
 | Forks created | 93 to 110 | 107 to 111 | 110 to 115 |
 
 ## What the numbers mean
 
-- **Behavioural regressions that reached trunk.** Reference checks and end-to-end probes of landed tasks that went red after a landing. No rule runs the probes before landing; they stand for what the running system does.
+- **Behavioural regressions that reached trunk.** Reference checks and end-to-end probes of landed tasks that failed after a landing. No rule runs the probes before landing; they stand for what the running system does.
 - **Demo tasks sent back to a person.** Tasks whose work did not land and that nothing will pick up again. The two queues turn the work away and stop there. Premise re-derives it, and asks a person only after two re-derives have failed.
-- **Stale Intents redone and landed with nobody involved.** Re-derives that landed. The two queues have no such step.
+- **Stopped Intents redone and landed with nobody involved.** Re-derives that landed. The two queues have no such step.
 - **Broken builds on trunk.** Typecheck failures after a landing. All three rules typecheck before landing.
 - **Scripted workload Intents that did not land.** The workload aims one edit in ten at a function another edit touches, on purpose. In the two queues that becomes a text conflict for a person to merge. In Premise the ledger makes the later Intent wait, and a scripted Intent gives up after three more tries. Either way the work is not on trunk.
 - **Human merges.** Text conflicts someone has to merge by hand (the two queues), or Intents that ended with a person (Premise). A scripted Intent that gave up on a claim is not a merge, and is counted in the row above.
 - **Intents landed.** Agents and scripted workload together.
 - **Premises broken.** The two queues have no premises, so nobody is told.
-- **False positives: agents.** Of the agents' Intents that went stale, the share whose plain rebase then passed the whole gate: the broken premise cost time and changed nothing.
-- **False positives: scripted workload.** The same for the scripted workload. These Intents have no tests or assertions of their own, so a stale one whose rebase is clean and passes trunk's suite always counts here. Read it as the cost of treating every type-surface change as a broken premise.
+- **False positives: agents.** Of the agents' Intents that were stopped, the share whose plain rebase then passed the whole gate: the broken premise cost time and changed nothing.
+- **False positives: scripted workload.** The same for the scripted workload. These Intents have no tests or assertions of their own, so a stopped one whose rebase is clean and passes trunk's suite always counts here. Read it as the cost of treating every type-surface change as a broken premise.
 - **Turned away at the gate.** Text conflicts, type errors after rebase, and failed tests or assertions (the first rule runs neither).
 - **Gave up waiting for a claim.** Premise only: the two queues have no ledger.
 
-## Red on trunk at the end: A queue that only typechecks, seed 7
+## Failing on trunk at the end: A queue that only typechecks, seed 7
 
 - `premise/hidden-tests/t02-audit-expired.test.ts#an expired session writes an audit entry and returns expired`
 - `premise/hidden-tests/t03-expired-metrics.test.ts#a request with an expired session is counted`
 - `premise/probes/t11-expired-rate-limit.test.ts#a client replaying an expired session is turned away on the fourth request`
 
-## Red on trunk at the end: A queue that also runs the tests, seed 7
+## Failing on trunk at the end: A queue that also runs the tests, seed 7
 
 - `premise/probes/t11-expired-rate-limit.test.ts#a client replaying an expired session is turned away on the fourth request`
 
-## Red on trunk at the end: A queue that only typechecks, seed 11
+## Failing on trunk at the end: A queue that only typechecks, seed 11
 
 - `premise/hidden-tests/t02-audit-expired.test.ts#an expired session writes an audit entry and returns expired`
 - `premise/hidden-tests/t03-expired-metrics.test.ts#a request with an expired session is counted`
 - `premise/probes/t11-expired-rate-limit.test.ts#a client replaying an expired session is turned away on the fourth request`
 
-## Red on trunk at the end: A queue that also runs the tests, seed 11
+## Failing on trunk at the end: A queue that also runs the tests, seed 11
 
 - `premise/probes/t11-expired-rate-limit.test.ts#a client replaying an expired session is turned away on the fourth request`
 
-## Red on trunk at the end: A queue that only typechecks, seed 23
+## Failing on trunk at the end: A queue that only typechecks, seed 23
 
 - `premise/hidden-tests/t02-audit-expired.test.ts#an expired session writes an audit entry and returns expired`
 - `premise/hidden-tests/t03-expired-metrics.test.ts#a request with an expired session is counted`
 - `premise/probes/t11-expired-rate-limit.test.ts#a client replaying an expired session is turned away on the fourth request`
 
-## Red on trunk at the end: A queue that also runs the tests, seed 23
+## Failing on trunk at the end: A queue that also runs the tests, seed 23
 
 - `premise/probes/t11-expired-rate-limit.test.ts#a client replaying an expired session is turned away on the fourth request`

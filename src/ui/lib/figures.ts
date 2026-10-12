@@ -8,8 +8,10 @@ export interface RunFigureValues {
 	/** Scripted workload Intents: real forks and pushes, no model. */
 	workload: number;
 	premisesBroken: number;
-	/** Stopped work that was redone and landed, by a plain rebase or by its agent. */
+	/** Stopped work that its agent did again, and that landed. */
 	rederived: number;
+	/** Stopped work that landed on a plain rebase, with nothing redone. */
+	rebased: number;
 	/** Times a person was asked because re-derives had failed. (Two Intents wanting one symbol is a different question, and is not counted here.) */
 	asked: number;
 	landed: number;
@@ -26,12 +28,15 @@ export function figuresFor(events: readonly PremiseEvent[], intents: Readonly<Re
 	const all = Object.values(intents);
 	let premisesBroken = 0;
 	let rederived = 0;
+	let rebased = 0;
 	let asked = 0;
 	for (const event of events) {
 		if (event.t === "premise.broken") {
 			premisesBroken++;
-		} else if (event.t === "rederive.race" && event.winner !== undefined) {
+		} else if (event.t === "rederive.race" && event.winner === "rederive") {
 			rederived++;
+		} else if (event.t === "rederive.race" && event.winner === "rebase") {
+			rebased++;
 		} else if (event.t === "human.needed" && event.kind === "fallback") {
 			asked++;
 		}
@@ -41,6 +46,7 @@ export function figuresFor(events: readonly PremiseEvent[], intents: Readonly<Re
 		workload: all.filter((intent) => intent.kind === "workload").length,
 		premisesBroken,
 		rederived,
+		rebased,
 		asked,
 		landed: all.filter((intent) => intent.status === "landed").length,
 		problems: metrics.behaviouralRegressionsOnTrunk + metrics.brokenBuildsOnTrunk,

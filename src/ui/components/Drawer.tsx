@@ -6,7 +6,7 @@ import type { IntentId, Premise } from "../../shared/types";
 import { ago, groupPremises, SOURCE_TITLE, timelineFor, type TimelineEntry } from "../lib/chips";
 import type { DiffState } from "../lib/diff";
 import type { IntentView } from "../lib/reduce";
-import { callsign, OUTSIDE, symbolFile, symbolName, clampDrawerHeight, DRAWER_MIN_HEIGHT, DRAWER_STEP } from "../lib/view";
+import { OUTSIDE, symbolFile, symbolName, clampDrawerHeight, DRAWER_MIN_HEIGHT, DRAWER_STEP } from "../lib/view";
 import { Changes } from "./Changes";
 import { RaceIndicator, StatusMark } from "./Strip";
 
@@ -115,6 +115,7 @@ export function Drawer({ intent, events, callsignOf, named, onSelect, onClose, d
 				aria-label="Resize the details panel"
 				aria-valuenow={Math.round(current())}
 				aria-valuemin={DRAWER_MIN_HEIGHT}
+				aria-valuemax={Math.max(DRAWER_MIN_HEIGHT, Math.round(clampDrawerHeight(Number.MAX_SAFE_INTEGER, window.innerHeight)))}
 				tabIndex={0}
 				title="Drag to resize. Double-click to reset."
 				onPointerDown={(event) => {
@@ -158,7 +159,7 @@ export function Drawer({ intent, events, callsignOf, named, onSelect, onClose, d
 						<StatusMark status={intent.status} />
 						<RaceIndicator intent={intent} />
 					</div>
-					<p style={{ fontSize: 13, margin: "4px 0 0", color: stale ? "var(--redpen)" : "var(--ink-soft)" }}>{stale ? "A premise broke: re-deriving on new trunk" : intent.goal}</p>
+					<p style={{ fontSize: 13, margin: "4px 0 0", color: stale ? "var(--redpen)" : "var(--ink-soft)" }}>{stale ? "A premise broke: this Intent is stopped until its work is redone on the new trunk" : intent.goal}</p>
 				</div>
 				<Button variant="ghost" size="sm" onClick={onClose}>
 					Close

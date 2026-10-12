@@ -444,7 +444,7 @@ export function buildTape(events: readonly PremiseEvent[], intents: Readonly<Rec
 			const title = brief(row.intent.goal);
 			// What the row's label says it changes and relies on. A behaviour it stated counts for more than a list of types.
 			const relies = reliesOn(row.intent);
-			const state = ended === undefined ? `${STATUS_LOOK[row.intent.status].word.replace(/^./, (letter) => letter.toUpperCase())} now` : `${ended.kind === "landed" ? "Landed" : "Failed"} at ${clock(ended.at)}`;
+			const state = ended === undefined ? `${STATUS_LOOK[row.intent.status].word.replace(/^./, (letter) => letter.toUpperCase())} now` : `${ended.kind === "landed" ? "Landed" : "Did not land: gave up"} at ${clock(ended.at)}`;
 			return {
 				id: row.intent.id,
 				callsign: name,
@@ -457,7 +457,9 @@ export function buildTape(events: readonly PremiseEvent[], intents: Readonly<Rec
 				...(ended === undefined ? {} : { end: ended }),
 				hits,
 				asks,
-				summary: `${name}, ${title}. ${[state, ...told].join(". ")}.`,
+				// What the row's button is called. It stands in for everything drawn in the row, so it says what the row's
+				// label shows as well: what the Intent changes and what it relies on.
+				summary: `${name}, ${title}. ${[row.intent.claims.length > 0 ? `Changes ${row.intent.claims.map((claim) => symbolName(claim.symbol)).join(", ")}` : null, relies === null ? null : `${relies.broken ? "Relied on" : "Relies on"} ${relies.text}`, state, ...told].filter((part): part is string => part !== null).join(". ")}.`,
 			};
 		});
 

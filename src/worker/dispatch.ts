@@ -12,6 +12,7 @@ import { isArtifactsError } from "./ports/artifacts-repo-store";
 import { DEMO_REPO_FILES } from "./ports/demo-seed";
 import { mapLimit } from "./ports/git-tree";
 import { type RepoStore, ZERO_SHA } from "./ports/repo-store";
+import { release } from "./ports/release";
 
 const DISPATCH_CONCURRENCY = 6;
 const DELETE_CONCURRENCY = 20;
@@ -90,7 +91,7 @@ export async function dispatchTasks(env: Env, taskIds: readonly TaskId[], priori
 		// The acceptance checks are copied here and never written again: IntentDO has no method that changes them.
 		const acceptance = Object.freeze(structuredClone(task.acceptance)) as Intent["acceptance"];
 		await intentStub(env, id).init(newIntent({ id, kind: "agent", taskId: task.id, goal: task.goal, acceptance, baseCommit: head, repo: id }));
-		await env.AGENT_WORKFLOW.create({ id: workflowInstanceId(id, 0), params: { intentId: id, mode: "fresh", priority: priorityFor(taskId, priorityOrder) } });
+		release(await env.AGENT_WORKFLOW.create({ id: workflowInstanceId(id, 0), params: { intentId: id, mode: "fresh", priority: priorityFor(taskId, priorityOrder) } }));
 		return id;
 	}
 }

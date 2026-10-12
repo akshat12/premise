@@ -52,6 +52,12 @@ body {
 	letter-spacing: 0.08em;
 	text-transform: uppercase;
 }
+/* A status: its icon and its word, in the status's own colour. */
+.status-mark {
+	font-size: 12px;
+	font-weight: 600;
+	white-space: nowrap;
+}
 /* The small uppercase label that sits over a number or beside a mark. */
 .label {
 	color: var(--ink-soft);
@@ -93,7 +99,7 @@ body {
 	font-weight: 500;
 }
 
-/* ---- The strip ---- */
+/* ---- The placeholder rows shown while a run is loading ---- */
 .strip {
 	position: relative;
 	display: grid;
@@ -109,107 +115,16 @@ body {
 	text-align: left;
 	transition: opacity 120ms linear;
 }
-.strip[data-kind="workload"] {
-	background: var(--strip-workload);
-}
-.strip[data-selected="true"] {
-	border-color: var(--ink);
-	box-shadow: inset 0 0 0 1px var(--ink);
-}
-.strip[data-dimmed="true"] {
-	opacity: 0.4;
-}
+
 .strip-band {
 	border-radius: 2px 0 0 2px;
 	background: var(--band, var(--ink-soft));
 	transition: background-color 200ms linear;
 }
-.strip-open {
-	display: flex;
-	flex-direction: column;
-	justify-content: center;
-	gap: 2px;
-	padding: 0 12px;
-	border: 0;
-	background: none;
-	color: inherit;
-	text-align: left;
-	cursor: pointer;
-}
-.chip-wrap {
-	display: inline-flex;
-	min-width: 0;
-}
-.strip-open:focus-visible,
-.chip-wrap button:focus-visible {
-	outline: 2px solid var(--bluestamp);
-	outline-offset: 1px;
-}
 
-/* ---- Chips ---- */
-.chip {
-	position: relative;
-	display: inline-flex;
-	align-items: center;
-	gap: 4px;
-	height: 22px;
-	max-width: 190px;
-	padding: 0 6px;
-	border: 1px solid var(--rule);
-	border-radius: 3px;
-	background: #fff;
-	color: var(--ink);
-	font-size: 12px;
-	line-height: 1;
-	white-space: nowrap;
-	cursor: default;
-}
-.chip > .symbol {
-	overflow: hidden;
-	text-overflow: ellipsis;
-}
-/* The same symbol is being changed by one Intent and relied on by another. */
-.chip[data-shared="true"] {
-	border-color: var(--amber);
-	box-shadow: inset 0 0 0 1px var(--amber);
-}
-.chip[data-broken="true"] {
-	border-color: var(--redpen);
-	color: var(--redpen);
-}
-/* The red pen: a line drawn through a broken "relies on" chip. */
-.redpen-line {
-	position: absolute;
-	inset: 0;
-	width: 100%;
-	height: 100%;
-	pointer-events: none;
-	overflow: visible;
-}
-.redpen-line path {
-	fill: none;
-	stroke: var(--redpen);
-	stroke-width: 2;
-	stroke-linecap: round;
-	stroke-dasharray: 100;
-	stroke-dashoffset: 0;
-	animation: redpen-draw 350ms ease-out both;
-}
-@keyframes redpen-draw {
-	from {
-		stroke-dashoffset: 100;
-	}
-	to {
-		stroke-dashoffset: 0;
-	}
-}
-.annotation {
-	color: var(--redpen);
-	font-size: 13px;
-	font-style: italic;
-	white-space: nowrap;
-	animation: annotation-in 150ms linear 350ms both;
-}
+
+
+
 @keyframes annotation-in {
 	from {
 		opacity: 0;
@@ -240,27 +155,6 @@ body {
 	}
 }
 
-/* ---- Bays (the stages after the strip) ---- */
-.bay {
-	display: inline-flex;
-	align-items: center;
-	gap: 6px;
-	justify-content: flex-start;
-	height: 28px;
-	padding: 0 8px;
-	border: 1px solid var(--rule);
-	border-radius: 3px;
-	background: #fff;
-	color: var(--ink);
-	font-size: 13px;
-	white-space: nowrap;
-	overflow: hidden;
-}
-.bay[data-reached="false"] {
-	background: transparent;
-	color: var(--ink-soft);
-	border-style: dashed;
-}
 
 /* ---- Live pill ---- */
 .live-dot {
@@ -302,8 +196,6 @@ body {
 @media (prefers-reduced-motion: reduce) {
 	.strip,
 	.strip-band,
-	.redpen-line path,
-	.annotation,
 	.stamp,
 	.drawer,
 	.live-dot[data-pulse="true"] {
@@ -343,8 +235,7 @@ kbd {
 	text-align: center;
 }
 
-/* The top bar gives things up as the window narrows: first the two counters the scale view also
-   shows, then trunk's sha (every landed lane's Trunk bay shows it too). */
+/* The live board's bar gives things up as the window narrows: first two of its counters, then trunk's sha. */
 @media (max-width: 1559px) {
 	.wide-only {
 		display: none;
@@ -409,7 +300,7 @@ kbd {
 	height: 4px;
 	border-radius: 2px;
 	background: var(--ink-soft);
-	opacity: 0.45;
+	opacity: 0.7;
 	transform: translateX(-50%);
 	transition: opacity 120ms linear;
 }
@@ -442,14 +333,8 @@ kbd {
 .drawer-column + .drawer-column {
 	border-left: 1px solid var(--rule);
 }
-.chip-group {
-	flex: none;
-	min-width: 0;
-}
 
-/* ---- Narrow screens (under 1280px): see layoutFor in lib/view.ts ----
-   Flow cannot be made narrower than about 1280px, so below that the board is a plain list of
-   lanes, the ledger is a view of its own, and the drawer is a sheet that comes up from the bottom. */
+/* ---- The live board's bar on narrow screens (under 1280px): see layoutFor in lib/view.ts ---- */
 .topbar-narrow {
 	position: relative;
 	display: flex;
@@ -475,41 +360,6 @@ kbd {
 	align-items: end;
 	gap: 12px;
 }
-/* A marker for cut time floats just under the bar, so its three seconds do not move the page. */
-.topbar-marker {
-	position: absolute;
-	top: calc(100% + 8px);
-	right: 12px;
-	z-index: 5;
-}
-
-.lane-list {
-	display: flex;
-	flex-direction: column;
-	gap: 8px;
-	margin: 0;
-	padding: 0;
-	list-style: none;
-}
-.lane {
-	display: flex;
-	align-items: center;
-	min-width: 0;
-}
-.lane > .strip {
-	flex: 1;
-	min-width: 0;
-}
-.lane-bays {
-	display: flex;
-	flex: none;
-	align-items: center;
-}
-.bay-link {
-	width: 12px;
-	height: 1px;
-	background: var(--ink-soft);
-}
 
 @media (max-width: 1279px) {
 	.drawer {
@@ -531,58 +381,12 @@ kbd {
 	}
 
 	/* The strip on two lines: callsign and status, then its chips, which may wrap. */
-	.strip[data-stacked="true"] {
-		grid-template-columns: 6px minmax(0, 1fr);
-		height: auto;
-		min-height: 48px;
-	}
-	.strip[data-stacked="true"] .strip-band {
-		grid-row: 1 / span 2;
-	}
-	.strip[data-stacked="true"] .strip-open {
-		flex-direction: row;
-		align-items: center;
-		justify-content: flex-start;
-		gap: 10px;
-		padding: 8px 10px 4px;
-	}
-	.strip[data-stacked="true"] .strip-chips {
-		grid-column: 2;
-		padding: 0 10px 8px;
-	}
+
 	/* Two chips share the line; a long name is cut with an ellipsis rather than wrapped. */
-	.strip[data-stacked="true"] .chip-group {
-		flex: 0 1 auto;
-		max-width: 46%;
-	}
-	.strip[data-stacked="true"] .chip-wrap,
-	.strip[data-stacked="true"] .chip-wrap > *,
-	.strip[data-stacked="true"] .chip {
-		min-width: 0;
-		max-width: 100%;
-	}
+
 	/* A struck chip and its red-pen note have the line to themselves, and the note may wrap. */
-	.strip[data-stacked="true"] .chip-group[data-note="true"] {
-		flex-wrap: wrap;
-		row-gap: 2px;
-		max-width: 100%;
-	}
-	.strip[data-stacked="true"] .annotation {
-		white-space: normal;
-	}
 
 	/* Bays go under the strip they belong to. */
-	.lane-list[data-stacked="true"] .lane {
-		flex-direction: column;
-		align-items: stretch;
-		gap: 4px;
-	}
-	.lane-list[data-stacked="true"] .lane-bays {
-		padding-left: 6px;
-	}
-	.lane-list[data-stacked="true"] .lane > .strip {
-		flex: none;
-	}
 
 	/* The drawer's three columns become one, and the sheet scrolls as a whole. */
 	.drawer-head {
@@ -748,12 +552,12 @@ kbd {
 	border-radius: 3px 3px 3px 0;
 	background: var(--redpen);
 	color: #fff;
+	/* Not uppercased: a flag names a symbol in the code, and its case is part of the name. */
 	font-family: var(--font-label);
 	font-size: 11px;
 	font-weight: 600;
-	letter-spacing: 0.06em;
+	letter-spacing: 0.02em;
 	line-height: 24px;
-	text-transform: uppercase;
 	text-overflow: ellipsis;
 	white-space: nowrap;
 	cursor: pointer;
@@ -898,10 +702,10 @@ kbd {
 	display: flex;
 	height: var(--tape-row);
 	border-bottom: 1px solid var(--tape-line);
-	transition: opacity 120ms linear;
 }
-.tape-row[data-dimmed="true"] {
-	opacity: 0.4;
+.tape-trackwrap,
+.tape-band {
+	transition: opacity 120ms linear;
 }
 .tape-row[data-selected="true"] {
 	box-shadow: inset 0 0 0 1px var(--ink);
@@ -956,16 +760,16 @@ button.tape-label:focus-visible {
 .tape-stamp {
 	height: 16px;
 	padding: 0 3px;
-	font-size: 10px;
+	font-size: 11px;
 }
 .tape-status {
 	display: inline-flex;
 	min-width: 0;
 }
 /* The status word beside a name is a label like the rest. */
-.tape-status > span {
+.tape-status .status-mark {
 	font-family: var(--font-label);
-	font-size: 11px !important;
+	font-size: 11px;
 	letter-spacing: 0.08em;
 	text-transform: uppercase;
 }
@@ -995,7 +799,7 @@ button.tape-label:focus-visible {
 	text-transform: uppercase;
 	white-space: nowrap;
 }
-/* Working is filled; waiting at the gate is the same outline, empty. The difference is not a colour. */
+/* Working is filled with a solid outline; waiting at the gate is empty with a dashed one. The difference is not a colour. */
 .tape-bar[data-kind="work"],
 .tape-bar[data-kind="gate"] {
 	justify-content: flex-end;
@@ -1005,6 +809,7 @@ button.tape-label:focus-visible {
 	background: #e4e7e2;
 }
 .tape-bar[data-kind="gate"] {
+	border-style: dashed;
 	background: #fff;
 }
 .tape-bar[data-kind="wait"] {
@@ -1151,7 +956,7 @@ button.tape-label:focus-visible {
 	box-sizing: border-box;
 	padding: 0 1px;
 }
-/* A tint with an outline: the workload is the crowd, and must not out-shout the one red line. */
+/* A tint with an outline: the workload is the crowd, and must not out-shout the one accent line. */
 .tape-density-bar {
 	box-sizing: border-box;
 	width: 100%;
@@ -1345,7 +1150,7 @@ button.tape-label:focus-visible {
 }
 
 @media (prefers-reduced-motion: reduce) {
-	.tape-row,
+	.tape-trackwrap,
 	.tape-band,
 	[data-fresh="true"] > .tape-hit,
 	.tape-stale[data-fresh="true"] .tape-stale-label {
@@ -1354,26 +1159,9 @@ button.tape-label:focus-visible {
 	}
 }
 
-/* The replay's caption: one plain sentence under the bar saying what the screen is showing. */
-.caption {
-	display: flex;
-	align-items: flex-start;
-	gap: 12px;
-	margin: 0;
-	padding: 7px 16px;
-	background: var(--surface);
-	border-bottom: 1px solid var(--rule);
-	font-size: 14px;
-	line-height: 20px;
-	color: var(--ink);
-	min-height: 35px;
-}
+
 @media (max-width: 767px) {
-	.caption {
-		padding: 6px 12px;
-		font-size: 13px;
-		line-height: 18px;
-	}
+
 }
 
 /* ---- The tape with room: a handful of agents get tall rows that say what each is doing ---- */
@@ -1477,8 +1265,14 @@ button.tape-label:focus-visible {
 .tape-row[data-focus="true"] .tape-label {
 	background: var(--strip);
 }
-.tape-row[data-dimmed="true"] {
-	opacity: 0.45;
+/* The rows a step is not about step back: their marks fade, which are drawn for the eye only (the row's
+   button says the same in words). Their words stay at full strength, so they can still be read. */
+.tape-row[data-dimmed="true"] .tape-trackwrap,
+.tape-row[data-dimmed="true"] .tape-label .tape-track {
+	opacity: 0.4;
+}
+.tape-row[data-dimmed="true"] .tape-band {
+	opacity: 0.4;
 }
 .tape-note {
 	margin-left: 4px;
@@ -1595,7 +1389,7 @@ button.tape-label:focus-visible {
 	padding: 0;
 	border: 0;
 	border-radius: 0;
-	background: var(--rule-strong);
+	background: #888e88; /* 3.1:1 on the board: it is a control, so it must be seen */
 	cursor: pointer;
 	transition: background-color 160ms linear;
 }
@@ -1704,6 +1498,8 @@ button.tape-label:focus-visible {
 	background: var(--rule);
 }
 .simplebar-tagline {
+	color: var(--ink-soft);
+	font-size: 13px;
 	/* The tagline gives way first: what kind of run this is matters more. */
 	flex: 0 1000 auto;
 	min-width: 0;

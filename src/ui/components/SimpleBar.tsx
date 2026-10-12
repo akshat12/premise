@@ -31,7 +31,7 @@ export function SimpleBar({ layout, views, onMore, kind }: SimpleBarProps) {
 			{layout === "phone" ? null : (
 				<>
 					<span className="simplebar-rule" aria-hidden="true" />
-					<span className="label simplebar-tagline">Many agents, one codebase. Premise tracks what each one relies on.</span>
+					<span className="simplebar-tagline">Many agents, one codebase. Premise tracks what each one relies on.</span>
 				</>
 			)}
 			<span className="label simplebar-replay" title={kind?.detail}>

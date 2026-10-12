@@ -47,7 +47,7 @@ const query = new URLSearchParams(window.location.search);
 /** `?live` opens on the live stream; otherwise the recorded run plays, which needs no backend. */
 const startMode = (): Mode => (query.has("live") ? "live" : "replay");
 /** `?frame=420` shows the recording as it stood after its first 420 events and stops there: a still, for screenshots and for pointing at one moment. */
-const FRAME = query.has("frame") ? Math.max(0, Number(query.get("frame")) || 0) : null;
+const FRAME = Number(query.get("frame")) > 0 ? Math.floor(Number(query.get("frame"))) : null;
 /**
  * Which recorded run plays: `?demo=<name>` is demo/runs/<name>.json. With nothing asked for it is
  * "main", so the bare address and `/?demo=main` show the same run and the same numbers.
@@ -67,6 +67,8 @@ const OPENING_NOTES: Record<string, string> = {
 	live: "In this run the four agents are a live model (Gemini 3.5 Flash-Lite), not scripts. About five and a half minutes of waiting for the model are cut out.",
 };
 const DEMO = query.get("demo") ?? DEFAULT_RUN;
+/** A lookup by a name that came from the address bar: only the table's own entries count ("constructor" is not a run). */
+const own = <T,>(table: Record<string, T>, key: string): T | undefined => (Object.hasOwn(table, key) ? table[key] : undefined);
 /**
  * What kind of run each demo recording is, said in the top bar: nobody should take scripted agents
  * for a model, or a model's run for the scripted one.
@@ -90,7 +92,6 @@ export function App() {
 	const [paused, setPaused] = useState(true);
 	// On the way to a step: where the tape is headed and how fast it is being run to get there.
 	const [chase, setChase] = useState<{ target: number; speed: number } | null>(null);
-	const [run, setRun] = useState(0);
 	const [recording, setRecording] = useState<PremiseEvent[] | null>(null);
 	const [recordedDiffs, setRecordedDiffs] = useState<Record<IntentId, IntentDiff>>({});
 	const [selected, setSelected] = useState<IntentId | null>(null);
@@ -109,9 +110,6 @@ export function App() {
 		window.addEventListener("resize", onResize);
 		return () => window.removeEventListener("resize", onResize);
 	}, []);
-	// The board is what is left of the window after the ledger rail (320) and the board's own padding (32).
-	// 16 more for a scrollbar, which appears when the drawer is open.
-	const boardWidth = Math.max(1280, windowWidth) - 320 - 32 - 16;
 	const layout = layoutFor(windowWidth);
 	const wide = layout === "wide";
 
@@ -122,22 +120,29 @@ export function App() {
 		if (chosen === undefined && query.has("demo")) {
 			setNotice(`There is no recorded run called "${DEMO}". Playing the built-in recording.`);
 		}
-		void (chosen ?? BUILT_IN)().then((data) => {
-			if (!current) {
-				return;
-			}
-			const run = readRecording(data);
-			setRecording(run.events);
-			setRecordedDiffs(run.diffs);
-		});
+		void (chosen ?? BUILT_IN)()
+			.then((data) => {
+				if (!current) {
+					return;
+				}
+				const run = readRecording(data);
+				setRecording(run.events);
+				setRecordedDiffs(run.diffs);
+			})
+			.catch(() => {
+				if (current) {
+					// Shown instead of a skeleton that never ends.
+					setRecording([]);
+					setNotice("The recorded run could not be loaded. Reload the page to try again.");
+				}
+			});
 		return () => {
 			current = false;
 		};
 	}, []);
 
-	// A new array each time "Play again" is pressed, which is what tells the player to start over.
-	// eslint-disable-next-line react-hooks/exhaustive-deps
-	const playing = useMemo(() => (recording && FRAME === null ? [...recording] : []), [recording, run]);
+	// What the player plays: the recording, or nothing when a still frame was asked for.
+	const playing = useMemo(() => (recording && FRAME === null ? recording : []), [recording]);
 	const source = useMemo<StreamSource>(
 		() => (mode === "live" ? { kind: "live", url: LIVE_URL } : chase === null ? { kind: "replay", events: playing, speed: 1, paused } : { kind: "replay", events: playing, speed: chase.speed, paused: false, until: chase.target }),
 		[mode, playing, paused, chase],
@@ -154,9 +159,9 @@ export function App() {
 		if (mode !== "replay" || FRAME !== null || playing.length === 0) {
 			return null;
 		}
-		const told = storyFor(playing, (at) => captionAt(playing, at, OPENINGS[DEMO]));
+		const told = storyFor(playing, (at) => captionAt(playing, at, own(OPENINGS, DEMO)));
 		// A run that differs from the front page's in a way that matters says so on its first step.
-		const opening = OPENING_NOTES[DEMO];
+		const opening = own(OPENING_NOTES, DEMO);
 		const [first, ...rest] = told.steps;
 		return opening === undefined || first === undefined || rest.length === 0 ? told : { ...told, steps: [{ ...first, body: `${first.body} ${opening}`.trim() }, ...rest] };
 	}, [mode, playing]);
@@ -220,6 +225,12 @@ export function App() {
 			setPaused(true);
 		}
 	}, [chase, position]);
+	// A play-through that has reached the end is over: the button goes back to Play.
+	useEffect(() => {
+		if (!paused && chase === null && playing.length > 0 && position >= playing.length) {
+			setPaused(true);
+		}
+	}, [paused, chase, position, playing.length]);
 	const playThrough = useCallback(() => {
 		setChase(null);
 		if (position >= playing.length) {
@@ -243,7 +254,7 @@ export function App() {
 	);
 
 	const replayDone = mode === "replay" && recording !== null && events.length >= (FRAME ?? recording.length) && recording.length > 0;
-	const live: LiveState = mode === "live" ? (connected ? { kind: "live" } : { kind: "reconnecting" }) : still !== null ? { kind: "still", at: still.length } : { kind: "replay", speed: 1, done: replayDone, paused };
+	const live: LiveState = connected ? "live" : "reconnecting";
 	const loading = mode === "live" ? !connected && events.length === 0 : recording === null;
 	const selectedIntent = selected === null ? undefined : state.intents[selected];
 
@@ -263,7 +274,7 @@ export function App() {
 	const scaleState = useMemo(() => (scaleRun === null ? null : reduceAll(scaleRun)), [scaleRun]);
 	const diff = useIntentDiff(selectedIntent, mode, recordedDiffs);
 
-	// j / k move between strips, Enter opens the drawer, Esc closes it.
+	// The page's keys: the story's (→ ← Space), j / k to open the next or previous agent's Intent, Esc to close it.
 	useEffect(() => {
 		const onKey = (event: KeyboardEvent) => {
 			const target = event.target as HTMLElement | null;
@@ -281,7 +292,7 @@ export function App() {
 				return;
 			}
 			// The player's keys. They belong to a replay, and stay out of the way of a dialog.
-			if (mode === "replay" && FRAME === null && !event.metaKey && !event.ctrlKey && !event.altKey && target?.closest("[role=dialog]") == null) {
+			if (mode === "replay" && view === "tape" && FRAME === null && !event.metaKey && !event.ctrlKey && !event.altKey && target?.closest("[role=dialog]") == null) {
 				if (event.key === " ") {
 					event.preventDefault();
 					if (paused && chase === null) {
@@ -313,11 +324,11 @@ export function App() {
 			const at = selected === null ? -1 : ids.indexOf(selected);
 			const next = event.key === "j" ? Math.min(ids.length - 1, at + 1) : Math.max(0, at <= 0 ? 0 : at - 1);
 			setSelected(ids[next] ?? null);
-			document.querySelector<HTMLElement>(`[data-node-id="strip-${ids[next]}"] .strip-open, button[data-node-id="strip-${ids[next]}"]`)?.focus();
+			document.querySelector<HTMLElement>(`button[data-node-id="strip-${ids[next]}"]`)?.focus();
 		};
 		window.addEventListener("keydown", onKey);
 		return () => window.removeEventListener("keydown", onKey);
-	}, [lanes.agents, selected, mode, paused, chase, stepIndex, goToStep, playThrough]);
+	}, [lanes.agents, selected, mode, view, paused, chase, stepIndex, goToStep, playThrough]);
 
 	const views = [
 		{ value: "tape" as const, label: mode === "replay" ? "The story" : "Agents" },
@@ -353,6 +364,9 @@ export function App() {
 		/>
 	);
 
+	// What the replay's bar says is on screen: the kind of run, or that this is one frame of it held still.
+	const known = own(RUN_KINDS, DEMO);
+	const runKind: RunKind | undefined = still !== null ? { label: `Still · after event ${still.length}`, extra: known?.label.replace(/^Replay · /, "") ?? "a recorded run", detail: "One moment of the recorded run, held still." } : known;
 	const cards = useMemo(() => openCards(state), [state]);
 	const figures = useMemo(() => figuresFor(events, state.intents, state.metrics), [events, state.intents, state.metrics]);
 	const actions = useMemo<Command[]>(
@@ -388,7 +402,8 @@ export function App() {
 	}, []);
 	const jumps = useMemo<Command[]>(() => lanes.agents.map((intent) => ({ id: `jump-${intent.id}`, title: `Open ${callsignOf(intent.id)}`, run: () => jumpTo(intent.id) })), [lanes.agents, jumpTo, callsignOf]);
 
-	const empty = !loading && lanes.agents.length === 0 && lanes.workload === null;
+	// "Nothing in flight" is a state of the live board. A replay's first seconds, before its first Intent, are not it.
+	const empty = mode === "live" && !loading && lanes.agents.length === 0 && lanes.workload === null;
 	// A replay's length, and a way to move it to a moment: the tape's time axis is a slider.
 	const seekToTime = (ms: number, nudge?: -1 | 1) => {
 		const target = positionAt(playing, ms);
@@ -403,14 +418,14 @@ export function App() {
 	return (
 		<div className="flex h-full flex-col" style={wide ? { minWidth: 1280 } : undefined}>
 			{mode === "replay" ? (
-				<SimpleBar layout={layout} views={viewTabs} onMore={() => setPaletteOpen(true)} {...(RUN_KINDS[DEMO] === undefined ? {} : { kind: RUN_KINDS[DEMO] as RunKind })} />
+				<SimpleBar layout={layout} views={viewTabs} onMore={() => setPaletteOpen(true)} {...(runKind === undefined ? {} : { kind: runKind })} />
 			) : (
-				<TopBar metrics={state.metrics} trunk={state.trunk.commit} live={live} views={viewTabs} layout={layout} mode={modeTabs} transport={null} quiet={view === "ab"} onDispatch={() => setDispatching(true)} />
+				<TopBar metrics={state.metrics} trunk={state.trunk.commit} live={live} views={viewTabs} layout={layout} mode={modeTabs} quiet={view === "ab"} onDispatch={() => setDispatching(true)} />
 			)}
 			{storied && view === "tape" && story !== null ? (
 				<StoryBar steps={story.steps} index={stepIndex} playing={!paused && chase === null} moving={chase !== null} onStep={goToStep} onPlay={playThrough} onPause={() => setPaused(true)} onRestart={() => goToStep(0)} />
 			) : null}
-			{storied && view === "tape" && layout !== "phone" ? <RunFigures figures={figures} /> : null}
+			{storied && view === "tape" && layout !== "phone" ? <RunFigures figures={figures} ended={replayDone} /> : null}
 			{notice ? (
 				<div role="status" className="flex items-center justify-between" style={{ padding: "6px 16px", background: "var(--surface)", borderBottom: "1px solid var(--rule)", fontSize: 13 }}>
 					{notice}

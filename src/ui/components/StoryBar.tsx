@@ -41,15 +41,18 @@ export function StoryBar({ steps, index, playing, moving, onStep, onPlay, onPaus
 						))}
 					</span>
 				</div>
-				{/* The key makes the sentence fade in afresh at each step. */}
-				<h1 key={shown.id} className="story-title" aria-live="polite">
-					{shown.title}
-				</h1>
-				{shown.body ? (
-					<p key={`${shown.id}-body`} className="story-body">
-						{shown.body}
-					</p>
-				) : null}
+				{/* A wrapper that stays, so a screen reader is told when the sentence inside it changes. The key on the
+				    sentence makes it fade in afresh at each step. */}
+				<div aria-live="polite">
+					<h1 key={shown.id} className="story-title">
+						{shown.title}
+					</h1>
+					{shown.body ? (
+						<p key={`${shown.id}-body`} className="story-body">
+							{shown.body}
+						</p>
+					) : null}
+				</div>
 			</div>
 			<div className="story-controls">
 				<Button variant="secondary" size="lg" disabled={at === 0 && index >= 0} onClick={() => onStep(at - 1)}>

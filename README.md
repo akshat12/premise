@@ -30,7 +30,7 @@ The same 12 tasks and 100 scripted workload Intents, landed under three rules, o
 |---|---|---|---|
 | Behavioural regressions that reached trunk | 3 | 1 | 0 |
 | Demo tasks sent back to a person | 0 of 12 | 2 of 12 | 0 of 12 |
-| Stale Intents redone and landed with nobody involved | 0 | 0 | 3 |
+| Stopped Intents redone and landed with nobody involved | 0 | 0 | 3 |
 | Scripted workload Intents that did not land | 9 to 11 | 10 to 11 | 12 to 14 |
 | Wall time | 85 to 90 s | 79 to 91 s | 103 to 145 s |
 

@@ -49,7 +49,7 @@ function Sparkline({ buckets, elapsedMs }: { buckets: readonly number[]; elapsed
 			</svg>
 			<figcaption className="label flex justify-between" style={{ marginTop: 6 }}>
 				<span>0:00</span>
-				<span>Landings in each {BUCKET_MS / 1000} s</span>
+				<span>Landings in each {BUCKET_MS / 1000} seconds</span>
 				<span>{clock(elapsedMs)}</span>
 			</figcaption>
 		</figure>
@@ -98,7 +98,7 @@ export function ScaleView({ events, metrics, intents, otherRun }: ScaleViewProps
 				<Figure label="Forks created" value={whole.format(metrics.forksCreated)} />
 				<Figure label="Pushes" value={whole.format(metrics.pushes)} />
 				<Figure label="Landings a minute" value={stats.landingsPerMinute.toFixed(1)} />
-				<Figure label="Agents active" value={whole.format(metrics.agentsActive)} />
+				<Figure label="Intents landed" value={whole.format(tally.landed)} />
 			</div>
 			<div style={{ marginTop: 32 }}>
 				<Sparkline buckets={stats.buckets} elapsedMs={stats.elapsedMs} />
@@ -114,7 +114,7 @@ export function ScaleView({ events, metrics, intents, otherRun }: ScaleViewProps
 				</dd>
 				<dt className="label" style={{ paddingTop: 3 }}>Premises</dt>
 				<dd style={{ margin: 0 }}>
-					{whole.format(metrics.premisesBroken)} broken; {whole.format(metrics.rederives.succeeded)} stale Intents settled without a person
+					{whole.format(metrics.premisesBroken)} broken; {whole.format(metrics.rederives.succeeded)} stopped Intents went on to land without a person
 				</dd>
 				<dt className="label" style={{ paddingTop: 3 }}>Artifacts</dt>
 				<dd style={{ margin: 0 }}>

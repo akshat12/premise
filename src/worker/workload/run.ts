@@ -17,6 +17,7 @@ import { analyze } from "../surface";
 import { indexRepo } from "../symbols";
 import { TokenBucket } from "./bucket";
 import { applyEdit, editPaths, type EditSpec, generateEdits } from "./generate";
+import { release } from "../ports/release";
 
 export const WORKLOAD_TASK = "workload";
 /** Ledger priority. Higher number than any agent's, so an agent always wins a contested symbol. */
@@ -224,7 +225,7 @@ export function spawnWorkflows(env: Pick<Env, "AGENT_WORKFLOW">, options: { call
 			const batch = plan.jobs.slice(from, from + perBatch);
 			await bucket.take(batch.length * CALLS_PER_INTENT);
 			const params = (job: WorkloadJob): WorkloadParams => ({ mode: "workload", job, trunk: plan.trunk });
-			await env.AGENT_WORKFLOW.createBatch({ instances: batch.map((job) => ({ id: workflowInstanceId(job.intentId, 0), params: params(job) })) } as never);
+			release(await env.AGENT_WORKFLOW.createBatch({ instances: batch.map((job) => ({ id: workflowInstanceId(job.intentId, 0), params: params(job) })) } as never));
 			started += batch.length;
 		}
 		return { started };

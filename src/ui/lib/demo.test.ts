@@ -163,7 +163,7 @@ describe("captionAt, on the Oct 9 run of twelve agents and a workload", () => {
 		expect(captionAt(run, stops[0] ?? 0)).toBe("T05 TAX edited a symbol another Intent is changing, and is held. A person may choose Wait, Split or Depend; if nobody does, it is settled when the other Intent lands.");
 		expect(captionAt(run, stops[1] ?? 0)).toBe("T01 NULL landed and changed verifySession. T02 AUDIT, T03 EXPIRED and T11 EXPIRED had recorded that they rely on it. All three are stopped until their work is redone. T04 SESSION read it too, but relies only on its type, which did not change.");
 		expect(captionAt(run, stops[2] ?? 0)).toBe("T02 AUDIT: a plain rebase did not pass the gate. Its agent redid the work on the new trunk (a re-derive), and that passed the gate and landed.");
-		expect(captionAt(run, run.length)).toBe("The run is over: 264 Intents landed, 0 broken builds on trunk, 0 human merges.");
+		expect(captionAt(run, run.length)).toBe("The run is over: 264 Intents landed, 0 broken builds on trunk, nobody was needed.");
 	});
 
 	it("keeps saying the last moment until the next one", () => {
@@ -193,7 +193,7 @@ describe("the front-page demo recording: four agents, one break", () => {
 		expect(captionAt(run, stops[2] ?? 0)).toBe(
 			"T11 EXPIRED: after a plain rebase every test passed, but its premise no longer held, so the gate turned it back. Its agent redid the work on the new trunk (a re-derive), and that passed the gate and landed.",
 		);
-		expect(captionAt(run, run.length)).toBe("The run is over: 4 Intents landed, 0 broken builds on trunk, 0 human merges.");
+		expect(captionAt(run, run.length)).toBe("The run is over: 4 Intents landed, 0 broken builds on trunk, nobody was needed.");
 	});
 
 	it("carries what each of the four agents changed", () => {
@@ -219,6 +219,6 @@ describe("the live-model demo recording", () => {
 		expect(captions[0]).toBe("T01 NULL landed and changed verifySession. T02 AUDIT, T04 SESSION and T11 EXPIRED had recorded that they rely on it. All three are stopped until their work is redone.");
 		expect(captions).toContain("T02 AUDIT: it was stopped before it had pushed anything, so there was nothing to rebase. Its agent redid the work on the new trunk (a re-derive), and that passed the gate and landed.");
 		expect(captions).toContain("T11 EXPIRED: after a plain rebase every test passed, but its premise no longer held, so the gate turned it back. Its agent redid the work on the new trunk (a re-derive), and that passed the gate and landed.");
-		expect(captions.at(-1)).toBe("The run is over: 4 Intents landed, 0 broken builds on trunk, 0 human merges.");
+		expect(captions.at(-1)).toBe("The run is over: 4 Intents landed, 0 broken builds on trunk, nobody was needed.");
 	});
 });

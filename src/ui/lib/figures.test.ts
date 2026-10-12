@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { PremiseEvent } from "../../shared/events";
 import liveRun from "../../../demo/runs/live.json";
 import mainRun from "../../../demo/runs/main.json";
+import scaleRun from "../../../demo/runs/scale.json";
 import { figuresFor } from "./figures";
 import { readRecording } from "./recording";
 import { reduceAll } from "./reduce";
@@ -23,6 +24,7 @@ describe("figuresFor", () => {
 			workload: 0,
 			premisesBroken: state.metrics.premisesBroken,
 			rederived: state.metrics.rederives.succeeded,
+			rebased: 0,
 			asked: 0,
 			landed: state.metrics.intentsLanded,
 			problems: 0,
@@ -40,7 +42,19 @@ describe("figuresFor", () => {
 	});
 
 	it("starts at nothing", () => {
-		expect(at(main, 0)).toEqual({ agents: 0, workload: 0, premisesBroken: 0, rederived: 0, asked: 0, landed: 0, problems: 0 });
+		expect(at(main, 0)).toEqual({ agents: 0, workload: 0, premisesBroken: 0, rederived: 0, rebased: 0, asked: 0, landed: 0, problems: 0 });
+	});
+
+	it("keeps work that was redone apart from work that only needed a rebase", () => {
+		const scale = readRecording(scaleRun).events;
+		const figures = at(scale, scale.length);
+		const state = play(scale);
+		expect(figures.rederived).toBe(3);
+		expect(figures.rebased).toBe(93);
+		// The log's own counter adds the two together.
+		expect(figures.rederived + figures.rebased).toBe(state.metrics.rederives.succeeded);
+		// A person was asked about two Intents wanting one symbol, which is not a re-derive that failed.
+		expect(figures.asked).toBe(0);
 	});
 
 	it("shows the live-model run's regression", () => {

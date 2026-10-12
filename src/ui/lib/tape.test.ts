@@ -79,7 +79,7 @@ describe("buildTape, on the recorded run", () => {
 		expect(t02.end).toMatchObject({ kind: "landed" });
 		expect(t02.end?.sha).toMatch(/^b0a5396/);
 		expect(t02.races).toBe(1);
-		expect(t02.summary).toBe('T02 AUDIT, Write an audit log entry with event "session.expired" whenever a login request (handleLogin in src/auth/login.ts) arrives with an expired session. Landed at 0:56. Premise broke at 0:26 when T01 landed and verifySession changed. Re-derived.');
+		expect(t02.summary).toBe('T02 AUDIT, Write an audit log entry with event "session.expired" whenever a login request (handleLogin in src/auth/login.ts) arrives with an expired session. Changes handleLogin. Relies on verifySession returns null for an expired session. Landed at 0:56. Premise broke at 0:26 when T01 landed and verifySession changed. Re-derived.');
 	});
 
 	it("shows a re-derive that is still going as open, up to now", () => {
@@ -178,7 +178,7 @@ describe("buildTape, cases the recording does not have", () => {
 		expect(tape.rows[0]?.segments.at(-1)).toMatchObject({ kind: "person", label: "needs you", open: true });
 		expect(tape.rows[0]?.summary).toBe("T01 ALPHA, Do the thing. Needs you now. Needs you since 0:05.");
 		expect(tape.rows[1]?.end).toEqual({ at: 8000, kind: "failed", sha: null });
-		expect(tape.rows[1]?.summary).toBe("T02 BETA, Do the thing. Failed at 0:08.");
+		expect(tape.rows[1]?.summary).toBe("T02 BETA, Do the thing. Did not land: gave up at 0:08.");
 	});
 
 	it("says 'rebased' when the plain rebase won the race, and shows a second stale stretch after a failed one", () => {

@@ -1,16 +1,13 @@
 import { describe, expect, it } from "vitest";
 import type { PremiseEvent } from "../../shared/events";
-import type { Premise } from "../../shared/types";
 import realRun from "../fixtures/real-run.json";
 import { type IntentView, reduceAll } from "./reduce";
-import { annotation, baysReached, callsign, chipsFor, lanesOf, layoutFor, ledgerRows, shortSha, STATUS_LOOK, symbolFile, symbolName, touches, waitingOn, clampDrawerHeight, DRAWER_MIN_HEIGHT, DRAWER_TOP_ROOM } from "./view";
+import { callsign, lanesOf, layoutFor, shortSha, STATUS_LOOK, symbolFile, symbolName, waitingOn, clampDrawerHeight, DRAWER_MIN_HEIGHT, DRAWER_TOP_ROOM } from "./view";
 
 const VERIFY = "src/auth/session.ts#verifySession";
-const LOGIN = "src/auth/login.ts#handleLogin";
 const events = realRun as PremiseEvent[];
 
 const intent = (fields: Partial<IntentView> = {}): IntentView => ({ id: "i00000001", kind: "agent", taskId: "t02-audit-expired", goal: "Audit expired sessions.", status: "working", claims: [], premises: [], why: [], baseCommit: "a".repeat(40), headCommit: null, rederiveAttempts: 0, ...fields });
-const premise = (symbol: string, source: Premise["source"], state: Premise["state"] = "holding"): Premise => ({ symbol, source, surfaceHash: "abcdef0123456789", state, ...(state === "broken" ? { brokenBy: { intentId: "i9", commit: "c".repeat(40), reason: "it changed" } } : {}) });
 
 describe("names", () => {
 	it("callsign is the task number and one word; anything else falls back to the id", () => {
@@ -39,67 +36,11 @@ describe("status looks", () => {
 	});
 });
 
-describe("bays", () => {
-	it("an Intent reaches Check when it has pushed, Gate when it is queued, Trunk when it lands", () => {
-		expect(baysReached(intent({ status: "working" }))).toEqual({ check: false, gate: false, trunk: false });
-		expect(baysReached(intent({ status: "checking" }))).toEqual({ check: true, gate: false, trunk: false });
-		expect(baysReached(intent({ status: "quarantined" }))).toEqual({ check: true, gate: false, trunk: false });
-		expect(baysReached(intent({ status: "gating" }))).toEqual({ check: true, gate: true, trunk: false });
-		expect(baysReached(intent({ status: "landed" }))).toEqual({ check: true, gate: true, trunk: true });
-	});
-
-	it("an Intent the gate turned back keeps the bays it reached while it is re-derived", () => {
-		const report = { intentId: "i1", path: "rebase" as const, textConflict: false, typecheck: { ok: true, errors: [] }, tests: { passed: [], failed: [] }, assertions: { passed: [], failed: [] }, ok: false, landedCommit: null, durationMs: 1 };
-		expect(baysReached(intent({ status: "rederiving", gate: report }))).toEqual({ check: true, gate: true, trunk: false });
-	});
-});
-
-describe("annotation", () => {
-	const names = (id: string) => (id === "i5" ? "T05 TAX" : id);
-
-	it("is the red-pen note for a broken premise, short enough to read at a glance", () => {
-		const broken = [premise(VERIFY, "asserted", "broken")];
-		expect(annotation(intent({ status: "stale", premises: broken }), names)).toBe("verifySession changed");
-		expect(annotation(intent({ status: "rederiving", premises: broken }), names)).toBe("verifySession changed: re-deriving");
-		expect(annotation(intent({ status: "escalated", premises: broken }), names)).toBe("verifySession changed: needs you");
-		// Once it has landed there is nothing left to say.
-		expect(annotation(intent({ status: "landed", premises: broken }), names)).toBeUndefined();
-	});
-
-	it("says who a waiting Intent is waiting on", () => {
-		expect(annotation(intent({ status: "waiting", decision: { kind: "wait", on: "i5", symbols: [] } }), names)).toBe("waiting on T05");
+describe("waitingOn", () => {
+	it("names the Intent a waiting or quarantined one is held behind, and nothing for one that is working", () => {
+		expect(waitingOn(intent({ status: "waiting", decision: { kind: "wait", on: "i5", symbols: [] } }))).toBe("i5");
+		expect(waitingOn(intent({ status: "quarantined", decision: { kind: "split", with: "i6", proposal: { mine: [], theirs: [] } } }))).toBe("i6");
 		expect(waitingOn(intent({ status: "working", decision: { kind: "wait", on: "i5", symbols: [] } }))).toBeUndefined();
-		expect(annotation(intent(), names)).toBeUndefined();
-	});
-});
-
-describe("chipsFor", () => {
-	it("lists what it changes, then what it relies on: asserted first, then broken, called, read", () => {
-		const chips = chipsFor(intent({ claims: [{ symbol: LOGIN, mode: "body" }], premises: [premise("a#read", "observed"), premise("a#called", "derived"), premise("a#said", "asserted"), premise("a#gone", "observed", "broken")] }));
-		expect(chips.map((chip) => [chip.kind, symbolName(chip.symbol), chip.detail, chip.broken])).toEqual([
-			["changes", "handleLogin", "body", false],
-			["relies", "said", "asserted", false],
-			["relies", "gone", "observed", true],
-			["relies", "called", "derived", false],
-			["relies", "read", "observed", false],
-		]);
-		expect(chips[2]).toMatchObject({ reason: "it changed", hash: "abcdef0123456789" });
-	});
-
-	it("shows a symbol once: not as relied on if it is being changed, and under its strongest source", () => {
-		const chips = chipsFor(intent({ claims: [{ symbol: LOGIN, mode: "interface" }], premises: [premise(LOGIN, "observed"), premise(VERIFY, "observed"), premise(VERIFY, "asserted")] }));
-		expect(chips.map((chip) => [symbolName(chip.symbol), chip.detail])).toEqual([["handleLogin", "interface"], ["verifySession", "asserted"]]);
-	});
-
-	it("drops broken premises once the Intent has landed: the work on trunk no longer relies on them", () => {
-		const premises = [premise(VERIFY, "asserted", "broken"), premise("a#read", "observed")];
-		expect(chipsFor(intent({ status: "rederiving", premises })).some((chip) => chip.broken)).toBe(true);
-		expect(chipsFor(intent({ status: "landed", premises })).map((chip) => symbolName(chip.symbol))).toEqual(["read"]);
-	});
-
-	it("touches says whether an Intent changes or relies on a symbol", () => {
-		const subject = intent({ claims: [{ symbol: LOGIN, mode: "body" }], premises: [premise(VERIFY, "observed")] });
-		expect([touches(subject, LOGIN), touches(subject, VERIFY), touches(subject, "x#y")]).toEqual([true, true, false]);
 	});
 });
 
@@ -110,7 +51,7 @@ describe("the recorded run", () => {
 	const whenBroken = at(firstBreak + 20);
 	const end = at(events.length);
 
-	it("has one strip per agent, in task order, and one summary for the workload", () => {
+	it("has one row per agent, in task order, and one summary for the workload", () => {
 		const lanes = lanesOf(end);
 		expect(lanes.agents.map((agent) => callsign(agent).split(" ")[0])).toEqual(["T01", "T02", "T03", "T04", "T05", "T06", "T07", "T08", "T09", "T10", "T11", "T12"]);
 		expect(lanes.agents.every((agent) => agent.status === "landed")).toBe(true);
@@ -119,27 +60,17 @@ describe("the recorded run", () => {
 		expect(lanesOf(at(5)).workload).toBeNull();
 	});
 
-	it("at the premise break, t01 has landed and the three that relied on it are red, with the note", () => {
+	it("at the premise break, t01 has landed and the three that relied on it are stopped, each with its asserted premise broken", () => {
 		const byCall = Object.fromEntries(lanesOf(whenBroken).agents.map((agent) => [callsign(agent).split(" ")[0], agent]));
 		expect(byCall.T01?.status).toBe("landed");
 		for (const call of ["T02", "T03", "T11"]) {
 			const agent = byCall[call] as IntentView;
 			expect(["stale", "rederiving"]).toContain(agent.status);
-			expect(annotation(agent, (id) => id)).toMatch(/^verifySession changed/);
-			expect(chipsFor(agent).find((chip) => chip.broken)).toMatchObject({ symbol: VERIFY, kind: "relies", detail: "asserted" });
+			expect(agent.premises.some((held) => held.state === "broken" && held.symbol === VERIFY && held.source === "asserted")).toBe(true);
 		}
 		// The control read the same file and is untouched.
 		expect(["stale", "rederiving"]).not.toContain(byCall.T04?.status);
-		expect(chipsFor(byCall.T04 as IntentView).some((chip) => chip.broken)).toBe(false);
-	});
-
-	it("the ledger puts the broken symbol first, with the readers whose premise broke", () => {
-		const rows = ledgerRows(whenBroken);
-		expect(rows[0]).toMatchObject({ symbol: VERIFY });
-		expect(rows[0]?.broken).toHaveLength(3);
-		expect(rows.some((row) => row.contested)).toBe(true);
-		// Only agents' Intents are listed, and nothing is left once everything has landed.
-		expect(ledgerRows(end)).toEqual([]);
+		expect((byCall.T04 as IntentView).premises.some((held) => held.state === "broken")).toBe(false);
 	});
 
 	it("re-derived Intents carry their stamp count to the end", () => {

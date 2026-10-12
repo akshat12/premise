@@ -3,7 +3,7 @@ import type { PremiseEvent } from "../../shared/events";
 import type { Premise } from "../../shared/types";
 import realRun from "../fixtures/real-run.json";
 import { reduceAll } from "./reduce";
-import { ago, groupPremises, openCards, raceRows, sharedSymbols, timelineFor } from "./chips";
+import { ago, groupPremises, openCards, raceRows, timelineFor } from "./chips";
 import { callsign } from "./view";
 
 const events = realRun as PremiseEvent[];
@@ -40,19 +40,6 @@ describe("raceRows", () => {
 		// In the recorded run t02's rebase failed and its re-derive won.
 		expect(raceRows(byCall().T02 ?? {})).toEqual({ rebase: "fail", rederive: "pass", winner: "rederive" });
 		expect(raceRows(byCall().T04 ?? {})).toBeNull();
-	});
-});
-
-describe("sharedSymbols", () => {
-	it("is the symbols one agent changes while another relies on them", () => {
-		const breakAt = events.findIndex((event) => event.t === "premise.broken");
-		const before = reduceAll(events.slice(0, breakAt - 30));
-		const shared = sharedSymbols(before);
-		// t01 is changing verifySession while t02, t03 and t11 rely on it.
-		expect(shared.has(VERIFY)).toBe(true);
-		expect(shared.has("src/billing/invoice.ts#computeTotal")).toBe(true);
-		// Nothing is shared once everything has landed.
-		expect(sharedSymbols(end).size).toBe(0);
 	});
 });
 

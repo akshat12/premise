@@ -1,7 +1,7 @@
-// What the drawer and the strip's small indicators show, worked out from the view state and the
+// What the details panel and a row's small indicators show, worked out from the view state and the
 // event log. Pure.
 import type { PremiseEvent } from "../../shared/events";
-import type { IntentId, Premise, SymbolId } from "../../shared/types";
+import type { IntentId, Premise } from "../../shared/types";
 import type { IntentView, ViewState } from "./reduce";
 import { STATUS_LOOK, symbolName } from "./view";
 
@@ -42,21 +42,6 @@ export interface RaceRows {
 export function raceRows(intent: Pick<IntentView, "race">): RaceRows | null {
 	const race = intent.race;
 	return race === undefined ? null : race.winner === undefined ? { rebase: race.rebase, rederive: race.rederive } : { rebase: race.rebase, rederive: race.rederive, winner: race.winner };
-}
-
-/**
- * Symbols that one agent's Intent is changing while another relies on them. Chips for these get
- * the same outline on both strips, which is how a collision shows without a line between lanes.
- */
-export function sharedSymbols(state: ViewState): Set<SymbolId> {
-	const isAgent = (id: IntentId) => state.intents[id] !== undefined && state.intents[id]?.kind !== "workload";
-	const shared = new Set<SymbolId>();
-	for (const [symbol, entry] of Object.entries(state.ledger)) {
-		if (entry.writer !== undefined && isAgent(entry.writer) && entry.readers.some((reader) => reader !== entry.writer && isAgent(reader))) {
-			shared.add(symbol);
-		}
-	}
-	return shared;
 }
 
 export interface TimelineEntry {

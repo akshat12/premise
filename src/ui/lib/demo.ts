@@ -236,7 +236,7 @@ export function captionAt(events: readonly PremiseEvent[], position: number, ope
 		}
 		if (event.t === "metrics") {
 			const m = event.metrics;
-			return `The run is over: ${m.intentsLanded} Intents landed, ${m.brokenBuildsOnTrunk} broken builds on trunk, ${m.humanMerges} human merges.`;
+			return `The run is over: ${m.intentsLanded} ${m.intentsLanded === 1 ? "Intent" : "Intents"} landed, ${m.brokenBuildsOnTrunk} broken ${m.brokenBuildsOnTrunk === 1 ? "build" : "builds"} on trunk, ${m.humanMerges === 0 ? "nobody was" : m.humanMerges === 1 ? "1 person was" : `${m.humanMerges} people were`} needed.`;
 		}
 	}
 	const what = opening ?? `A recorded run on real Artifacts: ${agents} ${agents === 1 ? "agent" : "agents"}${workload.size > 0 ? ` and ${workload.size} scripted workload Intents` : ""}, each on its own fork.`;

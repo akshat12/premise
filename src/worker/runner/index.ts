@@ -6,6 +6,7 @@ import type { FileMap } from "../ports/repo-store";
 import { fnv1a64 } from "../surface";
 import { indexFile, isIndexedPath, resolveImport } from "../symbols";
 import ts from "../ts";
+import { release } from "../ports/release";
 
 export interface RunRequest {
 	files: FileMap;
@@ -366,7 +367,13 @@ export async function runInIsolate(env: Pick<Env, "LOADER">, req: RunRequest): P
 			const timeout = new Promise<never>((_, reject) => {
 				timer = setTimeout(() => reject(new Error(`the run did not finish within ${WALL_CLOCK_MS / 1000} seconds`)), WALL_CLOCK_MS);
 			});
-			results = await Promise.race([worker.getEntrypoint<RunnerEntrypoint>("Runner").run(), timeout]);
+			const runner = worker.getEntrypoint<RunnerEntrypoint>("Runner");
+			try {
+				results = await Promise.race([runner.run(), timeout]);
+			} finally {
+				// The isolate is used once. Its stubs are let go here, not left for the garbage collector.
+				release(runner, worker);
+			}
 			break;
 		} catch (error) {
 			const message = error instanceof Error ? error.message : String(error);

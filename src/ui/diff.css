@@ -173,7 +173,8 @@
 	color: var(--holds);
 }
 .diff-line[data-kind="-"] .diff-sign {
-	color: var(--redpen);
+	/* A shade darker than the accent, so the sign keeps 4.5:1 on the tinted line. */
+	color: color-mix(in srgb, var(--redpen) 85%, #000);
 }
 /* Long lines wrap inside the column: nothing scrolls sideways. */
 .diff-text {

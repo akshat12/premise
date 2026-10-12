@@ -1,5 +1,6 @@
 import { env, exports } from "cloudflare:workers";
 import { describe, expect, it } from "vitest";
+import { resetDemo } from "./dispatch";
 import { getRepoStore } from "./ports";
 
 describe("GET /api/health", () => {
@@ -51,9 +52,10 @@ describe("admin routes with the token", () => {
 		expect(body.files).toBeGreaterThan(60);
 	});
 
-	// The isolate that runs trunk's tests has a wall-clock budget, and the whole suite runs many isolates at once,
-	// so under that load this can time out. It is tried again before it counts as a failure.
-	it("analyze typechecks trunk with the compiler running in the Worker", { retry: 2 }, async () => {
+	it("analyze typechecks trunk with the compiler running in the Worker", async () => {
+		// The Workers-pool tests share one runtime, and other files leave their own landings on trunk (t01, which
+		// changes what this route's sample assertion checks). So this test starts from a fresh trunk of its own.
+		await resetDemo(env);
 		const response = await exports.default.fetch("http://premise.test/api/admin/analyze", admin);
 		expect(response.status).toBe(200);
 		const body = (await response.json()) as { ok: boolean; errors: string[]; symbols: number; verifySession: { decl: string } | null; runner: { loadError: string | null; testsPassed: number; testsFailed: unknown[]; assertions: { id: string; ok: boolean }[] } };

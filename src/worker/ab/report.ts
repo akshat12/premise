@@ -114,14 +114,14 @@ export function buildReport(trials: readonly Trial[]): { table: Row[]; headline:
 		{
 			metric: "Behavioural regressions that reached trunk",
 			...each((r) => String(r.behaviouralRegressionsOnTrunk)),
-			note: "Reference checks and end-to-end probes of landed tasks that went red after a landing. No rule runs the probes before landing; they stand for what the running system does.",
+			note: "Reference checks and end-to-end probes of landed tasks that failed after a landing. No rule runs the probes before landing; they stand for what the running system does.",
 		},
 		{
 			metric: "Demo tasks sent back to a person",
 			...each((r) => `${tasksSentBack(r)} of ${r.tasksDispatched}`),
 			note: "Tasks whose work did not land and that nothing will pick up again. The two queues turn the work away and stop there. Premise re-derives it, and asks a person only after two re-derives have failed.",
 		},
-		{ metric: "Stale Intents redone and landed with nobody involved", ...each((r) => String(r.races.rederiveWon)), note: "Re-derives that landed. The two queues have no such step." },
+		{ metric: "Stopped Intents redone and landed with nobody involved", ...each((r) => String(r.races.rederiveWon)), note: "Re-derives that landed. The two queues have no such step." },
 		{ metric: "Broken builds on trunk", ...each((r) => String(r.brokenBuildsOnTrunk)), note: "Typecheck failures after a landing. All three rules typecheck before landing." },
 		{
 			metric: "Scripted workload Intents that did not land",
@@ -131,22 +131,22 @@ export function buildReport(trials: readonly Trial[]): { table: Row[]; headline:
 		{ metric: "Human merges", ...each((r) => String(r.humanMerges)), note: "Text conflicts someone has to merge by hand (the two queues), or Intents that ended with a person (Premise). A scripted Intent that gave up on a claim is not a merge, and is counted in the row above." },
 		{ metric: "Intents landed", ...each((r) => `${r.intentsLanded} of ${r.ends.landed + r.ends.failed + r.ends.escalated + r.ends.other}`, (value) => Number.parseInt(value, 10)), note: "Agents and scripted workload together." },
 		{ metric: "Premises broken", ...each((r) => String(r.premisesBroken)), note: "The two queues have no premises, so nobody is told." },
-		{ metric: "Stale Intents a plain rebase settled", ...each((r) => String(r.races.rebaseWon)) },
+		{ metric: "Stopped Intents a plain rebase settled", ...each((r) => String(r.races.rebaseWon)) },
 		{
 			metric: "False positives: agents",
 			...each((r) => share(r.agentRaces)),
-			note: "Of the agents' Intents that went stale, the share whose plain rebase then passed the whole gate: the broken premise cost time and changed nothing.",
+			note: "Of the agents' Intents that were stopped, the share whose plain rebase then passed the whole gate: the broken premise cost time and changed nothing.",
 		},
 		{
 			metric: "False positives: scripted workload",
 			...each((r) => share(workloadRaces(r))),
-			note: "The same for the scripted workload. These Intents have no tests or assertions of their own, so a stale one whose rebase is clean and passes trunk's suite always counts here. Read it as the cost of treating every type-surface change as a broken premise.",
+			note: "The same for the scripted workload. These Intents have no tests or assertions of their own, so a stopped one whose rebase is clean and passes trunk's suite always counts here. Read it as the cost of treating every type-surface change as a broken premise.",
 		},
 		{ metric: "Turned away at the gate", ...each((r) => `${r.rejected.textConflicts} text, ${r.rejected.typecheck} type, ${r.rejected.checks} checks`, sumOfNumbers), note: "Text conflicts, type errors after rebase, and failed tests or assertions (the first rule runs neither)." },
 		{ metric: "Gave up waiting for a claim", ...each((r) => String(r.claimsLost)), note: "Premise only: the two queues have no ledger." },
 		{ metric: "Landings per minute", ...each((r) => r.landingsPerMinute.toFixed(1)) },
 		{ metric: "Wall time", ...each((r) => seconds(r.wallTimeMs)) },
-		{ metric: "Reference checks and probes red at the end", ...each((r) => String(r.redReferenceTests.length)) },
+		{ metric: "Reference checks and probes failing at the end", ...each((r) => String(r.redReferenceTests.length)) },
 		{ metric: "Forks created", ...each((r) => String(r.forksCreated)) },
 	];
 	const sentence = (mode: AbMode): string => {
@@ -201,7 +201,7 @@ export function renderMarkdown(trials: readonly Trial[], meta: { date: string; s
 		for (const mode of AB_MODES) {
 			const red = trial[mode].redReferenceTests;
 			if (red.length > 0) {
-				lines.push(`## Red on trunk at the end: ${NAMES[mode].replace(/^a /, "A ")}, seed ${trial.seed}`, "", ...red.map((key) => `- \`${key}\``), "");
+				lines.push(`## Failing on trunk at the end: ${NAMES[mode].replace(/^a /, "A ")}, seed ${trial.seed}`, "", ...red.map((key) => `- \`${key}\``), "");
 			}
 		}
 	}

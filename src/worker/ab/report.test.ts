@@ -53,20 +53,20 @@ describe("buildReport", () => {
 		expect(rows).toMatchObject({
 			"Behavioural regressions that reached trunk": ["3", "1", "0"],
 			"Demo tasks sent back to a person": ["0 of 12", "2 of 12", "0 of 12"],
-			"Stale Intents redone and landed with nobody involved": ["0", "0", "3"],
+			"Stopped Intents redone and landed with nobody involved": ["0", "0", "3"],
 			"Broken builds on trunk": ["0", "0", "0"],
 			"Scripted workload Intents that did not land": ["5", "5", "5"],
 			"Human merges": ["4", "4", "0"],
 			"Intents landed": ["37 of 42", "35 of 42", "37 of 42"],
 			"Premises broken": ["0", "0", "9"],
-			"Stale Intents a plain rebase settled": ["0", "0", "6"],
+			"Stopped Intents a plain rebase settled": ["0", "0", "6"],
 			"False positives: agents": ["n/a", "n/a", "0% (0 of 3)"],
 			"False positives: scripted workload": ["n/a", "n/a", "100% (6 of 6)"],
 			"Turned away at the gate": ["4 text, 1 type, 0 checks", "4 text, 1 type, 2 checks", "0 text, 0 type, 3 checks"],
 			"Gave up waiting for a claim": ["0", "0", "5"],
 			"Landings per minute": ["39.0", "40.0", "40.0"],
 			"Wall time": ["61.5 s", "60.0 s", "60.0 s"],
-			"Reference checks and probes red at the end": ["1", "0", "0"],
+			"Reference checks and probes failing at the end": ["1", "0", "0"],
 			"Forks created": ["42", "0", "45"],
 		});
 	});
@@ -94,7 +94,7 @@ describe("buildReport", () => {
 		expect(text).toContain("| Behavioural regressions that reached trunk | 0 | 1 | 0 |");
 		expect(text).toContain("## What is built into the scenario");
 		expect(text).toContain("The rebase, the typecheck and the test runner are the same code in all three.");
-		expect(text).toContain("## Red on trunk at the end: A queue that also runs the tests, seed 7");
+		expect(text).toContain("## Failing on trunk at the end: A queue that also runs the tests, seed 7");
 		expect(text).toContain(`- \`${red}\``);
 		expect(text).not.toContain("at the end: Premise");
 		// The product's own words only.

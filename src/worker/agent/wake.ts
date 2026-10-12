@@ -1,6 +1,7 @@
 // Waking agent runs that are paused. A run notes what it is waiting for in the EventHub; whoever
 // makes that thing happen calls one of these.
 import { hub, waitTopic } from "../hub/publish";
+import { release } from "../ports/release";
 
 type WakeEnv = Pick<Env, "HUB" | "AGENT_WORKFLOW">;
 
@@ -30,7 +31,11 @@ async function send(env: WakeEnv, topic: string, type: string, payload: unknown)
 				continue;
 			}
 			const instance = await env.AGENT_WORKFLOW.get(id);
-			await instance.sendEvent({ type, payload });
+			try {
+				await instance.sendEvent({ type, payload });
+			} finally {
+				release(instance);
+			}
 			woken++;
 		} catch {
 			// The instance has finished or been terminated. Nothing to wake.

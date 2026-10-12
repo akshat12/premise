@@ -138,7 +138,15 @@ export function storyFor(events: readonly PremiseEvent[], caption: (position: nu
 	});
 
 	// The control: agents that had the changed symbol on their list and were not stopped.
-	const untouched = [...new Set(events.slice(0, stoppedAt).flatMap((event) => (event.t === "premise.recorded" && changedSymbols.has(event.premise.symbol) && isAgent(event.id) && event.id !== lander && !stoppedIds.includes(event.id) ? [event.id] : [])))];
+	// An agent some later landing stopped is not "not affected", even though this one left it alone.
+	const everStopped = new Set(events.flatMap((event) => (event.t === "premise.broken" ? [event.id] : [])));
+	const untouched = [
+		...new Set(
+			events
+				.slice(0, stoppedAt)
+				.flatMap((event) => (event.t === "premise.recorded" && changedSymbols.has(event.premise.symbol) && isAgent(event.id) && event.id !== lander && !stoppedIds.includes(event.id) && !everStopped.has(event.id) ? [event.id] : [])),
+		),
+	];
 	for (const id of untouched) {
 		notes[id] = "not affected";
 	}
@@ -177,7 +185,8 @@ export function storyFor(events: readonly PremiseEvent[], caption: (position: nu
 		{
 			id: "landing",
 			at: breakIndex,
-			title: `${name(lander)} lands first. It changed ${what}.`,
+			// In a run with a scripted workload, one of its Intents can reach trunk before any agent does.
+			title: `${name(lander)} ${events.slice(0, breakIndex).some((event) => event.t === "intent.status" && event.status === "landed" && event.id !== lander) ? "is the first agent to land" : "lands first"}. It changed ${what}.`,
 			body: `Its work is now in the shared code, which Premise calls trunk.${typesChanged ? "" : " The types did not change, so everything still compiles."}`,
 			focus: [lander],
 		},
@@ -194,6 +203,7 @@ export function storyFor(events: readonly PremiseEvent[], caption: (position: nu
 	];
 
 	const REDONE = "A stopped Intent first tries a plain rebase. That did not pass the gate, so its agent did the work again on the new trunk. That is a re-derive.";
+	const RESTARTED = "There was nothing pushed to rebase, so the agent did the work again from the stored goal, on the new trunk. That is a re-derive.";
 	const settled = stopped.filter((item) => item.outcome !== "open").sort((a, b) => a.settledAt - b.settledAt);
 	const one = (item: Stopped): StoryStep => {
 		const who = name(item.id);
@@ -208,7 +218,7 @@ export function storyFor(events: readonly PremiseEvent[], caption: (position: nu
 			};
 		}
 		if (item.outcome === "unpushed") {
-			return { id: `redone-${item.id}`, at: item.settledAt, title: `${who} was stopped while still working. It started again on the new code and landed.`, body: "Nothing it had written was wasted on a version of the code that no longer exists.", focus: [item.id] };
+			return { id: `redone-${item.id}`, at: item.settledAt, title: `${who} was stopped while still working. It started again on the new code and landed.`, body: RESTARTED, focus: [item.id] };
 		}
 		return { id: `redone-${item.id}`, at: item.settledAt, title: `${who}'s tests fail on the new code. Its work is redone and lands.`, body: REDONE, focus: [item.id] };
 	};
@@ -218,7 +228,7 @@ export function storyFor(events: readonly PremiseEvent[], caption: (position: nu
 		// Many were stopped: one step for each way it went, so the story stays short.
 		const kinds: [Outcome, (count: number) => string, string][] = [
 			["tests", (count) => `${countWord(count)} of them failed their tests on the new code. Their work was redone and landed.`, REDONE],
-			["unpushed", (count) => `${countWord(count)} were stopped while still working. They started again on the new code and landed.`, "Nothing they had written was wasted on a version of the code that no longer exists."],
+			["unpushed", (count) => `${countWord(count)} were stopped while still working. They started again on the new code and landed.`, RESTARTED],
 			["premise", (count) => `${countWord(count)} passed every test. Only their premises caught the problem.`, "A check that only runs tests would have let that work through, broken. A premise is a check against the real code, so it failed, and the work was redone and landed."],
 		];
 		for (const [outcome, title, body] of kinds) {
@@ -250,20 +260,22 @@ export function storyFor(events: readonly PremiseEvent[], caption: (position: nu
 	const allAgents = landed === agents.length;
 	const title =
 		wrong > 0
-			? `The run is over. ${countWord(regressions > 0 ? regressions : wrong)} ${regressions > 0 ? (regressions === 1 ? "problem" : "problems") : wrong === 1 ? "broken build" : "broken builds"} reached trunk.`
+			? `The run is over. ${countWord(wrong)} ${wrong === 1 ? "problem" : "problems"} reached trunk.`
 			: !allAgents
 				? `The run is over. ${landed} of ${agents.length} agents' Intents landed.`
 				: notLanded > 0
 					? `All ${lowerWord(agents.length)} agents' work landed. Nothing broken reached trunk.`
 					: "Everything landed. Nothing broken reached trunk.";
 	const total = metrics?.intentsLanded ?? landed;
+	const builds = metrics?.brokenBuildsOnTrunk ?? 0;
+	const people = metrics?.humanMerges ?? 0;
 	steps.push({
 		id: "end",
 		at: events.length,
 		title,
 		body: [
-			`${total} ${total === 1 ? "Intent" : "Intents"} landed, ${metrics?.brokenBuildsOnTrunk ?? 0} broken builds on trunk, ${metrics?.humanMerges ?? 0} people needed.`,
-			regressions > 0 ? `${regressions === 1 ? "A check of what the running system does went" : `${countWord(regressions)} checks of what the running system does went`} red after a landing: redone work can pass every test and still be wrong.` : "",
+			`${total} ${total === 1 ? "Intent" : "Intents"} landed, ${builds} broken ${builds === 1 ? "build" : "builds"} on trunk, ${people === 0 ? "nobody was" : people === 1 ? "1 person was" : `${people} people were`} needed.`,
+			regressions > 0 ? `${regressions === 1 ? "A check of what the running system does" : `${countWord(regressions)} checks of what the running system does`} failed after a landing: redone work can pass every test and still be wrong.` : "",
 			notLanded > 0 ? `${notLanded} scripted workload ${notLanded === 1 ? "Intent" : "Intents"} did not land.` : "",
 			open.length > 0 ? `${list(open.map((item) => name(item.id)))} did not land.` : "",
 		]
@@ -273,6 +285,12 @@ export function storyFor(events: readonly PremiseEvent[], caption: (position: nu
 	});
 
 	// Steps are walked in the log's order, and no two share a place.
+	// The end is the only step at the very end of the log: one that settled on the last event sits just before it.
+	for (const step of steps) {
+		if (step.id !== "end") {
+			step.at = Math.min(step.at, Math.max(0, events.length - 1));
+		}
+	}
 	steps.sort((a, b) => a.at - b.at);
 	return { steps: steps.filter((step, index) => index === 0 || step.at > (steps[index - 1]?.at ?? -1) || step.id === "stopped" || step.id === "end"), names, notes };
 }

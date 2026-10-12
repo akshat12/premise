@@ -51,10 +51,10 @@ export function AbPanel({ results }: { results: AbResults | null }) {
 			<p style={{ margin: "14px 0 0", fontSize: 22, lineHeight: 1.3, fontWeight: 500, letterSpacing: "-0.01em", maxWidth: 760 }}>{results.headline}</p>
 			<p style={{ margin: "16px 0 0", fontSize: 13, maxWidth: 760, borderLeft: "4px solid var(--holds)", paddingLeft: 12 }}>
 				<strong>What the queue with tests misses.</strong> One of the three tasks written against the old behaviour tests its code with a stand-in for the function that changed, as unit tests often do. Its tests still pass after the rebase, so a queue
-				that runs tests lands it. Only its premise, an executable assertion about the real function, is red.
+				that runs tests lands it. Only its premise, an executable assertion about the real function, fails.
 			</p>
 			<p style={{ margin: "12px 0 0", fontSize: 13, maxWidth: 760, borderLeft: "4px solid var(--amber)", paddingLeft: 12 }}>
-				<strong>What it cost.</strong> {agents.rebaseWon} of the {agents.started} agent Intents that Premise turned stale, and {workload.rebaseWon} of the {workload.started} scripted workload Intents, then passed the whole gate on a plain rebase: for them
+				<strong>What it cost.</strong> {agents.rebaseWon} of the {agents.started} agent Intents that Premise stopped, and {workload.rebaseWon} of the {workload.started} scripted workload Intents, then passed the whole gate on a plain rebase: for them
 				the broken premise cost a second and changed nothing. Nearly all of those are type-surface changes. Premises are the early warning. The gate is the guarantee.
 			</p>
 			<table style={{ marginTop: 24, fontSize: 13, borderCollapse: "collapse", width: "100%" }}>

@@ -135,9 +135,9 @@ function Marks({ row, tape, width, bare, note, checks }: MarksProps) {
 				</span>
 			))}
 			{end ? (
-				<span className="tape-cap" data-kind={end.kind} style={{ left: pct(end.at) }} title={end.kind === "landed" ? `Landed at ${clock(end.at)}${end.sha ? ` (${end.sha.slice(0, 7)})` : ""}` : `Failed at ${clock(end.at)}`}>
+				<span className="tape-cap" data-kind={end.kind} style={{ left: pct(end.at) }} title={end.kind === "landed" ? `Landed at ${clock(end.at)}${end.sha ? ` (${end.sha.slice(0, 7)})` : ""}` : `Did not land (${clock(end.at)})`}>
 					{end.kind === "landed" ? <CheckCircle size={bare ? 14 : 18} weight="fill" /> : <XCircle size={bare ? 14 : 18} weight="bold" />}
-					{end.kind === "failed" && !bare && room >= 64 ? <span className="tape-cap-word">failed</span> : null}
+					{end.kind === "failed" && !bare && room >= wide("did not land") ? <span className="tape-cap-word">did not land</span> : null}
 					{end.kind === "landed" && note !== undefined && !bare && room >= wide(note) + 24 ? <span className="tape-note">{note}</span> : null}
 				</span>
 			) : null}
@@ -193,7 +193,7 @@ function Key({ cutMs }: { cutMs: number }) {
 			{cutMs > 0 ? (
 				<li>
 					<span className="tape-cut tape-swatch-cut" />
-					idle time cut from the recording ({Math.round(cutMs / 1000)} s in all)
+					idle time cut from the recording ({Math.round(cutMs / 1000)} seconds in all)
 				</li>
 			) : null}
 		</ul>
@@ -352,7 +352,7 @@ export function TapeView({ tape, workload, layout, selected, onSelect, live, end
 			})}
 		</span>
 	) : null;
-	const allCounts = workload ? [`${workload.landed} landed`, workload.moving > 0 ? `${workload.moving} in flight` : null, workload.stale > 0 ? `${workload.stale} stopped` : null, workload.failed > 0 ? `${workload.failed} gave up` : null].filter((part): part is string => part !== null) : [];
+	const allCounts = workload ? [`${workload.landed} landed`, workload.moving > 0 ? `${workload.moving} in flight` : null, workload.stale > 0 ? `${workload.stale} stopped` : null, workload.failed > 0 ? `${workload.failed} did not land` : null].filter((part): part is string => part !== null) : [];
 	// The narrow label column has room for two of them; the rest are in its tooltip.
 	const workloadCounts = (layout === "medium" ? allCounts.slice(0, 2) : allCounts).join(" · ");
 	const cutMs = tape.cuts.reduce((sum, cut) => sum + cut.ms, 0);

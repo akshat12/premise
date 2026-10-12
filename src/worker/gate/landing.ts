@@ -16,6 +16,7 @@ import { gateDeps, landBatch, landIntent, newGateCache, settle } from "./land";
 import { BATCH_SIZE, pickBatch, taskPriority, WORKLOAD_BATCH_SIZE } from "./queue";
 import type { Standing, StandingStore } from "./standing";
 import { DEFAULT_MAX_CONCURRENT, finishRederive, MAX_FAILED_REDERIVES, type RaceDeps, RederiveScheduler, type RederiveStore, type StaleEntry, type Started, startRace } from "./rederive";
+import { release } from "../ports/release";
 
 /**
  * Bump this when the gate's behaviour changes. `GET /api/gate` reports it, which is the only way
@@ -621,13 +622,17 @@ export class Landing extends DurableObject<Env> {
 	}
 
 	private async startAgent(intentId: IntentId, attempt: number, broken: Premise[], reason?: string): Promise<void> {
-		await this.env.AGENT_WORKFLOW.create({ id: workflowInstanceId(intentId, attempt), params: { intentId, mode: "rederive", attempt, broken, ...(reason === undefined ? {} : { reason }) } });
+		release(await this.env.AGENT_WORKFLOW.create({ id: workflowInstanceId(intentId, attempt), params: { intentId, mode: "rederive", attempt, broken, ...(reason === undefined ? {} : { reason }) } }));
 	}
 
 	private async stopAgent(intentId: IntentId, attempt: number): Promise<void> {
 		try {
 			const instance = await this.env.AGENT_WORKFLOW.get(workflowInstanceId(intentId, attempt));
-			await instance.terminate();
+			try {
+				await instance.terminate();
+			} finally {
+				release(instance);
+			}
 		} catch {
 			// It has already finished, or never started. Either way it will not write anything more:
 			// a run stops by itself once the Intent has moved on to a later attempt.

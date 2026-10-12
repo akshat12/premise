@@ -103,6 +103,9 @@ export function useEventStream(source: StreamSource): EventStream {
 	const running = useRef<{ from: number; at: number; speed: number } | null>(null);
 	// Where the clock stopped at the last pause, so that resuming carries on from there and not from the last event. A seek clears it.
 	const frozen = useRef<number | null>(null);
+	// Set by a seek. The effect that was running writes its clock into `frozen` as it is torn down, which would
+	// carry the replay straight back to where it was; the next effect drops that reading instead.
+	const sought = useRef(false);
 	const offsetsRef = useRef<number[]>([]);
 	const untilRef = useRef(Infinity);
 
@@ -117,6 +120,10 @@ export function useEventStream(source: StreamSource): EventStream {
 			positionRef.current = 0;
 			setPosition(0);
 			frozen.current = null;
+		}
+		if (sought.current) {
+			frozen.current = null;
+			sought.current = false;
 		}
 		const offsets = replayOffsets(replayEvents);
 		offsetsRef.current = offsets;
@@ -171,6 +178,7 @@ export function useEventStream(source: StreamSource): EventStream {
 		const length = loaded.current?.length ?? 0;
 		positionRef.current = Math.min(length, Math.max(0, Math.floor(to)));
 		frozen.current = null;
+		sought.current = true;
 		setPosition(positionRef.current);
 		setSeeks((count) => count + 1);
 	}, []);
