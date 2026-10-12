@@ -6,7 +6,7 @@ import { landing } from "../gate/client";
 import { currentMode } from "../hub/publish";
 import { judgeStanding, planStanding, type Standing, standingRequest } from "../gate/standing";
 import { suiteTests } from "../gate/suite";
-import { withdrawOwn } from "../intent/premises";
+import { isAbout, withdrawOwn } from "../intent/premises";
 import { functionsCalled, tidyAssertion } from "./assertion-input";
 import type { IntentApi } from "../intent/client";
 import type { ToolDef } from "../ports/llm";
@@ -75,10 +75,14 @@ export function askAgain(symbol: SymbolId, description: string, failure: string 
 	].join("\n");
 }
 
-/** The broken asserted premises a re-derive's plan has not answered: nothing asserted about the symbol, and the symbol is not one it is changing. */
-export function unanswered(broken: readonly Premise[], held: readonly Premise[], changing: readonly SymbolId[]): Premise[] {
-	const answered = new Set(held.filter((premise) => premise.source === "asserted").map((premise) => premise.symbol));
-	return broken.filter((premise) => premise.source === "asserted" && !answered.has(premise.symbol) && !changing.includes(premise.symbol));
+/**
+ * The broken asserted premises a re-derive's plan has not answered. One is answered when the Intent
+ * holds an assertion about the same symbol (filed under it, or calling it), when the Intent is now
+ * changing that symbol itself, or when the symbol is gone from the code (`exists` says which are there).
+ */
+export function unanswered(broken: readonly Premise[], held: readonly Premise[], changing: readonly SymbolId[], exists: (symbol: SymbolId) => boolean = () => true): Premise[] {
+	const stated = held.filter((premise) => premise.source === "asserted" && premise.state === "holding");
+	return broken.filter((premise) => premise.source === "asserted" && exists(premise.symbol) && !changing.includes(premise.symbol) && !stated.some((answer) => isAbout(answer, premise.symbol)));
 }
 
 /** The assertions from the repo's library that hold on these files. One isolate run; none when the library is empty. */
@@ -258,6 +262,28 @@ export function assertionSymbol(assertion: Pick<Assertion, "code" | "imports">, 
 	return (candidates.find((symbol) => symbol.kind === "function" && called(symbol.name)) ?? candidates.find((symbol) => mentioned(symbol.name)) ?? candidates[0])?.id ?? null;
 }
 
+/**
+ * The symbol an agent says its assertion is about, checked: it must be a real exported symbol, in a file
+ * the assertion imports, that the code mentions. Anything else is refused, so a premise cannot be filed
+ * under a symbol it does not exercise, and a malformed id never reaches the ledger.
+ */
+function givenSymbol(given: string, assertion: Pick<Assertion, "code" | "imports">, files: FileMap): SymbolId {
+	let parsed: { path: string; name: string };
+	try {
+		parsed = parseSymbolId(given);
+	} catch {
+		throw new ToolError(`"${given}" is not a symbol id. Use <path>#<exportName>, e.g. src/auth/session.ts#verifySession.`);
+	}
+	if (!indexFile(parsed.path, files[parsed.path] ?? "").some((symbol) => symbol.id === given)) {
+		throw new ToolError(`There is no exported symbol ${given} in the repo.`);
+	}
+	const mentioned = new RegExp(`(^|[^A-Za-z0-9_$])${parsed.name.replace(/[$]/g, "\\$")}([^A-Za-z0-9_$]|$)`).test(assertion.code);
+	if (!assertion.imports.includes(parsed.path) || !mentioned) {
+		throw new ToolError(`This check does not use ${given}: list ${parsed.path} in imports and call ${parsed.name} in the code, or leave symbol out.`);
+	}
+	return given;
+}
+
 async function assertPremise(ctx: ToolContext, input: Record<string, unknown>): Promise<ToolOutcome> {
 	const files = await effectiveFiles(ctx);
 	const intent = await ctx.intent.get();
@@ -313,7 +339,7 @@ async function assertPremise(ctx: ToolContext, input: Record<string, unknown>): 
 		throw new ToolError(`This assertion does not hold on the current code, so it cannot be a premise: ${error}.${how}`);
 	}
 
-	const symbol = typeof input.symbol === "string" && input.symbol.includes("#") ? input.symbol.trim() : assertionSymbol(assertion, files);
+	const symbol = typeof input.symbol === "string" && input.symbol.trim() !== "" ? givenSymbol(input.symbol.trim(), assertion, files) : assertionSymbol(assertion, files);
 	if (symbol === null) {
 		throw new ToolError("Could not tell which symbol this assertion is about. Add imports, or pass symbol as <path>#<exportName>.");
 	}
@@ -365,7 +391,8 @@ async function declareChanges(ctx: ToolContext, input: Record<string, unknown>):
 	}
 	// A re-derive is asked one thing more. Whatever it relied on that broke, it says what it relies on now,
 	// with a check that holds today. Saying "nothing" does not answer for a symbol it was stopped over.
-	const [open] = unanswered(ctx.broken, before.premises, claims.map((claim) => claim.symbol));
+	const index = ctx.broken.length === 0 ? null : (await ctx.base()).index;
+	const [open] = unanswered(ctx.broken, before.premises, claims.map((claim) => claim.symbol), (symbol) => index === null || index.has(symbol));
 	if (open !== undefined) {
 		const [now] = open.assertion === undefined ? [] : (await runInIsolate(ctx.env, { files: await effectiveFiles(ctx), tests: [], assertions: [open.assertion] }).catch(() => ({ assertions: [] }))).assertions;
 		throw new ToolError(askAgain(open.symbol, open.assertion?.description ?? open.symbol, now === undefined || now.ok ? undefined : (now.error ?? "it failed")));
@@ -529,7 +556,11 @@ export function createToolContext(env: AgentEnv, store: RepoStore, intent: Inten
 				const record = await intent.get();
 				const files = await store.snapshot(record.repo, record.baseCommit);
 				return { repo: record.repo, commit: record.baseCommit, files, index: indexRepo(files), surface: analyze(files).surface };
-			})();
+			})().catch((error: unknown) => {
+				// A failed read is not remembered: the next call tries again.
+				base = undefined;
+				throw error;
+			});
 			return base;
 		},
 	};

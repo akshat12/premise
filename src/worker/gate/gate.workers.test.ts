@@ -14,6 +14,7 @@ import { landing } from "./client";
 import { gateOne } from "./gate";
 import type { Landed } from "./invalidate";
 import { gateDeps, landIntent, newGateCache } from "./land";
+import { finishRederive, startRace, stoppedOver } from "./rederive";
 
 const VERIFY = "src/auth/session.ts#verifySession";
 const LOGIN = "src/auth/login.ts#handleLogin";
@@ -208,17 +209,19 @@ describe("landIntent", () => {
 
 describe("a re-derive that repeats the stopped work", () => {
 	/** t01 lands; t11, written against the old behaviour, has pushed and is stale. Returns t11 pointed at a fresh fork of the new trunk, as a re-derive is. */
-	async function staleT11(store: ReturnType<typeof seededStore>) {
+	async function staleT11(store: ReturnType<typeof seededStore>, overPremise = true) {
 		const deps = { gate: gateDeps(env, store, "trunk") };
 		const t01 = await queuedTask(store, "t01-null-expired", "t01");
 		const t11 = await queuedTask(store, "t11-expired-rate-limit", "t11");
 		expect((await landIntent(env, t01.id, "rebase", deps)).kind).toBe("landed");
 		await t11.api.act({ a: "stale" });
 		await t11.api.act({ a: "rederive" });
+		const pushed = await t11.api.get();
 		const attempt = (await t11.api.incRederive()).rederiveAttempts;
 		const fork = `${t11.id}-r${attempt}`;
 		const { head } = await store.fork("trunk", fork);
-		await t11.api.restartOn(fork, head);
+		// As startRace leaves it: what it had pushed when its premise broke is remembered on the Intent.
+		await t11.api.restartOn(fork, head, overPremise ? { work: { repo: pushed.repo, commit: pushed.headCommit as string }, over: [] } : undefined);
 		return { deps, t11, fork, head };
 	}
 
@@ -240,6 +243,54 @@ describe("a re-derive that repeats the stopped work", () => {
 		expect(await store.head("trunk")).toBe(before);
 		await t11.api.act({ a: "fail" }, "test cleanup");
 	}, 30_000);
+
+	it("gets no second way in: the next race does not land it as a plain rebase, and its agent is started again", async () => {
+		const store = seededStore();
+		const { deps, t11, fork, head } = await staleT11(store);
+		const commit = await store.commit(fork, head, referencePatch("t11"), "the same work again");
+		await t11.api.setHead(commit);
+		const before = await store.head("trunk");
+		const turnedBack = await landIntent(env, t11.id, "rederive", deps);
+		expect(turnedBack.kind).toBe("failed");
+		// What the Landing object does with a failed re-derive: back to stale, and into the next race.
+		expect(await finishRederive(env, t11.id, { landed: false, reason: turnedBack.kind === "failed" ? turnedBack.note : "" }, 0)).toBe("stale");
+
+		const started: { attempt: number; reason?: string }[] = [];
+		const race = await startRace(
+			env,
+			{ intentId: t11.id, priority: 1, since: Date.now(), reason: turnedBack.kind === "failed" ? turnedBack.note : null },
+			{ ...deps, store, trunk: "trunk", startAgent: async (_intent, attempt, _broken, reason) => void started.push({ attempt, ...(reason === undefined ? {} : { reason }) }) },
+		);
+		expect(race).toMatchObject({ kind: "rederiving", attempt: 2 });
+		expect(await store.head("trunk")).toBe(before);
+		expect(started).toHaveLength(1);
+		expect(started[0]?.reason).toContain("The redone work is the same as the work that was stopped");
+		// The stopped work is still what the next attempt is compared with.
+		expect((await t11.api.get()).stopped?.work).toMatchObject({ repo: t11.id });
+		await t11.api.act({ a: "fail" }, "test cleanup");
+	}, 30_000);
+
+	it("is not turned back when the work was stopped for another reason: the same again on a newer trunk is a retry", async () => {
+		const store = seededStore();
+		const { deps, t11, fork, head } = await staleT11(store, false);
+		const commit = await store.commit(fork, head, referencePatch("t11-rederived"), "handles the new behaviour");
+		await t11.api.setHead(commit);
+		expect((await t11.api.get()).stopped).toBeUndefined();
+		const outcome = await landIntent(env, t11.id, "rederive", deps);
+		expect(outcome).toMatchObject({ kind: "landed" });
+	}, 30_000);
+
+	it("stoppedOver: only a premise the Intent had asserted counts, and what was remembered is kept through a plain retry", () => {
+		const asserted = { symbol: "src/a.ts#f", source: "asserted" as const, surfaceHash: null, assertion: { id: "a1", description: "f throws", code: "", imports: [] }, state: "broken" as const };
+		const observed = { symbol: "src/a.ts#g", source: "observed" as const, surfaceHash: "h", state: "broken" as const };
+		expect(stoppedOver({ repo: "i1", headCommit: "c1", stopped: undefined }, [observed])).toBeUndefined();
+		expect(stoppedOver({ repo: "i1", headCommit: "c1", stopped: undefined }, [observed, asserted])).toEqual({ work: { repo: "i1", commit: "c1" }, over: [asserted] });
+		// Stopped while still working: nothing was pushed, so there is no work to compare a redo with.
+		expect(stoppedOver({ repo: "i1", headCommit: null, stopped: undefined }, [asserted])).toEqual({ work: null, over: [asserted] });
+		const remembered = { work: { repo: "i1", commit: "c1" }, over: [asserted] };
+		expect(stoppedOver({ repo: "i1-r1", headCommit: "c2", stopped: remembered }, [])).toBe(remembered);
+		expect(stoppedOver({ repo: "i1-r1", headCommit: null, stopped: remembered }, [asserted])).toEqual(remembered);
+	});
 
 	it("lands when the redo is different work", async () => {
 		const store = seededStore();

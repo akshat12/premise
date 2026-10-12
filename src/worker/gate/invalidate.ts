@@ -14,6 +14,7 @@ import type { Reader } from "../ledger/ledger-shard";
 import { mapLimit } from "../ports/git-tree";
 import type { FileMap } from "../ports/repo-store";
 import { type RunRequest, type RunResult, runInIsolate } from "../runner";
+import { persist, persistOr } from "./persist";
 
 export interface Landed {
 	/** The new trunk commit. */
@@ -144,13 +145,19 @@ export async function invalidateWith(deps: InvalidateDeps, landed: Landed): Prom
 	}
 	// Taken once, before anything is broken: an Intent that goes stale on a surface change in this
 	// call still has its assertions checked, so it is told everything that broke.
-	const eligible = new Set((await deps.registry()).filter((row) => !SETTLED.includes(row.status) && row.id !== landed.byIntent).map((row) => row.id));
+	const eligible = new Set((await persist(() => deps.registry())).filter((row) => !SETTLED.includes(row.status) && row.id !== landed.byIntent).map((row) => row.id));
 	const by = (item: Break): BrokenBy => ({ intentId: (item.by === undefined ? landed.byIntent : item.by) ?? OUTSIDE_PUSH, commit: landed.commit, reason: item.reason });
 	const broken: Break[] = [];
 	const stale = new Set<IntentId>();
+	// The commit is claimed, so nobody will do this again: a read that fails once is tried again, and one
+	// Intent that cannot be reached does not stop the others from being told.
 	const apply = async (breaks: readonly Break[]) => {
 		for (const item of breaks) {
-			const result = await deps.breakPremise(item.intentId, item.symbol, by(item), item.scope);
+			const result = await persistOr(
+				() => deps.breakPremise(item.intentId, item.symbol, by(item), item.scope),
+				{ broken: false },
+				(error) => console.error(`invalidate: could not tell ${item.intentId} that ${item.symbol} changed`, error instanceof Error ? error.message : String(error)),
+			);
 			if (result.broken) {
 				broken.push(item);
 				if (result.stale) {
@@ -161,19 +168,19 @@ export async function invalidateWith(deps: InvalidateDeps, landed: Landed): Prom
 	};
 
 	if (landed.changedSymbols.length > 0) {
-		await apply(surfaceBreaks(await deps.readersOf(landed.changedSymbols), eligible, landed.byIntent, landed.changedBy));
+		await apply(surfaceBreaks(await persist(() => deps.readersOf(landed.changedSymbols)), eligible, landed.byIntent, landed.changedBy));
 	}
 
-	const asserting = (await deps.asserters()).filter((id) => eligible.has(id));
+	const asserting = (await persist(() => deps.asserters())).filter((id) => eligible.has(id));
 	const intents = (await mapLimit(asserting, INTENT_FETCH_CONCURRENCY, (id) => deps.getIntent(id))).filter((intent) => intent !== null);
 	const checks = assertionChecks(intents);
 	if (checks.length > 0) {
 		// One isolate for all of them: they all run against the same files.
-		const run = await deps.run({ files: landed.newTrunkFiles, tests: [], assertions: checks.map((check) => ({ ...check.assertion, id: check.runId })) });
+		const run = await persist(() => deps.run({ files: landed.newTrunkFiles, tests: [], assertions: checks.map((check) => ({ ...check.assertion, id: check.runId })) }));
 		await apply(assertionBreaks(checks, run, landed.byIntent));
 	}
 
-	await deps.publishMetrics();
+	await deps.publishMetrics().catch(() => undefined);
 	return { skipped: false, broken, intents: [...new Set(broken.map((item) => item.intentId))], stale: [...stale] };
 }
 

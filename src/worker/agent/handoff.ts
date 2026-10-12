@@ -10,7 +10,12 @@ type HandOffEnv = Parameters<typeof runChecker>[0] & Pick<Env, "LANDING">;
 
 /** Unless told otherwise, an Intent that passes the checker goes to the real gate. Tests pass their own `deps`. */
 export async function handOff(env: HandOffEnv, intent: Intent, _commit: CommitSha, deps: CheckerDeps = { enqueue: gateEnqueue(env) }): Promise<void> {
-	if (intent.status !== "submitted" && intent.status !== "rederiving") {
+	if (intent.status === "queued") {
+		// An earlier try got as far as `queued` and may not have reached the gate. Asking again is harmless: the gate keeps one entry per Intent.
+		await deps.enqueue?.(intent, "rebase");
+		return;
+	}
+	if (intent.status !== "submitted" && intent.status !== "checking" && intent.status !== "rederiving") {
 		return; // the Intent moved on while the agent was pushing
 	}
 	if ((await currentMode(env)) !== "premise") {
@@ -26,7 +31,9 @@ export async function handOff(env: HandOffEnv, intent: Intent, _commit: CommitSh
  */
 export async function straightToGate(env: HandOffEnv, intent: Intent, deps: CheckerDeps = { enqueue: gateEnqueue(env) }): Promise<void> {
 	const api = intentStub(env, intent.id);
-	await api.act({ a: "check" });
+	if (intent.status === "submitted") {
+		await api.act({ a: "check" });
+	}
 	await deps.enqueue?.(await api.act({ a: "queue" }), "rebase");
 }
 

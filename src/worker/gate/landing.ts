@@ -22,7 +22,7 @@ import { DEFAULT_MAX_CONCURRENT, finishRederive, MAX_FAILED_REDERIVES, type Race
  * to tell that this object is running the new code after a deploy: a busy Durable Object can go
  * on running the previous version for minutes.
  */
-export const GATE_VERSION = 6;
+export const GATE_VERSION = 7;
 /** How many times the gate starts on an Intent, or tries to start its re-derive, before giving up on that attempt. */
 export const MAX_ATTEMPTS = 3;
 const RETRY_DELAY_MS = 2_000;
@@ -566,6 +566,8 @@ export class Landing extends DurableObject<Env> {
 				for (const other of result.outcome.stale) {
 					await this.queueStale(other);
 				}
+				// A landing by rebase is a landing like any other: its task's reference checks and probes are watched from now on.
+				await this.afterLanding(result.outcome.commit, [id], deps);
 				return { kind: "done" };
 			}
 			return result.kind === "rederiving" ? { kind: "running", attempt: result.attempt } : { kind: "done" };

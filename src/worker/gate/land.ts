@@ -11,6 +11,7 @@ import type { QueuePath } from "./client";
 import { mapLimit } from "../ports/git-tree";
 import { describeFailure, gateBatch, type GateDeps, gateOne, sameAsStopped } from "./gate";
 import { type Invalidate, invalidate } from "./invalidate";
+import { type PersistOptions, persistOr } from "./persist";
 import { type StandingFailure, standingOf, type StandingStore } from "./standing";
 import { referenceChecks } from "./suite";
 
@@ -145,48 +146,58 @@ export async function landWork(env: LandEnv, intent: Intent, path: QueuePath, de
 	if (deps.cache !== undefined) {
 		rememberSnapshot(deps.cache, commit, newTrunkFiles);
 	}
-	await settle(intentStub(env, intent.id), { a: "land", commit });
+	// From here on the work is on trunk and cannot be taken back. A caller that sees an error would run the
+	// gate again, find the work already there, and announce nothing: no event, nobody told, no checks left
+	// behind. So each step below is tried more than once, and one that keeps failing is logged while the
+	// rest still happen.
+	const after = <T>(what: string, step: () => Promise<T>, fallback: T, options?: PersistOptions): Promise<T> =>
+		persistOr(step, fallback, (error) => console.error(`gate: ${intent.id} is on trunk at ${commit}, but could not ${what}`, error instanceof Error ? error.message : String(error)), options);
+	await after("mark it landed", () => settle(intentStub(env, intent.id), { a: "land", commit }), false);
 	if (deps.standing !== undefined && !plain(deps)) {
+		const standing = deps.standing;
 		// From now on this Intent's acceptance checks are trunk's to keep.
 		const left = standingOf(intent, referenceChecks(intent, newTrunkFiles));
 		if (left.tests.length + left.assertions.length > 0) {
-			await deps.standing.add(left);
+			await after("keep its checks", async () => standing.add(left), undefined);
 		}
 		// What it made untrue, having kept the dependent work passing, is no longer relied on.
 		for (const intentId of new Set(retired.map((item) => item.intentId))) {
-			await deps.standing.retire(intentId, retired.filter((item) => item.intentId === intentId).map((item) => item.assertionId));
+			await after("retire what it made untrue", async () => standing.retire(intentId, retired.filter((item) => item.intentId === intentId).map((item) => item.assertionId)), undefined);
 		}
 	}
 	let stale: IntentId[] = [];
 	// An Intent whose work was already on trunk lands without moving it, so there is nothing to announce.
 	if (commit !== trunkBefore) {
 		// Our own code is what pushed, so it reports the push; the platform's event is only relayed (see events/consumer.ts).
-		await publish(env, { t: "artifacts", type: "pushed", repo: deps.gate.trunk ?? "trunk", detail: { commit, intent: intent.id } });
-		await publish(env, { t: "trunk.advanced", commit, byIntent: intent.id, changedSymbols });
-		// The comparison runs tell nobody that what they relied on has changed.
-		stale = plain(deps) ? [] : (await (deps.invalidate ?? invalidate)(env, { commit, byIntent: intent.id, changedSymbols, newTrunkFiles })).stale;
+		await after("report the push", () => publish(env, { t: "artifacts", type: "pushed", repo: deps.gate.trunk ?? "trunk", detail: { commit, intent: intent.id } }), undefined);
+		await after("announce it", () => publish(env, { t: "trunk.advanced", commit, byIntent: intent.id, changedSymbols }), undefined);
+		// The comparison runs tell nobody that what they relied on has changed. (Invalidation claims the commit on
+		// its first call, so it is not run twice here: it tries its own steps again.)
+		if (!plain(deps)) {
+			stale = (await after("tell the Intents that relied on what changed", () => (deps.invalidate ?? invalidate)(env, { commit, byIntent: intent.id, changedSymbols, newTrunkFiles }), null, { tries: 1 }))?.stale ?? [];
+		}
 	}
-	await publishMetrics(env);
+	await publishMetrics(env).catch(() => undefined);
 	return { kind: "landed", commit, changedSymbols, report, stale };
 }
 
 /**
- * The source paths a re-derive changed, when they are exactly what the attempt before it had; null
- * otherwise. The attempt before is the Intent's first fork, or the fork of the re-derive before this one.
+ * The source paths a re-derive changed, when they are exactly as the stopped work had them; null
+ * otherwise. The stopped work is what the Intent had pushed when a premise it had asserted broke
+ * (`intent.stopped.work`). Work that was stopped for any other reason, or before anything was
+ * pushed, has nothing to be compared with: doing the same again on a newer trunk is then a retry.
  */
-async function redoneTheSame(gate: GateDeps, intent: Intent, headCommit: CommitSha): Promise<string[] | null> {
-	const attempt = intent.rederiveAttempts;
-	if (attempt < 1) {
+export async function redoneTheSame(gate: Pick<GateDeps, "snapshot">, intent: Intent, headCommit: CommitSha): Promise<string[] | null> {
+	const stopped = intent.stopped?.work ?? null;
+	if (intent.kind !== "agent" || stopped === null || (stopped.repo === intent.repo && stopped.commit === headCommit)) {
 		return null;
 	}
-	// The same names rederive.ts gives its forks: "<id>-r<attempt>".
-	const previousRepo = attempt === 1 ? intent.id : `${intent.id}-r${attempt - 1}`;
-	if (previousRepo === intent.repo) {
-		return null;
-	}
-	const [base, head, previous] = await Promise.all([gate.snapshot(intent.repo, intent.baseCommit), gate.snapshot(intent.repo, headCommit), gate.head(previousRepo).then((sha) => gate.snapshot(previousRepo, sha))]);
+	const [base, head, previous] = await Promise.all([gate.snapshot(intent.repo, intent.baseCommit), gate.snapshot(intent.repo, headCommit), gate.snapshot(stopped.repo, stopped.commit)]);
 	return sameAsStopped(base, head, previous);
 }
+
+/** The report of a re-derive that was turned back without being run because it repeats the stopped work. */
+export const unchangedReport = (intentId: IntentId, path: QueuePath, unchanged: string[]): GateReport => ({ intentId, path, textConflict: false, typecheck: { ok: true, errors: [] }, tests: { passed: [], failed: [] }, assertions: { passed: [], failed: [] }, unchanged, ok: false, landedCommit: null, durationMs: 0 });
 
 /**
  * Takes one queued Intent through the gate. Publishes `gate.result`, and `trunk.advanced` when
@@ -210,12 +221,14 @@ export async function landIntent(env: LandEnv, intentId: IntentId, path: QueuePa
 	}
 
 	// A re-derive that is the stopped work over again is turned back before anything is run (see `sameAsStopped`).
-	if (path === "rederive" && !plain(deps) && intent.kind === "agent" && intent.headCommit !== null) {
+	if (path === "rederive" && !plain(deps) && intent.headCommit !== null) {
 		const unchanged = await redoneTheSame(deps.gate, intent, intent.headCommit).catch(() => null);
 		if (unchanged !== null) {
-			const report: GateReport = { intentId, path, textConflict: false, typecheck: { ok: true, errors: [] }, tests: { passed: [], failed: [] }, assertions: { passed: [], failed: [] }, unchanged, ok: false, landedCommit: null, durationMs: 0 };
+			const report = unchangedReport(intentId, path, unchanged);
+			// Trunk is read before anything is published, so a failed read cannot lead to the result being published twice.
+			const trunkAt = await deps.gate.head(deps.gate.trunk ?? "trunk");
 			await publish(env, { t: "gate.result", report });
-			return { kind: "failed", report, note: describeFailure(report), trunkAt: await deps.gate.head(deps.gate.trunk ?? "trunk"), standingFailures: [] };
+			return { kind: "failed", report, note: describeFailure(report), trunkAt, standingFailures: [] };
 		}
 	}
 

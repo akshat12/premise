@@ -163,6 +163,28 @@ describe("assert_premise", () => {
 	});
 });
 
+describe("assert_premise: the symbol an agent names", () => {
+	const tax = { description: "tax is rounded half up", code: "assert.eq(taxFor(105, 1000), 11);", imports: ["src/billing/tax.ts"] };
+
+	it("must be a real symbol id; a malformed one is refused and nothing is recorded", async () => {
+		const { call, api } = await setup();
+		const refused = await call("assert_premise", { ...tax, symbol: "src/billing/tax.ts#taxFor#rounded" });
+		expect(refused).toMatchObject({ isError: true, text: expect.stringContaining("is not a symbol id") });
+		expect(await call("assert_premise", { ...tax, symbol: "src/billing/tax.ts#noSuchThing" })).toMatchObject({ isError: true, text: expect.stringContaining("There is no exported symbol") });
+		expect((await api.get()).premises.filter((premise) => premise.source === "asserted")).toEqual([]);
+	});
+
+	it("must be something the check uses: a check of one function cannot be filed under another", async () => {
+		const { call, api } = await setup();
+		const refused = await call("assert_premise", { ...tax, symbol: VERIFY });
+		expect(refused).toMatchObject({ isError: true, text: expect.stringContaining(`This check does not use ${VERIFY}`) });
+		expect((await api.get()).premises.filter((premise) => premise.source === "asserted")).toEqual([]);
+		const accepted = await call("assert_premise", { ...tax, symbol: "src/billing/tax.ts#taxFor" });
+		expect(accepted.isError).toBeUndefined();
+		expect(accepted.text).toContain("on src/billing/tax.ts#taxFor");
+	});
+});
+
 describe("declare_changes", () => {
 	const claims = [{ symbol: "src/auth/login.ts#handleLogin", mode: "body" }];
 
@@ -218,6 +240,25 @@ describe("declare_changes", () => {
 				imports: ["src/auth/session.ts", "src/store/memory-store.ts"],
 			});
 			expect(await call("declare_changes", { claims: guard, why: ["one"] })).toEqual({ text: "", signal: "claim" });
+		});
+
+		it("the answer does not depend on the order the assertion lists its imports in", async () => {
+			const { call } = await redo();
+			// Filed under createMemorySessionStore, the first function it calls in import order; it is still about verifySession.
+			const recorded = await call("assert_premise", {
+				description: "verifySession returns null for an expired session",
+				code: "const store = createMemorySessionStore([{ id: 's1', userId: 'u1', expiresAt: 0 }]); assert.eq(verifySession('s1', store, () => 10), null);",
+				imports: ["src/store/memory-store.ts", "src/auth/session.ts"],
+			});
+			expect(recorded.text).toContain("src/store/memory-store.ts#createMemorySessionStore");
+			expect(await call("declare_changes", { claims: guard, why: ["one"] })).toEqual({ text: "", signal: "claim" });
+		});
+
+		it("a premise about a symbol that is gone from the code is not asked about", () => {
+			expect(unanswered([threw], [], [], () => false)).toEqual([]);
+			expect(unanswered([threw], [], [], (symbol) => symbol === VERIFY)).toEqual([threw]);
+			// A broken assertion the Intent still holds answers nothing.
+			expect(unanswered([threw], [threw], [])).toEqual([threw]);
 		});
 
 		it("an Intent that is now changing that symbol itself is not asked about it", async () => {

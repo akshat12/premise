@@ -95,6 +95,12 @@ interface TurnResult {
 
 class Stopped extends Error {}
 
+/**
+ * The statuses a first attempt passes through between its push being recorded and the gate having it:
+ * a step that is retried in any of them carries on from there instead of giving up.
+ */
+const HANDED_ON: readonly Intent["status"][] = ["submitted", "checking", "queued"];
+
 /** One model turn: ask the model, then run the tools it called, in order. */
 /** Why this run should stop working on the Intent, or undefined if the Intent is still its to work on. */
 function takenOver(intent: Intent, params: Pick<AgentParams, "mode" | "attempt">): string | undefined {
@@ -371,6 +377,11 @@ export async function runAgent(deps: AgentDeps, params: AgentParams, steps: Step
 				await api.setHead(commit);
 				return {};
 			}
+			// A retry of this step after the submit was already saved: there is nothing left to record.
+			const current = await api.get();
+			if (current.headCommit === commit && HANDED_ON.includes(current.status)) {
+				return {};
+			}
 			try {
 				await api.act({ a: "submit", commit });
 				return {};
@@ -386,8 +397,9 @@ export async function runAgent(deps: AgentDeps, params: AgentParams, steps: Step
 		}
 		await steps.do("hand-off", async () => {
 			const intent = await api.get();
-			// Hand over only what is still this run's: a first attempt that is `submitted`, or the current re-derive.
-			if (fresh ? intent.status === "submitted" : takenOver(intent, params) === undefined) {
+			// Hand over only what is still this run's: a first attempt with this push that has not reached the gate's
+			// queue for certain (an earlier try of this step may have been cut short part-way), or the current re-derive.
+			if (fresh ? intent.headCommit === commit && HANDED_ON.includes(intent.status) : takenOver(intent, params) === undefined) {
 				await deps.handOff(intent, commit);
 			}
 		});

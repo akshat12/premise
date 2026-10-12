@@ -19,7 +19,7 @@ export interface IntentApi {
 	setDependsOn(dependsOn: IntentId[]): Promise<Intent>;
 	setHead(commit: CommitSha): Promise<Intent>;
 	incRederive(): Promise<Intent>;
-	restartOn(repo: string, baseCommit: CommitSha): Promise<Intent>;
+	restartOn(repo: string, baseCommit: CommitSha, stopped?: Intent["stopped"]): Promise<Intent>;
 	writeOverlay(path: string, content: string | null): Promise<void>;
 	readOverlay(path: string): Promise<string | null | undefined>;
 	overlay(): Promise<FileChanges>;

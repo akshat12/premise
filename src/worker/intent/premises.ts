@@ -63,15 +63,26 @@ export function premisesForRederive(premises: readonly Premise[]): Premise[] {
 }
 
 /**
+ * Whether an asserted premise is about `symbol`: it was filed under it, or its code calls it. An
+ * assertion is filed under one symbol, the first function it calls in the order its imports are
+ * listed, so the filing alone would make the answer depend on that order.
+ */
+export function isAbout(premise: Premise, symbol: SymbolId): boolean {
+	if (premise.symbol === symbol) {
+		return true;
+	}
+	const name = (symbol.split("#")[1] ?? "").replace(/[$]/g, "\\$");
+	return name !== "" && premise.assertion !== undefined && new RegExp(`(^|[^A-Za-z0-9_$])${name}\\s*\\(`).test(premise.assertion.code);
+}
+
+/**
  * An Intent cannot rely on how a symbol behaves and also change that symbol: the assertion would
  * be about the code it is replacing, and its own change would break it. So when an Intent declares
  * what it will change, its assertions about those symbols are withdrawn. What it read stays.
  */
 export function withdrawOwn(premises: readonly Premise[], changing: Iterable<SymbolId>): { kept: Premise[]; withdrawn: Premise[] } {
 	const own = new Set(changing);
-	// An assertion is also about a symbol when its code calls it, whichever symbol it was filed under.
-	const calls = [...own].map((symbol) => new RegExp(`(^|[^A-Za-z0-9_$])${(symbol.split("#")[1] ?? "").replace(/[$]/g, "\\$")}\\s*\\(`));
-	const exercisesOwn = (premise: Premise) => own.has(premise.symbol) || (premise.assertion !== undefined && calls.some((call) => call.test(premise.assertion?.code ?? "")));
+	const exercisesOwn = (premise: Premise) => [...own].some((symbol) => isAbout(premise, symbol));
 	const kept: Premise[] = [];
 	const withdrawn: Premise[] = [];
 	for (const premise of premises) {

@@ -67,7 +67,15 @@ export class EventHub extends DurableObject<Env> {
 			sql.exec("INSERT OR IGNORE INTO asserters (id) VALUES (?)", body.id);
 		}
 		const symbols = body.t === "claim.decision" ? body.symbols : body.t === "premise.recorded" ? [body.premise.symbol] : [];
-		for (const shard of new Set(symbols.map(moduleShard))) {
+		// A symbol id that does not parse is not worth losing the event over: it names no shard.
+		const shardOf = (symbol: string): string[] => {
+			try {
+				return [moduleShard(symbol)];
+			} catch {
+				return [];
+			}
+		};
+		for (const shard of new Set(symbols.flatMap(shardOf))) {
 			sql.exec("INSERT OR IGNORE INTO shards (name) VALUES (?)", shard);
 		}
 		const before = this.getMeta<Counters>("counters", emptyCounters());
@@ -96,14 +104,29 @@ export class EventHub extends DurableObject<Env> {
 		}
 	}
 
+	/**
+	 * True for an event about an Intent this log has never seen created. After a reset, agents and gate
+	 * passes of the run before can still be finishing; what they say belongs to a log that is gone.
+	 */
+	private fromBefore(body: PremiseEventBody): boolean {
+		if (body.t === "intent.created" || !("id" in body) || typeof body.id !== "string") {
+			return false;
+		}
+		return this.ctx.storage.sql.exec("SELECT 1 FROM registry WHERE id = ?", body.id).toArray().length === 0;
+	}
+
 	async publish(body: PremiseEventBody): Promise<PremiseEvent> {
+		if (this.fromBefore(body)) {
+			// Not kept and not sent. The caller still gets an event back; `seq` 0 says it is in no log.
+			return { ...body, seq: 0, ts: Date.now() };
+		}
 		const event = this.insert(body);
 		this.broadcast(JSON.stringify(event));
 		return event;
 	}
 
 	async publishMany(bodies: PremiseEventBody[]): Promise<PremiseEvent[]> {
-		const events = bodies.map((body) => this.insert(body));
+		const events = bodies.filter((body) => !this.fromBefore(body)).map((body) => this.insert(body));
 		for (const event of events) {
 			this.broadcast(JSON.stringify(event));
 		}

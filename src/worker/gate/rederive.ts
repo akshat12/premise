@@ -10,7 +10,8 @@ import type { CommitSha, Intent, IntentId, Premise } from "../../shared/types";
 import { publish, publishMetrics } from "../hub/publish";
 import { intentStub } from "../intent/client";
 import type { RepoStore } from "../ports/repo-store";
-import { type LandDeps, type LandEnv, type LandOutcome, landWork, settle } from "./land";
+import { describeFailure } from "./gate";
+import { type LandDeps, type LandEnv, type LandOutcome, landWork, redoneTheSame, settle, unchangedReport } from "./land";
 
 /** After this many failed re-derives in a row, a person is asked. */
 export const MAX_FAILED_REDERIVES = 2;
@@ -155,6 +156,18 @@ export type RaceStart =
 	/** A scripted workload Intent whose rebase is worth trying: send it back through the gate, where it can land in a batch. */
 	| { kind: "regate" };
 
+/**
+ * What an Intent about to be re-derived was stopped over: the premises it had asserted that broke, and
+ * the work it had pushed by then. With no such break this time, what was remembered before stands.
+ */
+export function stoppedOver(before: Pick<Intent, "repo" | "headCommit" | "stopped">, broke: readonly Premise[]): Intent["stopped"] {
+	const over = broke.filter((premise) => premise.source === "asserted");
+	if (over.length === 0) {
+		return before.stopped;
+	}
+	return { work: before.headCommit === null ? (before.stopped?.work ?? null) : { repo: before.repo, commit: before.headCommit }, over };
+}
+
 /** The fork a re-derive attempt works in. */
 export const rederiveFork = (intentId: IntentId, attempt: number) => `${intentId}-r${attempt}`;
 
@@ -196,7 +209,11 @@ export async function startRace(env: LandEnv, entry: StaleEntry, deps: RaceDeps)
 	// The rebase. Skipped when there is nothing pushed to rebase, or when the gate has just
 	// rejected exactly this rebase onto exactly this trunk.
 	let reason = entry.reason ?? undefined;
-	if (!rebaseIsPointless) {
+	// A redo the gate turned back as the stopped work over again gets no second way in as a rebase.
+	const repeated = rebaseIsPointless || before.headCommit === null ? null : await redoneTheSame(deps.gate, before, before.headCommit).catch(() => null);
+	if (repeated !== null) {
+		reason = reason ?? describeFailure(unchangedReport(id, "rebase", repeated));
+	} else if (!rebaseIsPointless) {
 		const outcome = await landWork(env, before, "rebase", deps);
 		if (outcome.kind === "landed") {
 			await publish(env, { t: "rederive.race", id, rebase: "pass", rederive: "pending", winner: "rebase" });
@@ -211,8 +228,12 @@ export async function startRace(env: LandEnv, entry: StaleEntry, deps: RaceDeps)
 	const fork = rederiveFork(id, attempt);
 	const { head } = await deps.store.fork(deps.trunk, fork);
 	await publish(env, { t: "artifacts", type: "forked", repo: fork, detail: { source: deps.trunk, intent: id } });
-	const restarted = await api.restartOn(fork, head);
-	await deps.startAgent(restarted, attempt, before.premises.filter((premise) => premise.state === "broken"), reason);
+	// What it was stopped over. A fresh break of a premise it had asserted replaces what was remembered; a
+	// re-derive that simply did not land (a conflict, a timeout) keeps it, so the next attempt is asked the same.
+	const broke = before.premises.filter((premise) => premise.state === "broken");
+	const stopped = stoppedOver(before, broke);
+	const restarted = await api.restartOn(fork, head, stopped);
+	await deps.startAgent(restarted, attempt, broke.length > 0 ? broke : (stopped?.over ?? []), reason);
 	await publishMetrics(env);
 	return { kind: "rederiving", attempt, fork };
 }

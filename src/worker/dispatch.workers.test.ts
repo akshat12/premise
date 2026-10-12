@@ -259,9 +259,16 @@ describe("POST /api/human/:id", () => {
 		expect(noToken.status).toBe(401);
 		await noToken.text();
 
+		// The log keeps what is said about Intents it has seen created, so this one is made known to it first.
+		await hub(env).publish({ t: "intent.created", intent: { id: "i00000001", kind: "agent", taskId: "t05-tax-rounding", goal: "g", status: "quarantined", claims: [], premises: [], why: [], baseCommit: "c0", headCommit: null, rederiveAttempts: 0 } });
 		const response = await post("/api/human/i00000001", { choice: "Split" });
 		expect(await response.json()).toEqual({ ok: true, id: "i00000001", choice: "Split", woken: 0, status: null });
 		expect((await hub(env).since(0, 5000)).at(-1)).toMatchObject({ t: "human.resolved", id: "i00000001", choice: "Split" });
+
+		// A choice about an Intent the log never saw (one from before a reset, say) is not written into it.
+		const before = (await hub(env).since(0, 5000)).length;
+		await (await post("/api/human/i00000002", { choice: "Wait" })).text();
+		expect((await hub(env).since(0, 5000)).length).toBe(before);
 	});
 });
 

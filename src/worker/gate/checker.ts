@@ -142,8 +142,9 @@ export async function runChecker(env: CheckerEnv, intentId: IntentId, deps: Chec
 	const store = deps.store ?? getRepoStore(env);
 	const api = intentStub(env, intentId);
 	let intent = await api.get();
-	const fresh = intent.status === "submitted";
-	if (fresh) {
+	// `checking` already means an earlier run of this check was cut short after its first step: carry on from there.
+	const fresh = intent.status === "submitted" || intent.status === "checking";
+	if (intent.status === "submitted") {
 		intent = await api.act({ a: "check" });
 	}
 	if (intent.headCommit === null) {

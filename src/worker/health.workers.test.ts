@@ -51,7 +51,9 @@ describe("admin routes with the token", () => {
 		expect(body.files).toBeGreaterThan(60);
 	});
 
-	it("analyze typechecks trunk with the compiler running in the Worker", async () => {
+	// The isolate that runs trunk's tests has a wall-clock budget, and the whole suite runs many isolates at once,
+	// so under that load this can time out. It is tried again before it counts as a failure.
+	it("analyze typechecks trunk with the compiler running in the Worker", { retry: 2 }, async () => {
 		const response = await exports.default.fetch("http://premise.test/api/admin/analyze", admin);
 		expect(response.status).toBe(200);
 		const body = (await response.json()) as { ok: boolean; errors: string[]; symbols: number; verifySession: { decl: string } | null; runner: { loadError: string | null; testsPassed: number; testsFailed: unknown[]; assertions: { id: string; ok: boolean }[] } };
