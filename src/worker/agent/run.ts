@@ -9,7 +9,7 @@ import { assistantMessage, type LlmClient, type LlmMessage, toolCalls, type Tool
 import type { RepoStore } from "../ports/repo-store";
 import { briefing, NUDGE, SYSTEM_PROMPT, WORK_PHASE_NOTE } from "./prompts";
 import { HUMAN_CHOICE, LEDGER_FREE } from "./wake";
-import { type AgentEnv, callTool, commitChanges, createToolContext, type Phase, TOOLS, type ToolContext } from "./tools";
+import { type AgentEnv, callTool, commitChanges, createToolContext, holding, type Phase, TOOLS, type ToolContext } from "./tools";
 
 export interface AgentParams {
 	intentId: IntentId;
@@ -176,6 +176,7 @@ export async function runAgent(deps: AgentDeps, params: AgentParams, steps: Step
 	const { env, store, intent: api } = deps;
 	const fresh = params.mode === "fresh";
 	const ctx = createToolContext(env, store, api, params.intentId);
+	ctx.broken = params.mode === "rederive" ? (params.broken ?? []) : [];
 	const usage = { input: 0, output: 0 };
 	let turns = 0;
 
@@ -224,7 +225,8 @@ export async function runAgent(deps: AgentDeps, params: AgentParams, steps: Step
 			const intent = await api.get();
 			const [tasksJson, assertionsJson] = await Promise.all([store.readFile(intent.repo, intent.baseCommit, "premise/tasks.json"), store.readFile(intent.repo, intent.baseCommit, "premise/assertions.json")]);
 			const task = (JSON.parse(tasksJson ?? "[]") as TaskDef[]).find((candidate) => candidate.id === intent.taskId);
-			const adoptable = (JSON.parse(assertionsJson ?? "[]") as Assertion[]).map(({ id, description }) => ({ id, description }));
+			// Only what is true of this fork is offered. After trunk moves, the library can hold a check that no longer passes.
+			const adoptable = (await holding(env, (await ctx.base()).files, JSON.parse(assertionsJson ?? "[]") as Assertion[])).map(({ id, description }) => ({ id, description }));
 			return task === undefined ? { intent, adoptable } : { intent, task: { title: task.title, ...(task.hints ? { hints: task.hints } : {}) }, adoptable };
 		});
 		// A re-derive is told what broke. Those premises were cleared from the Intent when it was

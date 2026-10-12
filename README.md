@@ -80,9 +80,17 @@ The front-page demo recording and the A/B use scripted agents. Two things have b
 - Every agent adopted the assertion "`verifySession` throws on expired tokens" from the repo's assertion library.
 - T01, which changes that function, had its own assertion withdrawn when it declared the change, and landed.
 - T11's first attempt went the way the scripted run does: the model wrote its tests with a stand-in, so after the rebase all its tests, the reference checks and trunk's suite passed, and only its premise failed. It was stopped.
-- **T11's redo was the same change again, and it landed.** The model did not adapt to the new behaviour; it made the identical edit and asserted something weaker. Every test passed, as before, and this time no premise failed. The end-to-end probe is red on trunk: a client replaying an expired session is not rate-limited. So the premise caught the problem once, and the re-derive let it back in. Nothing in Premise yet checks that redone work differs from the work that was stopped, or that it no longer relies on the premise that broke.
+- **T11's redo was the same change again, and it landed.** The model did not adapt to the new behaviour; it made the identical edit and asserted something weaker. Every test passed, as before, and this time no premise failed. The end-to-end probe is red on trunk: a client replaying an expired session is not rate-limited. So the premise caught the problem once, and the re-derive let it back in. Since this run, a redo that is the same change as the stopped work is turned back at the gate without being run.
 - T02 was stopped while still working, redone, and landed.
 - T04, the control, also adopted the assertion, although its code does not depend on it. So it was stopped and redone for nothing. That is a false positive caused by a model asserting more than it needs.
+
+**The same four tasks again, after that gate check went in** (2026-10-12, same model; the raw log is `demo/raw/live2.json`). All four landed, in six and a half minutes, and **the run again ended with one behavioural regression on trunk**, from T11, for a different reason:
+
+- T11 was stopped before it had pushed anything, so there was no stopped work for its redo to be compared with.
+- On the redo the model read the new `verifySession`, tried to adopt the same "throws on expired tokens" assertion again (the briefing still offered it, although it was no longer true), was refused, said its plan relied on no behaviour, and wrote the old catch-block code with a stand-in test that throws. Every check at the gate passed.
+- T04 again adopted the assertion for nothing, was stopped, and its first redo ran out of turns before the second landed.
+
+Two changes came out of that, both in what a re-deriving agent is told, and neither has been run on Cloudflare with a live model yet. An assertion from the library is only offered if it holds on the agent's fork. And a redo that was stopped over an asserted premise cannot declare its plan until it has asserted something that holds today about the same symbol; "I rely on nothing" is not accepted for it. Locally (in-memory repo, T11 as a redo, three runs) the model then always asserted something about `verifySession`, the right thing once. One run's work passed the end-to-end probe; two still wrote the old code, and one of those would have passed every gate check. So this narrows the hole and does not close it: when a task's tests and its reference checks both use a stand-in, a wrong redo with a true premise still lands.
 
 **Whether a model asserts unprompted** (Gemini 3.1 Flash-Lite, the tasks that depend on `verifySession`, on the in-memory repo):
 

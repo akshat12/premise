@@ -41,6 +41,8 @@ export interface ToolContext {
 	standing(): Promise<Standing[]>;
 	/** Assertions that were withdrawn when the agent declared its changes, because they were about a symbol it is changing. */
 	withdrawn: string[];
+	/** Re-derive only: the premises that broke and stopped the earlier work. */
+	broken: Premise[];
 }
 
 export interface ToolOutcome {
@@ -59,6 +61,35 @@ export const ASK_BEHAVIOUR = [
 	"If yes, call assert_premise for each such behaviour first: a description, a few lines of code that call that function and pass on the current code, and the files they import. Assert only about functions you will leave alone, never about the one you are about to change. Then call declare_changes again.",
 	'If no, call declare_changes again with "no_behaviour": true.',
 ].join("\n");
+
+/**
+ * What declare_changes answers in a re-derive whose plan says nothing about a symbol its earlier work was
+ * stopped over. `failure` is what the old check reports on the code as it is now.
+ */
+export function askAgain(symbol: SymbolId, description: string, failure: string | undefined): string {
+	return [
+		`Not declared yet. Your earlier work was stopped because what it relied on about ${symbol} stopped being true: "${description}".`,
+		...(failure === undefined ? [] : [`On the code as it is now, that check fails: ${failure}`]),
+		`Read ${symbol} again and say what you rely on about it now: call assert_premise with a check that calls it and passes on the current code. Then call declare_changes again.`,
+		"Write your change and your tests to match what it does now, not what it used to do.",
+	].join("\n");
+}
+
+/** The broken asserted premises a re-derive's plan has not answered: nothing asserted about the symbol, and the symbol is not one it is changing. */
+export function unanswered(broken: readonly Premise[], held: readonly Premise[], changing: readonly SymbolId[]): Premise[] {
+	const answered = new Set(held.filter((premise) => premise.source === "asserted").map((premise) => premise.symbol));
+	return broken.filter((premise) => premise.source === "asserted" && !answered.has(premise.symbol) && !changing.includes(premise.symbol));
+}
+
+/** The assertions from the repo's library that hold on these files. One isolate run; none when the library is empty. */
+export async function holding(env: AgentEnv, files: FileMap, library: readonly Assertion[]): Promise<Assertion[]> {
+	const runnable = library.filter((assertion) => assertionSource(assertion, files).error === undefined);
+	if (runnable.length === 0) {
+		return [];
+	}
+	const results = (await runInIsolate(env, { files, tests: [], assertions: runnable })).assertions;
+	return runnable.filter((assertion) => results.find((result) => result.id === assertion.id)?.ok === true);
+}
 
 const MAX_RESULT_CHARS = 60_000;
 const MAX_FILE_CHARS = 200_000;
@@ -332,6 +363,13 @@ async function declareChanges(ctx: ToolContext, input: Record<string, unknown>):
 	if (input.no_behaviour !== true && !before.premises.some((premise) => premise.source === "asserted")) {
 		throw new ToolError(ASK_BEHAVIOUR);
 	}
+	// A re-derive is asked one thing more. Whatever it relied on that broke, it says what it relies on now,
+	// with a check that holds today. Saying "nothing" does not answer for a symbol it was stopped over.
+	const [open] = unanswered(ctx.broken, before.premises, claims.map((claim) => claim.symbol));
+	if (open !== undefined) {
+		const [now] = open.assertion === undefined ? [] : (await runInIsolate(ctx.env, { files: await effectiveFiles(ctx), tests: [], assertions: [open.assertion] }).catch(() => ({ assertions: [] }))).assertions;
+		throw new ToolError(askAgain(open.symbol, open.assertion?.description ?? open.symbol, now === undefined || now.ok ? undefined : (now.error ?? "it failed")));
+	}
 	ctx.withdrawn = withdrawOwn(before.premises, claims.map((claim) => claim.symbol)).withdrawn.map((premise) => `"${premise.assertion?.description ?? premise.symbol}" (about ${premise.symbol})`);
 	await ctx.intent.setClaims(claims);
 	await ctx.intent.setWhy(why);
@@ -483,6 +521,7 @@ export function createToolContext(env: AgentEnv, store: RepoStore, intent: Inten
 		phase: "plan",
 		recorded: new Set(),
 		withdrawn: [],
+		broken: [],
 		// If the gate cannot be asked, the agent simply finds out at the gate instead.
 		standing: standing ?? (async () => (env.LANDING === undefined || (await currentMode(env)) !== "premise" ? [] : landing({ LANDING: env.LANDING }).standing().catch(() => []))),
 		base() {

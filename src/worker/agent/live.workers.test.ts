@@ -12,6 +12,8 @@
 // LIVE_LIBRARY=off removes the repo's assertion library, so the model has nothing to adopt;
 // LIVE_FILES=1 also prints the files the agent wrote; LIVE_HINT adds one hint line to each task's
 // briefing, to try a wording against a real model before it goes into tasks.json or the prompt.
+// LIVE_REDO=1 runs each task as a re-derive: trunk is as it is after t01 landed (verifySession returns
+// null for an expired session), and the agent is told its premise "verifySession throws" broke.
 //
 // Output, one JSON object per line, each after a tag:
 //   LIVE_HTTP    every model request: status, milliseconds, and the shape of the reply on the wire
@@ -23,18 +25,20 @@
 // `result` is the agent's own outcome: "submitted" means its own tests passed. Two fields judge the
 // work from outside. `reference` runs the task's reference tests (premise/hidden-tests/, which
 // the agent cannot see) against what it wrote. `overwrote` lists files that already existed and
-// that it replaced without having claimed a symbol in them.
+// that it replaced without having claimed a symbol in them. `probe` runs the task's end-to-end probe
+// (premise/probes/, which no gate runs), where there is one: it is what a regression on trunk means.
 import { env } from "cloudflare:workers";
 import { describe, expect, it } from "vitest";
-import type { Intent, TaskDef } from "../../shared/types";
+import type { Assertion, Intent, Premise, TaskDef } from "../../shared/types";
+import { testNames } from "../gate/suite";
 import { describeLlm, getLlm, type LlmClient, type LlmEnv, type LlmTurn, resolveLlmConfig, toolCalls } from "../ports/llm";
 import { applyChanges } from "../ports/memory-repo-store";
 import type { FileMap } from "../ports/repo-store";
 import { runInIsolate } from "../runner";
 import { memorySteps, seededStore, startIntent } from "../testing/agent";
-import { demoFiles } from "../testing/demo";
+import { demoFiles, demoWith } from "../testing/demo";
 import { handOff } from "./handoff";
-import { type AgentDeps, type AgentOutcome, runAgent } from "./run";
+import { type AgentDeps, type AgentOutcome, type AgentParams, runAgent } from "./run";
 
 const vars = env as unknown as Record<string, string | undefined>;
 const provider = vars.LIVE_AGENT?.trim() ?? "";
@@ -146,13 +150,14 @@ function withHint(files: FileMap, hint: string | undefined): FileMap {
 	return { ...files, "premise/tasks.json": JSON.stringify(tasks, null, "\t") };
 }
 
-/** Runs the task's reference tests against the agent's version of the repo. */
-async function referenceVerdict(taskId: string, files: FileMap, names: readonly string[]): Promise<{ passed: number; failed: string[] }> {
+/** Runs one of Premise's own test files (a task's reference tests or its probe) against the agent's version of the repo. */
+async function hiddenVerdict(path: string, files: FileMap, names?: readonly string[]): Promise<{ passed: number; failed: string[] } | null> {
 	const trunk = demoFiles();
-	const source = trunk[`premise/hidden-tests/${taskId}.test.ts`];
+	const source = trunk[path];
 	if (source === undefined) {
-		return { passed: 0, failed: ["no reference tests for this task"] };
+		return null;
 	}
+	names ??= testNames(source);
 	// The reference tests live two levels down. Re-point their imports so they run from tests/.
 	// They get trunk's own copy of the shared test helpers, so this judges the source change alone;
 	// an agent that damaged the helpers shows up under `overwrote`.
@@ -163,6 +168,11 @@ async function referenceVerdict(taskId: string, files: FileMap, names: readonly 
 	const failed = run.tests.flatMap((test) => (test.ok ? [] : [`${test.name}: ${clip(test.error ?? "failed", 200)}`]));
 	return { passed: run.tests.filter((test) => test.ok).length, failed: run.loadError !== undefined && failed.length === 0 ? [clip(run.loadError, 300)] : failed };
 }
+
+const redo = vars.LIVE_REDO === "1";
+const base = redo ? demoWith("t01") : demoFiles();
+/** What a stopped Intent is told broke: the library's "verifySession throws" check, which t01 made false. */
+const THREW: Premise[] = (JSON.parse(demoFiles()["premise/assertions.json"] ?? "[]") as Assertion[]).slice(0, 1).map((assertion) => ({ symbol: "src/auth/session.ts#verifySession", source: "asserted", surfaceHash: null, assertion, state: "broken" }));
 
 describe.skipIf(provider === "")("live: an agent run with the provider named by LIVE_AGENT", () => {
 	it("reaches the provider from the test pool", async () => {
@@ -186,7 +196,7 @@ describe.skipIf(provider === "")("live: an agent run with the provider named by 
 			globalThis.fetch = countingFetch(originalFetch.bind(globalThis), stats);
 			// LIVE_LIBRARY=off takes the repo's assertion library away, so the briefing offers nothing to adopt:
 			// whatever the model asserts, it thought of and wrote itself.
-			const seeded = { ...withHint(demoFiles(), vars.LIVE_HINT) };
+			const seeded = { ...withHint(base, vars.LIVE_HINT) };
 			if (vars.LIVE_LIBRARY === "off") {
 				delete seeded["premise/assertions.json"];
 			}
@@ -205,7 +215,18 @@ describe.skipIf(provider === "")("live: an agent run with the provider named by 
 						// Nothing lands in this harness, so an agent told to wait for another Intent is never woken.
 						// Each wait takes a second, and the run then fails with the ledger's reason, not the model's.
 						const steps = memorySteps(() => new Promise((resolve) => setTimeout(() => resolve(null), 1000)));
-						const outcome = await Promise.race([runAgent(deps, { intentId: started.id, mode: "fresh" }, steps), deadline]);
+						let params: AgentParams = { intentId: started.id, mode: "fresh" };
+						if (redo) {
+							// As the gate leaves a stopped Intent: stale, then pointed at a fresh fork of the new trunk.
+							for (const action of [{ a: "claim" }, { a: "granted" }, { a: "stale" }, { a: "rederive" }] as const) {
+								await started.api.act(action);
+							}
+							const fork = `${started.id}-r1`;
+							const { head } = await store.fork("trunk", fork);
+							await started.api.restartOn(fork, head);
+							params = { intentId: started.id, mode: "rederive", broken: THREW };
+						}
+						const outcome = await Promise.race([runAgent(deps, params, steps), deadline]);
 						cancel();
 						const seconds = Math.round((Date.now() - clock) / 100) / 10;
 						const intent: Intent = await started.api.get();
@@ -216,9 +237,10 @@ describe.skipIf(provider === "")("live: an agent run with the provider named by 
 								log("LIVE_FILE", { task: taskId, path, content: overlay[path] });
 							}
 						}
-						const trunk = demoFiles();
+						const trunk = base;
 						const claimedPaths = new Set(intent.claims.map((claim) => claim.symbol.split("#")[0]));
-						const reference = written.length === 0 ? null : await referenceVerdict(taskId, applyChanges(trunk, overlay), intent.acceptance.map((check) => check.testName));
+						const reference = written.length === 0 ? null : ((await hiddenVerdict(`premise/hidden-tests/${taskId}.test.ts`, applyChanges(trunk, overlay), intent.acceptance.map((check) => check.testName))) ?? { passed: 0, failed: ["no reference tests for this task"] });
+						const probe = written.length === 0 ? null : await hiddenVerdict(`premise/probes/${taskId}.test.ts`, applyChanges(trunk, overlay));
 						const summary = {
 							model: describeLlm(llmEnv).model,
 							effort: vars.LIVE_EFFORT ?? null,
@@ -237,6 +259,8 @@ describe.skipIf(provider === "")("live: an agent run with the provider named by 
 							written,
 							overwrote: written.filter((path) => trunk[path] !== undefined && !claimedPaths.has(path)),
 							reference,
+							probe,
+							redo,
 						};
 						await started.api.act({ a: "fail" }, "live run cleanup").catch(() => undefined);
 						return summary;

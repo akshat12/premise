@@ -2,8 +2,9 @@ import { env } from "cloudflare:workers";
 import { describe, expect, it } from "vitest";
 import { surface } from "../surface";
 import { seededStore, startIntent } from "../testing/agent";
-import { demoFiles } from "../testing/demo";
-import { assertionSymbol, callTool, commitChanges, createToolContext, isHidden, parseDeclaration, TOOLS, ToolError } from "./tools";
+import type { Assertion, Premise } from "../../shared/types";
+import { demoFiles, demoWith } from "../testing/demo";
+import { assertionSymbol, callTool, commitChanges, createToolContext, holding, isHidden, parseDeclaration, TOOLS, ToolError, unanswered } from "./tools";
 
 async function setup(taskId = "t02-audit-expired") {
 	const store = seededStore();
@@ -181,6 +182,64 @@ describe("declare_changes", () => {
 		// Having asserted something, it is not asked again.
 		await call("assert_premise", { description: "tax is rounded half up", code: "assert.eq(taxFor(105, 1000), 11);", imports: ["src/billing/tax.ts"] });
 		expect(await call("declare_changes", { claims, why: ["one"] })).toEqual({ text: "", signal: "claim" });
+	});
+
+	describe("in a re-derive that was stopped over a premise", () => {
+		const library: Assertion[] = JSON.parse(demoFiles()["premise/assertions.json"] ?? "[]");
+		const threw: Premise = { symbol: VERIFY, source: "asserted", surfaceHash: null, assertion: library[0] as Assertion, state: "broken" };
+		// Trunk after t01: verifySession returns null for an expired session.
+		const redo = async () => {
+			const store = seededStore(demoWith("t01"));
+			const started = await startIntent(env, store, "t11-expired-rate-limit");
+			const ctx = createToolContext(env, store, started.api, started.id);
+			ctx.broken = [threw];
+			return { ...started, call: (name: string, input: Record<string, unknown> = {}) => callTool(ctx, name, input) };
+		};
+		const guard = [{ symbol: "src/auth/rate-limit.ts#guardRequest", mode: "body" }];
+
+		it("the plan is not accepted until it says what it relies on about that symbol now, and saying nothing is no answer", async () => {
+			const { call, api } = await redo();
+			const asked = await call("declare_changes", { claims: guard, why: ["one"], no_behaviour: true });
+			expect(asked.isError).toBe(true);
+			expect(asked.text).toContain(`what it relied on about ${VERIFY} stopped being true: "verifySession throws SessionExpiredError on expired tokens"`);
+			expect(asked.text).toContain("On the code as it is now, that check fails:");
+			expect(asked.text).toContain("match what it does now, not what it used to do");
+			expect((await api.get()).claims).toEqual([]);
+
+			// The old check cannot be taken again, because it is not true any more.
+			expect(await call("assert_premise", { adopt: "a-session-throws" })).toMatchObject({ isError: true, text: expect.stringContaining("does not hold on the current code") });
+			// An assertion about some other function does not answer for this one.
+			await call("assert_premise", { description: "tax is rounded half up", code: "assert.eq(taxFor(105, 1000), 11);", imports: ["src/billing/tax.ts"] });
+			expect((await call("declare_changes", { claims: guard, why: ["one"] })).isError).toBe(true);
+
+			await call("assert_premise", {
+				description: "verifySession returns null for an expired session",
+				code: "const store = createMemorySessionStore([{ id: 's1', userId: 'u1', expiresAt: 0 }]); assert.eq(verifySession('s1', store, () => 10), null);",
+				imports: ["src/auth/session.ts", "src/store/memory-store.ts"],
+			});
+			expect(await call("declare_changes", { claims: guard, why: ["one"] })).toEqual({ text: "", signal: "claim" });
+		});
+
+		it("an Intent that is now changing that symbol itself is not asked about it", async () => {
+			const { call } = await redo();
+			expect(await call("declare_changes", { claims: [{ symbol: VERIFY, mode: "body" }], why: ["one"], no_behaviour: true })).toEqual({ text: "", signal: "claim" });
+		});
+
+		it("only asserted premises count: a type surface that changed is not asked about", () => {
+			const observed: Premise = { symbol: VERIFY, source: "observed", surfaceHash: "abc", state: "broken" };
+			expect(unanswered([observed], [], [])).toEqual([]);
+			expect(unanswered([threw], [], [])).toEqual([threw]);
+			expect(unanswered([threw], [{ ...threw, state: "holding" }], [])).toEqual([]);
+			expect(unanswered([threw], [{ ...observed, state: "holding" }], [])).toEqual([threw]);
+			expect(unanswered([threw], [], [VERIFY])).toEqual([]);
+		});
+	});
+
+	it("only the library assertions that hold on the fork are offered", async () => {
+		const library: Assertion[] = JSON.parse(demoFiles()["premise/assertions.json"] ?? "[]");
+		expect((await holding(env, demoFiles(), library)).map((assertion) => assertion.id)).toEqual(["a-session-throws"]);
+		expect(await holding(env, demoWith("t01"), library)).toEqual([]);
+		expect(await holding(env, demoFiles(), [])).toEqual([]);
 	});
 
 	it("withdraws an assertion about a symbol the agent then declares it will change", async () => {

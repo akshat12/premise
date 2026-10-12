@@ -1,0 +1,1421 @@
+{
+	"llm": {
+		"provider": "google",
+		"model": "gemini-3.5-flash-lite",
+		"baseUrl": "https://generativelanguage.googleapis.com/v1beta/openai"
+	},
+	"scripts": {
+		"t01-null-expired": [
+			{
+				"blocks": [
+					{
+						"type": "tool_use",
+						"id": "call_536149",
+						"name": "list_files",
+						"input": {}
+					}
+				],
+				"stop": "tool_use",
+				"usage": {
+					"input": 1677,
+					"output": 10
+				}
+			},
+			{
+				"blocks": [
+					{
+						"type": "tool_use",
+						"id": "call_489445",
+						"name": "read_file",
+						"input": {
+							"path": "src/auth/session.ts"
+						}
+					}
+				],
+				"stop": "tool_use",
+				"usage": {
+					"input": 2083,
+					"output": 22
+				}
+			},
+			{
+				"blocks": [
+					{
+						"type": "tool_use",
+						"id": "call_90084",
+						"name": "read_file",
+						"input": {
+							"path": "tests/session.test.ts"
+						}
+					}
+				],
+				"stop": "tool_use",
+				"usage": {
+					"input": 2714,
+					"output": 22
+				}
+			},
+			{
+				"blocks": [
+					{
+						"type": "tool_use",
+						"id": "call_458053",
+						"name": "assert_premise",
+						"input": {
+							"adopt": "a-session-throws"
+						}
+					}
+				],
+				"stop": "tool_use",
+				"usage": {
+					"input": 3575,
+					"output": 21
+				}
+			},
+			{
+				"blocks": [
+					{
+						"type": "tool_use",
+						"id": "call_403700",
+						"name": "declare_changes",
+						"input": {
+							"claims": [
+								{
+									"mode": "body",
+									"symbol": "src/auth/session.ts#verifySession"
+								}
+							],
+							"why": [
+								"Change verifySession to return null instead of throwing SessionExpiredError when session is expired."
+							],
+							"no_behaviour": false
+						}
+					}
+				],
+				"stop": "tool_use",
+				"usage": {
+					"input": 3638,
+					"output": 62
+				}
+			},
+			{
+				"blocks": [
+					{
+						"type": "tool_use",
+						"id": "call_425507",
+						"name": "write_file",
+						"input": {
+							"content": "import type { IdGenerator } from \"../util/ids.js\";\nimport { type Clock, HOUR } from \"../util/time.js\";\n\nexport class SessionExpiredError extends Error {\n\tname = \"SessionExpiredError\";\n}\n\nexport interface Session {\n\tid: string;\n\tuserId: string;\n\texpiresAt: number;\n}\n\n/** Where sessions live. The session id doubles as the bearer token. */\nexport interface SessionStore {\n\tget(id: string): Session | undefined;\n\tput(session: Session): void;\n\tdelete(id: string): boolean;\n}\n\nexport const DEFAULT_SESSION_TTL_MS = 12 * HOUR;\n\nexport function isExpired(session: Session, now: Clock): boolean {\n\treturn session.expiresAt <= now();\n}\n\n/** Returns null when no token is given or when the session is expired. */\nexport function verifySession(token: string | undefined, store: SessionStore, now: () => number): Session | null {\n\tif (token === undefined || token === \"\") {\n\t\treturn null;\n\t}\n\tconst session = store.get(token);\n\tif (session === undefined) {\n\t\treturn null;\n\t}\n\tif (isExpired(session, now)) {\n\t\treturn null;\n\t}\n\treturn session;\n}\n\n/** Starts a session for a user and stores it. */\nexport function createSession(\n\tuserId: string,\n\tstore: SessionStore,\n\tnow: Clock,\n\tids: IdGenerator,\n\tttlMs: number = DEFAULT_SESSION_TTL_MS,\n): Session {\n\tconst session: Session = { id: ids(), userId, expiresAt: now() + ttlMs };\n\tstore.put(session);\n\treturn session;\n}\n\n/** Milliseconds until the session expires. Zero once it has. */\nexport function sessionTtl(session: Session, now: Clock): number {\n\treturn Math.max(0, session.expiresAt - now());\n}\n\n/** Pushes the expiry out by `ttlMs` from now and stores the result. */\nexport function extendSession(session: Session, store: SessionStore, now: Clock, ttlMs: number = DEFAULT_SESSION_TTL_MS): Session {\n\tconst extended: Session = { ...session, expiresAt: now() + ttlMs };\n\tstore.put(extended);\n\treturn extended;\n}\n\n/** Ends a session. Returns false if there was none. */\nexport function revokeSession(token: string, store: SessionStore): boolean {\n\treturn store.delete(token);\n}\n",
+							"path": "src/auth/session.ts"
+						}
+					}
+				],
+				"stop": "tool_use",
+				"usage": {
+					"input": 3799,
+					"output": 607
+				}
+			},
+			{
+				"blocks": [
+					{
+						"type": "tool_use",
+						"id": "call_369483",
+						"name": "write_file",
+						"input": {
+							"content": "import * as assert from \"../premise/assert.js\";\nimport type { Tests } from \"../premise/assert.js\";\nimport { verifySession } from \"../src/auth/session.js\";\nimport { createMemorySessionStore } from \"../src/store/memory-store.js\";\nimport { fixedClock, HOUR, MINUTE } from \"../src/util/time.js\";\nimport { makeSession, now, T0 } from \"./support.js\";\n\nexport const tests: Tests = {\n\t\"verifySession returns null for an expired session\": () => {\n\t\tconst session = makeSession({ expiresAt: T0 + HOUR });\n\t\tconst store = createMemorySessionStore([session]);\n\t\tconst later = fixedClock(T0 + HOUR + MINUTE);\n\t\tassert.eq(verifySession(session.id, store, later), null);\n\t},\n\t\"verifySession still returns a session that has time left\": () => {\n\t\tconst session = makeSession({ expiresAt: T0 + HOUR });\n\t\tconst store = createMemorySessionStore([session]);\n\t\tconst sooner = fixedClock(T0 + 30 * MINUTE);\n\t\tassert.deepEq(verifySession(session.id, store, sooner), session);\n\t},\n};\n",
+							"path": "tests/session-expiry.test.ts"
+						}
+					}
+				],
+				"stop": "tool_use",
+				"usage": {
+					"input": 4433,
+					"output": 309
+				}
+			},
+			{
+				"blocks": [
+					{
+						"type": "tool_use",
+						"id": "call_148414",
+						"name": "run_checks",
+						"input": {}
+					}
+				],
+				"stop": "tool_use",
+				"usage": {
+					"input": 4771,
+					"output": 10
+				}
+			},
+			{
+				"blocks": [
+					{
+						"type": "tool_use",
+						"id": "call_438643",
+						"name": "submit",
+						"input": {
+							"message": "Make verifySession return null for expired sessions instead of throwing"
+						}
+					}
+				],
+				"stop": "tool_use",
+				"usage": {
+					"input": 4869,
+					"output": 24
+				}
+			}
+		],
+		"t02-audit-expired": [
+			{
+				"blocks": [
+					{
+						"type": "tool_use",
+						"id": "call_391562",
+						"name": "list_files",
+						"input": {}
+					}
+				],
+				"stop": "tool_use",
+				"usage": {
+					"input": 1726,
+					"output": 10
+				}
+			},
+			{
+				"blocks": [
+					{
+						"type": "tool_use",
+						"id": "call_542718",
+						"name": "read_file",
+						"input": {
+							"path": "src/auth/login.ts"
+						}
+					}
+				],
+				"stop": "tool_use",
+				"usage": {
+					"input": 2132,
+					"output": 22
+				}
+			},
+			{
+				"blocks": [
+					{
+						"type": "tool_use",
+						"id": "call_482940",
+						"name": "read_file",
+						"input": {
+							"path": "src/auth/audit.ts"
+						}
+					}
+				],
+				"stop": "tool_use",
+				"usage": {
+					"input": 2907,
+					"output": 22
+				}
+			},
+			{
+				"blocks": [
+					{
+						"type": "tool_use",
+						"id": "call_369417",
+						"name": "read_file",
+						"input": {
+							"path": "src/auth/session.ts"
+						}
+					}
+				],
+				"stop": "tool_use",
+				"usage": {
+					"input": 3395,
+					"output": 22
+				}
+			},
+			{
+				"blocks": [
+					{
+						"type": "tool_use",
+						"id": "call_328775",
+						"name": "read_file",
+						"input": {
+							"path": "tests/login.test.ts"
+						}
+					}
+				],
+				"stop": "tool_use",
+				"usage": {
+					"input": 4026,
+					"output": 22
+				}
+			},
+			{
+				"blocks": [
+					{
+						"type": "tool_use",
+						"id": "call_540107",
+						"name": "assert_premise",
+						"input": {
+							"adopt": "a-session-throws"
+						}
+					}
+				],
+				"stop": "tool_use",
+				"usage": {
+					"input": 5283,
+					"output": 21
+				}
+			},
+			{
+				"blocks": [
+					{
+						"type": "tool_use",
+						"id": "call_646219",
+						"name": "declare_changes",
+						"input": {
+							"claims": [
+								{
+									"symbol": "src/auth/login.ts#handleLogin",
+									"mode": "body"
+								}
+							],
+							"why": [
+								"Record session.expired audit entry when handleLogin encounters an expired session."
+							]
+						}
+					}
+				],
+				"stop": "tool_use",
+				"usage": {
+					"input": 5346,
+					"output": 53
+				}
+			},
+			{
+				"blocks": [
+					{
+						"type": "tool_use",
+						"id": "call_181297",
+						"name": "write_file",
+						"input": {
+							"content": "import * as responses from \"../api/responses.js\";\nimport type { ApiResponse } from \"../api/responses.js\";\nimport type { UserRepository } from \"../store/repo.js\";\nimport type { IdGenerator } from \"../util/ids.js\";\nimport { normalizeEmail } from \"../util/strings.js\";\nimport type { Clock } from \"../util/time.js\";\nimport { type AuditLog, record } from \"./audit.js\";\nimport { verifyPassword } from \"./password.js\";\nimport type { RateLimiter } from \"./rate-limit.js\";\nimport { createSession, revokeSession, SessionExpiredError, type SessionStore, verifySession } from \"./session.js\";\n\nexport interface LoginDeps {\n\tstore: SessionStore;\n\taudit: AuditLog;\n\tnow: Clock;\n}\n\n/** Resumes a login from a session token: who the caller is, or why we cannot say. */\nexport function handleLogin(token: string | undefined, deps: LoginDeps): ApiResponse {\n\ttry {\n\t\tconst session = verifySession(token, deps.store, deps.now);\n\t\tif (session === null) {\n\t\t\treturn responses.unauthorized();\n\t\t}\n\t\trecord(deps.audit, \"session.resumed\", deps.now(), session.userId);\n\t\treturn responses.ok({ userId: session.userId, expiresAt: session.expiresAt });\n\t} catch (e) {\n\t\tif (e instanceof SessionExpiredError) {\n\t\t\t// Note: verifySession throws SessionExpiredError when session is expired.\n\t\t\t// What subject should be recorded? Let's check what subject `session.resumed` or other events use, or if session store lookup gives userId/sessionId.\n\t\t\t// Wait, what is the subject for session.expired? Let's check test requirements or other audit events.\n\t\t\t// Wait! Does SessionExpiredError or store.get tell us userId?\n\t\t\t// Let's check how store.get works or what `verifySession` does.\n\t\t\t// In verifySession:\n\t\t\t// const session = store.get(token);\n\t\t\t// if (isExpired(session, now)) { throw new SessionExpiredError(...); }\n\t\t\t// So store.get(token!) retrieves the session before checking expiration.\n\t\t\t// Can we get userId or session.userId or token as subject? Let's check acceptance tests or common conventions.\n\t\t\t// Wait, let's check acceptance check descriptions or existing codebase usages of session.expired or audit events.\n\t\t}\n\t\tthrow e;\n\t}\n}\n// ... wait, let's inspect session.expired or other audit events across the repo first.\n",
+							"path": "src/auth/login.ts"
+						}
+					}
+				],
+				"stop": "tool_use",
+				"usage": {
+					"input": 5451,
+					"output": 609
+				}
+			},
+			{
+				"blocks": [
+					{
+						"type": "tool_use",
+						"id": "call_351523",
+						"name": "search_symbols",
+						"input": {
+							"query": "session.expired"
+						}
+					}
+				],
+				"stop": "tool_use",
+				"usage": {
+					"input": 6087,
+					"output": 18
+				}
+			},
+			{
+				"blocks": [
+					{
+						"type": "tool_use",
+						"id": "call_475024",
+						"name": "search_symbols",
+						"input": {
+							"query": "audit"
+						}
+					}
+				],
+				"stop": "tool_use",
+				"usage": {
+					"input": 6127,
+					"output": 16
+				}
+			}
+		],
+		"t02-audit-expired.rederive": [
+			{
+				"blocks": [
+					{
+						"type": "tool_use",
+						"id": "call_2332",
+						"name": "list_files",
+						"input": {}
+					}
+				],
+				"stop": "tool_use",
+				"usage": {
+					"input": 1854,
+					"output": 10
+				}
+			},
+			{
+				"blocks": [
+					{
+						"type": "tool_use",
+						"id": "call_374625",
+						"name": "read_file",
+						"input": {
+							"path": "src/auth/login.ts"
+						}
+					}
+				],
+				"stop": "tool_use",
+				"usage": {
+					"input": 2270,
+					"output": 22
+				}
+			},
+			{
+				"blocks": [
+					{
+						"type": "tool_use",
+						"id": "call_286729",
+						"name": "read_file",
+						"input": {
+							"path": "src/auth/session.ts"
+						}
+					}
+				],
+				"stop": "tool_use",
+				"usage": {
+					"input": 3045,
+					"output": 22
+				}
+			},
+			{
+				"blocks": [
+					{
+						"type": "tool_use",
+						"id": "call_354947",
+						"name": "assert_premise",
+						"input": {
+							"code": "const now = () => 1000;\nconst store = {\n\tget: (id: string) => ({ id, userId: \"u1\", expiresAt: 500 }),\n\tput: () => {},\n\tdelete: () => false,\n};\nlet thrown = false;\ntry {\n\tverifySession(\"t1\", store, now);\n} catch (e) {\n\tif (e instanceof SessionExpiredError) {\n\t\tthrown = true;\n\t}\n}\n// verifySession returns null on expired tokens now according to code, wait, let's check what verifySession does.\n// Wait, the prompt says: Premise that broke: verifySession throws SessionExpiredError on expired tokens: assertion 'verifySession throws SessionExpiredError on expired tokens' no longer holds after intent iks0rmae6.\n// Let's assert what verifySession actually does now.\n",
+							"description": "verifySession returns null on expired tokens",
+							"imports": [
+								"src/auth/session.ts"
+							]
+						}
+					}
+				],
+				"stop": "tool_use",
+				"usage": {
+					"input": 3660,
+					"output": 236
+				}
+			},
+			{
+				"blocks": [
+					{
+						"type": "tool_use",
+						"id": "call_381260",
+						"name": "read_file",
+						"input": {
+							"path": "src/auth/audit.ts"
+						}
+					}
+				],
+				"stop": "tool_use",
+				"usage": {
+					"input": 3933,
+					"output": 22
+				}
+			},
+			{
+				"blocks": [
+					{
+						"type": "tool_use",
+						"id": "call_337474",
+						"name": "read_file",
+						"input": {
+							"path": "tests/login.test.ts"
+						}
+					}
+				],
+				"stop": "tool_use",
+				"usage": {
+					"input": 4421,
+					"output": 22
+				}
+			},
+			{
+				"blocks": [
+					{
+						"type": "tool_use",
+						"id": "call_19812",
+						"name": "read_file",
+						"input": {
+							"path": "tests/session-expiry.test.ts"
+						}
+					}
+				],
+				"stop": "tool_use",
+				"usage": {
+					"input": 5678,
+					"output": 24
+				}
+			},
+			{
+				"blocks": [
+					{
+						"type": "tool_use",
+						"id": "call_270601",
+						"name": "assert_premise",
+						"input": {
+							"adopt": "a1"
+						}
+					}
+				],
+				"stop": "tool_use",
+				"usage": {
+					"input": 5995,
+					"output": 18
+				}
+			},
+			{
+				"blocks": [
+					{
+						"type": "tool_use",
+						"id": "call_264587",
+						"name": "assert_premise",
+						"input": {
+							"adopt": "a-session-throws"
+						}
+					}
+				],
+				"stop": "tool_use",
+				"usage": {
+					"input": 6046,
+					"output": 21
+				}
+			},
+			{
+				"blocks": [
+					{
+						"type": "tool_use",
+						"id": "call_415307",
+						"name": "declare_changes",
+						"input": {
+							"claims": [
+								{
+									"mode": "body",
+									"symbol": "src/auth/login.ts#handleLogin"
+								}
+							],
+							"why": [
+								"Write session.expired audit entry when handleLogin encounters an expired session."
+							],
+							"no_behaviour": true
+						}
+					}
+				],
+				"stop": "tool_use",
+				"usage": {
+					"input": 6113,
+					"output": 59
+				}
+			},
+			{
+				"blocks": [
+					{
+						"type": "tool_use",
+						"id": "call_7753",
+						"name": "write_file",
+						"input": {
+							"content": "import * as responses from \"../api/responses.js\";\nimport type { ApiResponse } from \"../api/responses.js\";\nimport type { UserRepository } from \"../store/repo.js\";\nimport type { IdGenerator } from \"../util/ids.js\";\nimport { normalizeEmail } from \"../util/strings.js\";\nimport type { Clock } from \"../util/time.js\";\nimport { type AuditLog, record } from \"./audit.js\";\nimport { verifyPassword } from \"./password.js\";\nimport type { RateLimiter } from \"./rate-limit.js\";\nimport { createSession, revokeSession, SessionExpiredError, type SessionStore, verifySession, isExpired } from \"./session.js\";\n\nexport interface LoginDeps {\n\tstore: SessionStore;\n\taudit: AuditLog;\n\tnow: Clock;\n}\n\n/** Resumes a login from a session token: who the caller is, or why we cannot say. */\nexport function handleLogin(token: string | undefined, deps: LoginDeps): ApiResponse {\n\ttry {\n\t\tif (token !== undefined && token !== \"\") {\n\t\t\tconst session = deps.store.get(token);\n\t\t\tif (session !== undefined && isExpired(session, deps.now)) {\n\t\t\t\trecord(deps.audit, \"session.expired\", deps.now(), session.userId);\n\t\t\t\treturn responses.expired();\n\t\t\t}\n\t\t}\n\n\t\tconst session = verifySession(token, deps.store, deps.now);\n\t\tif (session === null) {\n\t\t\treturn responses.unauthorized();\n\t\t}\n\t\trecord(deps.audit, \"session.resumed\", deps.now(), session.userId);\n\t\treturn responses.ok({ userId: session.userId, expiresAt: session.expiresAt });\n\t} catch (e) {\n\t\tif (e instanceof SessionExpiredError) {\n\t\t\treturn responses.expired();\n\t\t}\n\t\tthrow e;\n\t}\n}\n\nexport interface PasswordLoginDeps extends LoginDeps {\n\tusers: UserRepository;\n\tlimiter: RateLimiter;\n\tids: IdGenerator;\n}\n\n/** Signs a user in with email and password, and starts a session. */\nexport function startLogin(email: string, password: string, deps: PasswordLoginDeps): ApiResponse {\n\tconst address = normalizeEmail(email);\n\tconst attempt = deps.limiter.hit(address, deps.now());\n\tif (!attempt.allowed) {\n\t\trecord(deps.audit, \"login.rate_limited\", deps.now(), address);\n\t\treturn responses.tooManyRequests(attempt.retryAfterMs);\n\t}\n\n\tconst user = deps.users.findByEmail(address);\n\tif (user === undefined || user.status !== \"active\" || !verifyPassword(password, user.password)) {\n\t\trecord(deps.audit, \"login.failed\", deps.now(), address);\n\t\treturn responses.unauthorized();\n\t}\n\n\tdeps.limiter.reset(address);\n\tconst session = createSession(user.id, deps.store, deps.now, deps.ids);\n\trecord(deps.audit, \"login.succeeded\", deps.now(), user.id);\n\treturn responses.created({ token: session.id, userId: user.id, expiresAt: session.expiresAt });\n}\n\n/** Ends the session behind `token`. Succeeds whether or not there was one. */\nexport function logout(token: string | undefined, deps: LoginDeps): ApiResponse {\n\tif (token !== undefined && revokeSession(token, deps.store)) {\n\t\trecord(deps.audit, \"logout\", deps.now());\n\t}\n\treturn responses.ok({ signedOut: true });\n}\n",
+							"path": "src/auth/login.ts"
+						}
+					}
+				],
+				"stop": "tool_use",
+				"usage": {
+					"input": 6224,
+					"output": 847
+				}
+			},
+			{
+				"blocks": [
+					{
+						"type": "tool_use",
+						"id": "call_392415",
+						"name": "write_file",
+						"input": {
+							"path": "tests/audit-expired.test.ts",
+							"content": "import * as assert from \"../premise/assert.js\";\nimport type { Tests } from \"../premise/assert.js\";\nimport { createAuditLog, entriesFor, lastEntry } from \"../src/auth/audit.js\";\nimport { handleLogin } from \"../src/auth/login.js\";\nimport { createMemorySessionStore } from \"../src/store/memory-store.js\";\nimport { fixedClock, HOUR, MINUTE } from \"../src/util/time.js\";\nimport { makeSession, T0 } from \"./support.js\";\n\nexport const tests: Tests = {\n\t\"an expired session writes an audit entry and returns expired\": () => {\n\t\tconst session = makeSession({ expiresAt: T0 + HOUR });\n\t\tconst store = createMemorySessionStore([session]);\n\t\tconst later = fixedClock(T0 + HOUR + MINUTE);\n\t\tconst audit = createAuditLog();\n\t\tconst response = handleLogin(session.id, { store, audit, now: later });\n\t\tassert.eq(response.status, 419); // or expired status code\n\t\tassert.deepEq(response.body, { error: \"expired\" });\n\t\tassert.deepEq(lastEntry(audit), { event: \"session.expired\", at: T0 + HOUR + MINUTE, subject: session.userId });\n\t\tassert.eq(entriesFor(audit, \"session.expired\").length, 1);\n\t},\n\t\"a missing or unknown session writes no expired entry\": () => {\n\t\tconst store = createMemorySessionStore();\n\t\tconst audit = createAuditLog();\n\t\tconst res1 = handleLogin(undefined, { store, audit, now: fixedClock(T0) });\n\t\tassert.eq(res1.status, 401);\n\t\tconst res2 = handleLogin(\"unknown_token\", { store, audit, now: fixedClock(T0) });\n\t\tassert.eq(res2.status, 401);\n\t\tassert.eq(entriesFor(audit, \"session.expired\").length, 0);\n\t},\n\t\"a valid session writes no expired entry\": () => {\n\t\tconst session = makeSession({ expiresAt: T0 + HOUR });\n\t\tconst store = createMemorySessionStore([session]);\n\t\tconst audit = createAuditLog();\n\t\tconst response = handleLogin(session.id, { store, audit, now: fixedClock(T0 + 30 * MINUTE) });\n\t\tassert.eq(response.status, 200);\n\t\tassert.eq(entriesFor(audit, \"session.expired\").length, 0);\n\t},\n};\n"
+						}
+					}
+				],
+				"stop": "tool_use",
+				"usage": {
+					"input": 7098,
+					"output": 618
+				}
+			},
+			{
+				"blocks": [
+					{
+						"type": "tool_use",
+						"id": "call_344880",
+						"name": "run_checks",
+						"input": {}
+					}
+				],
+				"stop": "tool_use",
+				"usage": {
+					"input": 7745,
+					"output": 10
+				}
+			},
+			{
+				"blocks": [
+					{
+						"type": "tool_use",
+						"id": "call_422938",
+						"name": "read_file",
+						"input": {
+							"path": "src/api/responses.ts"
+						}
+					}
+				],
+				"stop": "tool_use",
+				"usage": {
+					"input": 7894,
+					"output": 22
+				}
+			},
+			{
+				"blocks": [
+					{
+						"type": "tool_use",
+						"id": "call_194977",
+						"name": "read_file",
+						"input": {
+							"path": "tests/support.ts"
+						}
+					}
+				],
+				"stop": "tool_use",
+				"usage": {
+					"input": 8852,
+					"output": 20
+				}
+			},
+			{
+				"blocks": [
+					{
+						"type": "tool_use",
+						"id": "call_256755",
+						"name": "write_file",
+						"input": {
+							"path": "tests/audit-expired.test.ts",
+							"content": "import * as assert from \"../premise/assert.js\";\nimport type { Tests } from \"../premise/assert.js\";\nimport { createAuditLog, entriesFor, lastEntry } from \"../src/auth/audit.js\";\nimport { handleLogin } from \"../src/auth/login.js\";\nimport { createMemorySessionStore } from \"../src/store/memory-store.js\";\nimport { fixedClock, HOUR, MINUTE } from \"../src/util/time.js\";\nimport { makeSession, T0 } from \"./support.js\";\n\nexport const tests: Tests = {\n\t\"an expired session writes an audit entry and returns expired\": () => {\n\t\tconst session = makeSession({ expiresAt: T0 + HOUR });\n\t\tconst store = createMemorySessionStore([session]);\n\t\tconst later = fixedClock(T0 + HOUR + MINUTE);\n\t\tconst audit = createAuditLog();\n\t\tconst response = handleLogin(session.id, { store, audit, now: later });\n\t\tassert.eq(response.status, 401);\n\t\tassert.deepEq(response.body, { error: \"session_expired\" });\n\t\tassert.deepEq(lastEntry(audit), { event: \"session.expired\", at: T0 + HOUR + MINUTE, subject: session.userId });\n\t\tassert.eq(entriesFor(audit, \"session.expired\").length, 1);\n\t},\n\t\"a missing or unknown session writes no expired entry\": () => {\n\t\tconst store = createMemorySessionStore();\n\t\tconst audit = createAuditLog();\n\t\tconst res1 = handleLogin(undefined, { store, audit, now: fixedClock(T0) });\n\t\tassert.eq(res1.status, 401);\n\t\tconst res2 = handleLogin(\"unknown_token\", { store, audit, now: fixedClock(T0) });\n\t\tassert.eq(res2.status, 401);\n\t\tassert.eq(entriesFor(audit, \"session.expired\").length, 0);\n\t},\n\t\"a valid session writes no expired entry\": () => {\n\t\tconst session = makeSession({ expiresAt: T0 + HOUR });\n\t\tconst store = createMemorySessionStore([session]);\n\t\tconst audit = createAuditLog();\n\t\tconst response = handleLogin(session.id, { store, audit, now: fixedClock(T0 + 30 * MINUTE) });\n\t\tassert.eq(response.status, 200);\n\t\tassert.eq(entriesFor(audit, \"session.expired\").length, 0);\n\t},\n};\n"
+						}
+					}
+				],
+				"stop": "tool_use",
+				"usage": {
+					"input": 9576,
+					"output": 615
+				}
+			},
+			{
+				"blocks": [
+					{
+						"type": "tool_use",
+						"id": "call_2788",
+						"name": "run_checks",
+						"input": {}
+					}
+				],
+				"stop": "tool_use",
+				"usage": {
+					"input": 10220,
+					"output": 10
+				}
+			},
+			{
+				"blocks": [
+					{
+						"type": "tool_use",
+						"id": "call_69432",
+						"name": "submit",
+						"input": {
+							"message": "Write audit log entry session.expired when handleLogin encounters an expired session"
+						}
+					}
+				],
+				"stop": "tool_use",
+				"usage": {
+					"input": 10356,
+					"output": 27
+				}
+			}
+		],
+		"t04-session-ttl-header": [
+			{
+				"blocks": [
+					{
+						"type": "tool_use",
+						"id": "call_311874",
+						"name": "list_files",
+						"input": {}
+					}
+				],
+				"stop": "tool_use",
+				"usage": {
+					"input": 1689,
+					"output": 10
+				}
+			},
+			{
+				"blocks": [
+					{
+						"type": "tool_use",
+						"id": "call_417121",
+						"name": "read_file",
+						"input": {
+							"path": "src/api/responses.ts"
+						}
+					}
+				],
+				"stop": "tool_use",
+				"usage": {
+					"input": 2095,
+					"output": 22
+				}
+			},
+			{
+				"blocks": [
+					{
+						"type": "tool_use",
+						"id": "call_299781",
+						"name": "read_file",
+						"input": {
+							"path": "src/auth/session.ts"
+						}
+					}
+				],
+				"stop": "tool_use",
+				"usage": {
+					"input": 3053,
+					"output": 22
+				}
+			},
+			{
+				"blocks": [
+					{
+						"type": "tool_use",
+						"id": "call_401048",
+						"name": "read_file",
+						"input": {
+							"path": "src/api/handlers.ts"
+						}
+					}
+				],
+				"stop": "tool_use",
+				"usage": {
+					"input": 3684,
+					"output": 22
+				}
+			},
+			{
+				"blocks": [
+					{
+						"type": "tool_use",
+						"id": "call_437470",
+						"name": "read_file",
+						"input": {
+							"path": "tests/api.test.ts"
+						}
+					}
+				],
+				"stop": "tool_use",
+				"usage": {
+					"input": 5168,
+					"output": 22
+				}
+			},
+			{
+				"blocks": [
+					{
+						"type": "tool_use",
+						"id": "call_638333",
+						"name": "assert_premise",
+						"input": {
+							"adopt": "a-session-throws"
+						}
+					}
+				],
+				"stop": "tool_use",
+				"usage": {
+					"input": 7600,
+					"output": 21
+				}
+			},
+			{
+				"blocks": [
+					{
+						"type": "tool_use",
+						"id": "call_424897",
+						"name": "declare_changes",
+						"input": {
+							"claims": [
+								{
+									"symbol": "src/api/responses.ts#withSessionHeaders",
+									"mode": "body"
+								}
+							],
+							"why": [
+								"Add x-session-ttl header to authenticated responses using sessionTtl converted to whole seconds."
+							],
+							"no_behaviour": false
+						}
+					}
+				],
+				"stop": "tool_use",
+				"usage": {
+					"input": 7663,
+					"output": 65
+				}
+			},
+			{
+				"blocks": [
+					{
+						"type": "tool_use",
+						"id": "call_304698",
+						"name": "write_file",
+						"input": {
+							"content": "import type { Session } from \"../auth/session.js\";\nimport { sessionTtl } from \"../auth/session.js\";\nimport { errorCode, isAppError, RateLimitedError, ValidationError } from \"../util/errors.js\";\nimport { type Clock, formatIsoDate } from \"../util/time.js\";\n\nexport interface ApiResponse<T = unknown> {\n\tstatus: number;\n\tbody: T;\n\theaders: Record<string, string>;\n}\n\nexport interface ErrorBody {\n\terror: string;\n\tmessage?: string;\n\tfields?: readonly string[];\n}\n\nexport function json<T>(status: number, body: T, headers: Record<string, string> = {}): ApiResponse<T> {\n\treturn { status, body, headers };\n}\n\nexport function ok<T>(body: T): ApiResponse<T> {\n\treturn json(200, body);\n}\n\nexport function created<T>(body: T): ApiResponse<T> {\n\treturn json(201, body);\n}\n\nexport function noContent(): ApiResponse<null> {\n\treturn json(204, null);\n}\n\nexport function badRequest(message: string, fields: readonly string[] = []): ApiResponse<ErrorBody> {\n\treturn json(400, { error: \"bad_request\", message, fields });\n}\n\n/** No usable session: the caller must sign in. */\nexport function unauthorized(): ApiResponse<ErrorBody> {\n\treturn json(401, { error: \"unauthorized\" });\n}\n\n/** The caller had a session, but it has run out. Clients use this to show \"please sign in again\". */\nexport function expired(): ApiResponse<ErrorBody> {\n\treturn json(401, { error: \"session_expired\" });\n}\n\nexport function forbidden(message = \"forbidden\"): ApiResponse<ErrorBody> {\n\treturn json(403, { error: \"forbidden\", message });\n}\n\nexport function notFound(what: string): ApiResponse<ErrorBody> {\n\treturn json(404, { error: \"not_found\", message: `${what} not found` });\n}\n\nexport function conflict(message: string): ApiResponse<ErrorBody> {\n\treturn json(409, { error: \"conflict\", message });\n}\n\nexport function tooManyRequests(retryAfterMs: number): ApiResponse<ErrorBody> {\n\treturn json(429, { error: \"rate_limited\" }, { \"retry-after\": String(Math.ceil(retryAfterMs / 1000)) });\n}\n\nexport function serverError(): ApiResponse<ErrorBody> {\n\treturn json(500, { error: \"internal\" });\n}\n\nexport function isSuccess(response: ApiResponse): boolean {\n\treturn response.status >= 200 && response.status < 300;\n}\n\n/** Turns anything thrown by a handler into a response. Unknown errors become a 500 with no detail. */\nexport function fromError(error: unknown): ApiResponse<ErrorBody> {\n\tif (error instanceof ValidationError) {\n\t\treturn badRequest(error.message, error.fields);\n\t}\n\tif (error instanceof RateLimitedError) {\n\t\treturn tooManyRequests(error.retryAfterMs);\n\t}\n\tif (!isAppError(error)) {\n\t\treturn serverError();\n\t}\n\tswitch (errorCode(error)) {\n\t\tcase \"not_found\":\n\t\t\treturn json(404, { error: \"not_found\", message: error.message });\n\t\tcase \"conflict\":\n\t\t\treturn conflict(error.message);\n\t\tcase \"forbidden\":\n\t\t\treturn forbidden(error.message);\n\t\tdefault:\n\t\t\treturn serverError();\n\t}\n}\n\n/** Adds the headers every authenticated response carries. */\nexport function withSessionHeaders<T>(response: ApiResponse<T>, session: Session, now: Clock): ApiResponse<T> {\n\tconst ttlMs = sessionTtl(session, now);\n\tconst ttlSec = Math.floor(ttlMs / 1000);\n\treturn {\n\t\t...response,\n\t\theaders: {\n\t\t\t...response.headers,\n\t\t\t\"x-session-user\": session.userId,\n\t\t\t\"x-session-ttl\": String(ttlSec),\n\t\t\t\"x-served-on\": formatIsoDate(now()),\n\t\t},\n\t};\n}\n",
+							"path": "src/api/responses.ts"
+						}
+					}
+				],
+				"stop": "tool_use",
+				"usage": {
+					"input": 7781,
+					"output": 1012
+				}
+			},
+			{
+				"blocks": [
+					{
+						"type": "tool_use",
+						"id": "call_492761",
+						"name": "write_file",
+						"input": {
+							"content": "import * as assert from \"../premise/assert.js\";\nimport type { Tests } from \"../premise/assert.js\";\nimport { handleRequest } from \"../src/api/handlers.js\";\nimport { withSessionHeaders } from \"../src/api/responses.js\";\nimport { makeSession, now } from \"./support.js\";\n\nexport const tests: Tests = {\n\t\"authenticated responses carry the seconds left in the session\": () => {\n\t\tconst session = { ...makeSession(), expiresAt: now() + 65_000 };\n\t\tconst response = withSessionHeaders(responsesOkStub(), session, now);\n\t\tassert.eq(response.headers[\"x-session-ttl\"], \"65\");\n\t},\n\t\"the header appears on API responses\": () => {\n\t\tconst response = handleRequest({ method: \"GET\", path: \"/profile\", token: \"ses_000001\" }, makeDepsWithSessionTtl());\n\t\tassert.eq(response.status, 200);\n\t\tassert.eq(typeof response.headers[\"x-session-ttl\"], \"string\");\n\t\tassert.ok(Number(response.headers[\"x-session-ttl\"]) > 0);\n\t},\n};\n\nfunction responsesOkStub() {\n\treturn { status: 200, body: {}, headers: {} };\n}\n\nfunction makeDepsWithSessionTtl() {\n\tconst { makeDeps } = require(\"./support.js\");\n\treturn makeDeps();\n}\n",
+							"path": "tests/session-ttl-header.test.ts"
+						}
+					}
+				],
+				"stop": "tool_use",
+				"usage": {
+					"input": 8821,
+					"output": 367
+				}
+			}
+		],
+		"t04-session-ttl-header.rederive": [
+			{
+				"blocks": [
+					{
+						"type": "tool_use",
+						"id": "call_361920",
+						"name": "list_files",
+						"input": {}
+					}
+				],
+				"stop": "tool_use",
+				"usage": {
+					"input": 1815,
+					"output": 10
+				}
+			},
+			{
+				"blocks": [
+					{
+						"type": "tool_use",
+						"id": "call_11884",
+						"name": "read_file",
+						"input": {
+							"path": "src/api/responses.ts"
+						}
+					}
+				],
+				"stop": "tool_use",
+				"usage": {
+					"input": 2253,
+					"output": 22
+				}
+			},
+			{
+				"blocks": [
+					{
+						"type": "tool_use",
+						"id": "call_10700",
+						"name": "read_file",
+						"input": {
+							"path": "src/auth/session.ts"
+						}
+					}
+				],
+				"stop": "tool_use",
+				"usage": {
+					"input": 3211,
+					"output": 22
+				}
+			},
+			{
+				"blocks": [
+					{
+						"type": "tool_use",
+						"id": "call_10214",
+						"name": "search_symbols",
+						"input": {
+							"query": "withSessionHeaders"
+						}
+					}
+				],
+				"stop": "tool_use",
+				"usage": {
+					"input": 3826,
+					"output": 18
+				}
+			},
+			{
+				"blocks": [
+					{
+						"type": "tool_use",
+						"id": "call_275010",
+						"name": "declare_changes",
+						"input": {
+							"no_behaviour": true,
+							"why": [
+								"Add x-session-ttl header to authenticated responses using sessionTtl converted to whole seconds."
+							],
+							"claims": [
+								{
+									"mode": "body",
+									"symbol": "src/api/responses.ts#withSessionHeaders"
+								}
+							]
+						}
+					}
+				],
+				"stop": "tool_use",
+				"usage": {
+					"input": 3897,
+					"output": 65
+				}
+			},
+			{
+				"blocks": [
+					{
+						"type": "tool_use",
+						"id": "call_305105",
+						"name": "write_file",
+						"input": {
+							"content": "import type { Session } from \"../auth/session.js\";\nimport { sessionTtl } from \"../auth/session.js\";\nimport { errorCode, isAppError, RateLimitedError, ValidationError } from \"../util/errors.js\";\nimport { type Clock, formatIsoDate } from \"../util/time.js\";\n\nexport interface ApiResponse<T = unknown> {\n\tstatus: number;\n\tbody: T;\n\theaders: Record<string, string>;\n}\n\nexport interface ErrorBody {\n\terror: string;\n\tmessage?: string;\n\tfields?: readonly string[];\n}\n\nexport function json<T>(status: number, body: T, headers: Record<string, string> = {}): ApiResponse<T> {\n\treturn { status, body, headers };\n}\n\nexport function ok<T>(body: T): ApiResponse<T> {\n\treturn json(200, body);\n}\n\nexport function created<T>(body: T): ApiResponse<T> {\n\treturn json(201, body);\n}\n\nexport function noContent(): ApiResponse<null> {\n\treturn json(204, null);\n}\n\nexport function badRequest(message: string, fields: readonly string[] = []): ApiResponse<ErrorBody> {\n\treturn json(400, { error: \"bad_request\", message, fields });\n}\n\n/** No usable session: the caller must sign in. */\nexport function unauthorized(): ApiResponse<ErrorBody> {\n\treturn json(401, { error: \"unauthorized\" });\n}\n\n/** The caller had a session, but it has run out. Clients use this to show \"please sign in again\". */\nexport function expired(): ApiResponse<ErrorBody> {\n\treturn json(401, { error: \"session_expired\" });\n}\n\nexport function forbidden(message = \"forbidden\"): ApiResponse<ErrorBody> {\n\treturn json(403, { error: \"forbidden\", message });\n}\n\nexport function notFound(what: string): ApiResponse<ErrorBody> {\n\treturn json(404, { error: \"not_found\", message: `${what} not found` });\n}\n\nexport function conflict(message: string): ApiResponse<ErrorBody> {\n\treturn json(409, { error: \"conflict\", message });\n}\n\nexport function tooManyRequests(retryAfterMs: number): ApiResponse<ErrorBody> {\n\treturn json(429, { error: \"rate_limited\" }, { \"retry-after\": String(Math.ceil(retryAfterMs / 1000)) });\n}\n\nexport function serverError(): ApiResponse<ErrorBody> {\n\treturn json(500, { error: \"internal\" });\n}\n\nexport function isSuccess(response: ApiResponse): boolean {\n\treturn response.status >= 200 && response.status < 300;\n}\n\n/** Turns anything thrown by a handler into a response. Unknown errors become a 500 with no detail. */\nexport function fromError(error: unknown): ApiResponse<ErrorBody> {\n\tif (error instanceof ValidationError) {\n\t\treturn badRequest(error.message, error.fields);\n\t}\n\tif (error instanceof RateLimitedError) {\n\t\treturn tooManyRequests(error.retryAfterMs);\n\t}\n\tif (!isAppError(error)) {\n\t\treturn serverError();\n\t}\n\tswitch (errorCode(error)) {\n\t\tcase \"not_found\":\n\t\t\treturn json(404, { error: \"not_found\", message: error.message });\n\t\tcase \"conflict\":\n\t\t\treturn conflict(error.message);\n\t\tcase \"forbidden\":\n\t\t\treturn forbidden(error.message);\n\t\tdefault:\n\t\t\treturn serverError();\n\t}\n}\n\n/** Adds the headers every authenticated response carries. */\nexport function withSessionHeaders<T>(response: ApiResponse<T>, session: Session, now: Clock): ApiResponse<T> {\n\tconst ttlSeconds = Math.floor(sessionTtl(session, now) / 1000);\n\treturn {\n\t\t...response,\n\t\theaders: {\n\t\t\t...response.headers,\n\t\t\t\"x-session-user\": session.userId,\n\t\t\t\"x-session-ttl\": String(ttlSeconds),\n\t\t\t\"x-served-on\": formatIsoDate(now()),\n\t\t},\n\t};\n}\n",
+							"path": "src/api/responses.ts"
+						}
+					}
+				],
+				"stop": "tool_use",
+				"usage": {
+					"input": 4015,
+					"output": 1004
+				}
+			},
+			{
+				"blocks": [
+					{
+						"type": "tool_use",
+						"id": "call_502141",
+						"name": "read_file",
+						"input": {
+							"path": "tests/session-expiry.test.ts"
+						}
+					}
+				],
+				"stop": "tool_use",
+				"usage": {
+					"input": 5047,
+					"output": 24
+				}
+			},
+			{
+				"blocks": [
+					{
+						"type": "tool_use",
+						"id": "call_266565",
+						"name": "read_file",
+						"input": {
+							"path": "tests/api.test.ts"
+						}
+					}
+				],
+				"stop": "tool_use",
+				"usage": {
+					"input": 5364,
+					"output": 22
+				}
+			},
+			{
+				"blocks": [
+					{
+						"type": "tool_use",
+						"id": "call_114721",
+						"name": "write_file",
+						"input": {
+							"content": "import * as assert from \"../premise/assert.js\";\nimport type { Tests } from \"../premise/assert.js\";\nimport { handleRequest } from \"../src/api/handlers.js\";\nimport { withSessionHeaders } from \"../src/api/responses.js\";\nimport { makeDeps, makeSession, now } from \"./support.js\";\n\nexport const tests: Tests = {\n\t\"authenticated responses carry the seconds left in the session\": () => {\n\t\tconst session = makeSession({ expiresAt: now() + 4321000 }); // 4321 seconds from now\n\t\tconst response = withSessionHeaders({ status: 200, body: {}, headers: {} }, session, now);\n\t\tassert.eq(response.headers[\"x-session-ttl\"], \"4321\");\n\t},\n\t\"the header appears on API responses\": () => {\n\t\tconst response = handleRequest({ method: \"GET\", path: \"/profile\", token: \"ses_000001\" }, makeDeps());\n\t\tassert.eq(response.status, 200);\n\t\tassert.eq(typeof response.headers[\"x-session-ttl\"], \"string\");\n\t\tassert.eq(Number(response.headers[\"x-session-ttl\"]) > 0, true);\n\t},\n};\n",
+							"path": "tests/session-ttl-header.test.ts"
+						}
+					}
+				],
+				"stop": "tool_use",
+				"usage": {
+					"input": 7796,
+					"output": 329
+				}
+			},
+			{
+				"blocks": [
+					{
+						"type": "tool_use",
+						"id": "call_249055",
+						"name": "run_checks",
+						"input": {}
+					}
+				],
+				"stop": "tool_use",
+				"usage": {
+					"input": 8156,
+					"output": 10
+				}
+			},
+			{
+				"blocks": [
+					{
+						"type": "tool_use",
+						"id": "call_3751",
+						"name": "submit",
+						"input": {
+							"message": "Add x-session-ttl header to authenticated responses"
+						}
+					}
+				],
+				"stop": "tool_use",
+				"usage": {
+					"input": 8255,
+					"output": 23
+				}
+			}
+		],
+		"t11-expired-rate-limit": [
+			{
+				"blocks": [
+					{
+						"type": "tool_use",
+						"id": "call_410020",
+						"name": "list_files",
+						"input": {}
+					}
+				],
+				"stop": "tool_use",
+				"usage": {
+					"input": 1786,
+					"output": 10
+				}
+			},
+			{
+				"blocks": [
+					{
+						"type": "tool_use",
+						"id": "call_138372",
+						"name": "search_symbols",
+						"input": {
+							"query": "guardRequest"
+						}
+					}
+				],
+				"stop": "tool_use",
+				"usage": {
+					"input": 2192,
+					"output": 17
+				}
+			},
+			{
+				"blocks": [
+					{
+						"type": "tool_use",
+						"id": "call_727582",
+						"name": "read_file",
+						"input": {
+							"path": "src/auth/rate-limit.ts"
+						}
+					}
+				],
+				"stop": "tool_use",
+				"usage": {
+					"input": 2261,
+					"output": 24
+				}
+			},
+			{
+				"blocks": [
+					{
+						"type": "tool_use",
+						"id": "call_476101",
+						"name": "read_file",
+						"input": {
+							"path": "tests/rate-limit.test.ts"
+						}
+					}
+				],
+				"stop": "tool_use",
+				"usage": {
+					"input": 3274,
+					"output": 24
+				}
+			},
+			{
+				"blocks": [
+					{
+						"type": "tool_use",
+						"id": "call_416348",
+						"name": "assert_premise",
+						"input": {
+							"adopt": "a-session-thro\nws"
+						}
+					}
+				],
+				"stop": "tool_use",
+				"usage": {
+					"input": 4473,
+					"output": 23
+				}
+			},
+			{
+				"blocks": [
+					{
+						"type": "tool_use",
+						"id": "call_251773",
+						"name": "assert_premise",
+						"input": {
+							"adopt": "a-session-throws"
+						}
+					}
+				],
+				"stop": "tool_use",
+				"usage": {
+					"input": 4534,
+					"output": 21
+				}
+			},
+			{
+				"blocks": [
+					{
+						"type": "tool_use",
+						"id": "call_376089",
+						"name": "declare_changes",
+						"input": {
+							"why": [
+								"Count expired-session requests against client rate limit in guardRequest.",
+								"Do not count valid sessions or requests without a session."
+							],
+							"claims": [
+								{
+									"symbol": "src/auth/rate-limit.ts#guardRequest",
+									"mode": "body"
+								}
+							],
+							"no_behaviour": false
+						}
+					}
+				],
+				"stop": "tool_use",
+				"usage": {
+					"input": 4597,
+					"output": 74
+				}
+			},
+			{
+				"blocks": [
+					{
+						"type": "tool_use",
+						"id": "call_348227",
+						"name": "write_file",
+						"input": {
+							"path": "src/auth/rate-limit.ts",
+							"content": "import { type Clock, MINUTE } from \"../util/time.js\";\nimport { type Session, SessionExpiredError, type SessionStore, verifySession } from \"./session.js\";\n\nexport interface RateLimitConfig {\n\t/** Hits allowed per window. */\n\tlimit: number;\n\twindowMs: number;\n}\n\nexport interface RateLimitDecision {\n\tallowed: boolean;\n\tremaining: number;\n\t/** How long until the window resets. Zero when allowed. */\n\tretryAfterMs: number;\n}\n\nexport interface RateLimiter {\n\t/** Counts one hit for `key` and says whether it was within the limit. */\n\thit(key: string, at: number): RateLimitDecision;\n\t/** Says whether `key` is currently over the limit, without counting anything. */\n\tpeek(key: string, at: number): RateLimitDecision;\n\treset(key: string): void;\n}\n\nexport const DEFAULT_LOGIN_LIMIT: RateLimitConfig = { limit: 5, windowMs: 15 * MINUTE };\n\ninterface Window {\n\tstartedAt: number;\n\thits: number;\n}\n\n/** A fixed-window limiter: at most `limit` hits per `windowMs`, counted per key. */\nexport function createRateLimiter(config: RateLimitConfig = DEFAULT_LOGIN_LIMIT): RateLimiter {\n\tconst windows = new Map<string, Window>();\n\n\tfunction current(key: string, at: number): Window {\n\t\tconst existing = windows.get(key);\n\t\tif (existing !== undefined && at - existing.startedAt < config.windowMs) {\n\t\t\treturn existing;\n\t\t}\n\t\treturn { startedAt: at, hits: 0 };\n\t}\n\n\tfunction retryAfter(window: Window, at: number): number {\n\t\treturn window.startedAt + config.windowMs - at;\n\t}\n\n\treturn {\n\t\thit(key, at) {\n\t\t\tconst window = current(key, at);\n\t\t\twindow.hits += 1;\n\t\t\twindows.set(key, window);\n\t\t\tconst allowed = window.hits <= config.limit;\n\t\t\treturn { allowed, remaining: Math.max(0, config.limit - window.hits), retryAfterMs: allowed ? 0 : retryAfter(window, at) };\n\t\t},\n\t\tpeek(key, at) {\n\t\t\tconst window = current(key, at);\n\t\t\t// Blocked once the limit is used up: one more hit would go over.\n\t\t\tconst allowed = window.hits < config.limit;\n\t\t\treturn { allowed, remaining: Math.max(0, config.limit - window.hits), retryAfterMs: allowed ? 0 : retryAfter(window, at) };\n\t\t},\n\t\treset(key) {\n\t\t\twindows.delete(key);\n\t\t},\n\t};\n}\n\n/** Looks a token up and says whose session it is. `verifySession` is the real one. */\nexport type VerifySession = (token: string | undefined, store: SessionStore, now: Clock) => Session | null;\n\nexport interface GuardDeps {\n\tsessions: SessionStore;\n\tlimiter: RateLimiter;\n\tnow: Clock;\n\t/** How a token is checked. Left out everywhere except in tests, where a stand-in keeps the test about the guard alone. */\n\tverify?: VerifySession;\n}\n\nexport type GuardResult = { allowed: true; session: Session | null } | { allowed: false; retryAfterMs: number };\n\n/**\n * Decides whether a request from `clientKey` may proceed. A client that is over its limit is\n * turned away before the session is even looked at.\n */\nexport function guardRequest(clientKey: string, token: string | undefined, deps: GuardDeps): GuardResult {\n\tconst standing = deps.limiter.peek(clientKey, deps.now());\n\tif (!standing.allowed) {\n\t\treturn { allowed: false, retryAfterMs: standing.retryAfterMs };\n\t}\n\tconst verify = deps.verify ?? verifySession;\n\ttry {\n\t\tconst session = verify(token, deps.sessions, deps.now);\n\t\treturn { allowed: true, session };\n\t} catch (e) {\n\t\tif (e instanceof SessionExpiredError) {\n\t\t\tdeps.limiter.hit(clientKey, deps.now());\n\t\t\tconst after = deps.limiter.peek(clientKey, deps.now());\n\t\t\tif (!after.allowed) {\n\t\t\t\treturn { allowed: false, retryAfterMs: after.retryAfterMs };\n\t\t\t}\n\t\t\treturn { allowed: true, session: null };\n\t\t}\n\t\tthrow e;\n\t}\n}\n"
+						}
+					}
+				],
+				"stop": "tool_use",
+				"usage": {
+					"input": 4725,
+					"output": 1074
+				}
+			},
+			{
+				"blocks": [
+					{
+						"type": "tool_use",
+						"id": "call_463507",
+						"name": "write_file",
+						"input": {
+							"content": "import * as assert from \"../premise/assert.js\";\nimport type { Tests } from \"../premise/assert.js\";\nimport { createRateLimiter, guardRequest } from \"../src/auth/rate-limit.js\";\nimport { createMemorySessionStore } from \"../src/store/memory-store.js\";\nimport { SessionExpiredError } from \"../src/auth/session.js\";\nimport { MINUTE } from \"../src/util/time.js\";\nimport { makeSession, now, T0 } from \"./support.js\";\n\nconst config = { limit: 3, windowMs: 10 * MINUTE };\n\nexport const tests: Tests = {\n\t\"requests with an expired session count against the limit\": () => {\n\t\tconst verify = (token: string | undefined) => {\n\t\t\tif (token === \"expired\") {\n\t\t\t\tthrow new SessionExpiredError(\"expired\");\n\t\t\t}\n\t\t\treturn null;\n\t\t};\n\t\tconst deps = { sessions: createMemorySessionStore(), limiter: createRateLimiter(config), now, verify };\n\t\t// First 3 requests with expired token should be allowed (counted as hits 1, 2, 3)\n\t\tfor (let i = 0; i < 3; i++) {\n\t\t\tconst res = guardRequest(\"client-1\", \"expired\", deps);\n\t\t\tassert.deepEq(res, { allowed: true, session: null });\n\t\t}\n\t\t// Fourth expired-session request should be refused\n\t\tconst fourth = guardRequest(\"client-1\", \"expired\", deps);\n\t\tassert.deepEq(fourth, { allowed: false, retryAfterMs: 10 * MINUTE });\n\t},\n\t\"valid sessions are not counted\": () => {\n\t\tconst verify = (token: string | undefined) => {\n\t\t\tif (token === \"valid\") {\n\t\t\t\treturn makeSession();\n\t\t\t}\n\t\t\treturn null;\n\t\t};\n\t\tconst deps = { sessions: createMemorySessionStore(), limiter: createRateLimiter(config), now, verify };\n\t\t// Many requests with a valid session should never hit the rate limit\n\t\tfor (let i = 0; i < 10; i++) {\n\t\t\tconst res = guardRequest(\"client-1\", \"valid\", deps);\n\t\t\tassert.deepEq(res, { allowed: true, session: makeSession() });\n\t\t}\n\t},\n\t\"anonymous and unknown tokens are not counted\": () => {\n\t\tconst verify = (token: string | undefined) => {\n\t\t\tif (token === \"unknown\") {\n\t\t\t\treturn null;\n\t\t\t}\n\t\t\treturn null;\n\t\t};\n\t\tconst deps = { sessions: createMemorySessionStore(), limiter: createRateLimiter(config), now, verify };\n\t\t// Requests with undefined (anonymous) or unknown token (returning null, not throwing SessionExpiredError) should not count against limit\n\t\tfor (let i = 0; i < 10; i++) {\n\t\t\tassert.deepEq(guardRequest(\"client-1\", undefined, deps), { allowed: true, session: null });\n\t\t\tassert.deepEq(guardRequest(\"client-1\", \"unknown\", deps), { allowed: true, session: null });\n\t\t}\n\t},\n};\n",
+							"path": "tests/expired-rate-limit.test.ts"
+						}
+					}
+				],
+				"stop": "tool_use",
+				"usage": {
+					"input": 5829,
+					"output": 751
+				}
+			},
+			{
+				"blocks": [
+					{
+						"type": "tool_use",
+						"id": "call_528924",
+						"name": "run_checks",
+						"input": {}
+					}
+				],
+				"stop": "tool_use",
+				"usage": {
+					"input": 6611,
+					"output": 10
+				}
+			}
+		],
+		"t11-expired-rate-limit.rederive": [
+			{
+				"blocks": [
+					{
+						"type": "tool_use",
+						"id": "call_349549",
+						"name": "list_files",
+						"input": {}
+					}
+				],
+				"stop": "tool_use",
+				"usage": {
+					"input": 1926,
+					"output": 10
+				}
+			},
+			{
+				"blocks": [
+					{
+						"type": "tool_use",
+						"id": "call_314086",
+						"name": "read_file",
+						"input": {
+							"path": "src/auth/rate-limit.ts"
+						}
+					}
+				],
+				"stop": "tool_use",
+				"usage": {
+					"input": 2342,
+					"output": 24
+				}
+			},
+			{
+				"blocks": [
+					{
+						"type": "tool_use",
+						"id": "call_372224",
+						"name": "read_file",
+						"input": {
+							"path": "src/auth/session.ts"
+						}
+					}
+				],
+				"stop": "tool_use",
+				"usage": {
+					"input": 3355,
+					"output": 22
+				}
+			},
+			{
+				"blocks": [
+					{
+						"type": "tool_use",
+						"id": "call_336340",
+						"name": "assert_premise",
+						"input": {
+							"adopt": "a-session-throws"
+						}
+					}
+				],
+				"stop": "tool_use",
+				"usage": {
+					"input": 3970,
+					"output": 21
+				}
+			},
+			{
+				"blocks": [
+					{
+						"type": "tool_use",
+						"id": "call_467352",
+						"name": "declare_changes",
+						"input": {
+							"why": [
+								"Count expired-session requests against client rate limit in guardRequest.",
+								"Do not count valid sessions or requests without a session."
+							],
+							"no_behaviour": true,
+							"claims": [
+								{
+									"mode": "body",
+									"symbol": "src/auth/rate-limit.ts#guardRequest"
+								}
+							]
+						}
+					}
+				],
+				"stop": "tool_use",
+				"usage": {
+					"input": 4037,
+					"output": 74
+				}
+			},
+			{
+				"blocks": [
+					{
+						"type": "tool_use",
+						"id": "call_233692",
+						"name": "read_file",
+						"input": {
+							"path": "tests/rate-limit.test.ts"
+						}
+					}
+				],
+				"stop": "tool_use",
+				"usage": {
+					"input": 4165,
+					"output": 24
+				}
+			},
+			{
+				"blocks": [
+					{
+						"type": "tool_use",
+						"id": "call_384103",
+						"name": "write_file",
+						"input": {
+							"content": "import { type Clock, MINUTE } from \"../util/time.js\";\nimport { type Session, SessionExpiredError, type SessionStore, verifySession } from \"./session.js\";\n\nexport interface RateLimitConfig {\n\t/** Hits allowed per window. */\n\tlimit: number;\n\twindowMs: number;\n}\n\nexport interface RateLimitDecision {\n\tallowed: boolean;\n\tremaining: number;\n\t/** How long until the window resets. Zero when allowed. */\n\tretryAfterMs: number;\n}\n\nexport interface RateLimiter {\n\t/** Counts one hit for `key` and says whether it was within the limit. */\n\thit(key: string, at: number): RateLimitDecision;\n\t/** Says whether `key` is currently over the limit, without counting anything. */\n\tpeek(key: string, at: number): RateLimitDecision;\n\treset(key: string): void;\n}\n\nexport const DEFAULT_LOGIN_LIMIT: RateLimitConfig = { limit: 5, windowMs: 15 * MINUTE };\n\ninterface Window {\n\tstartedAt: number;\n\thits: number;\n}\n\n/** A fixed-window limiter: at most `limit` hits per `windowMs`, counted per key. */\nexport function createRateLimiter(config: RateLimitConfig = DEFAULT_LOGIN_LIMIT): RateLimiter {\n\tconst windows = new Map<string, Window>();\n\n\tfunction current(key: string, at: number): Window {\n\t\tconst existing = windows.get(key);\n\t\tif (existing !== undefined && at - existing.startedAt < config.windowMs) {\n\t\t\treturn existing;\n\t\t}\n\t\treturn { startedAt: at, hits: 0 };\n\t}\n\n\tfunction retryAfter(window: Window, at: number): number {\n\t\treturn window.startedAt + config.windowMs - at;\n\t}\n\n\treturn {\n\t\thit(key, at) {\n\t\t\tconst window = current(key, at);\n\t\t\twindow.hits += 1;\n\t\t\twindows.set(key, window);\n\t\t\tconst allowed = window.hits <= config.limit;\n\t\t\treturn { allowed, remaining: Math.max(0, config.limit - window.hits), retryAfterMs: allowed ? 0 : retryAfter(window, at) };\n\t\t},\n\t\tpeek(key, at) {\n\t\t\tconst window = current(key, at);\n\t\t\t// Blocked once the limit is used up: one more hit would go over.\n\t\t\tconst allowed = window.hits < config.limit;\n\t\t\treturn { allowed, remaining: Math.max(0, config.limit - window.hits), retryAfterMs: allowed ? 0 : retryAfter(window, at) };\n\t\t},\n\t\treset(key) {\n\t\t\twindows.delete(key);\n\t\t},\n\t};\n}\n\n/** Looks a token up and says whose session it is. `verifySession` is the real one. */\nexport type VerifySession = (token: string | undefined, store: SessionStore, now: Clock) => Session | null;\n\nexport interface GuardDeps {\n\tsessions: SessionStore;\n\tlimiter: RateLimiter;\n\tnow: Clock;\n\t/** How a token is checked. Left out everywhere except in tests, where a stand-in keeps the test about the guard alone. */\n\tverify?: VerifySession;\n}\n\nexport type GuardResult = { allowed: true; session: Session | null } | { allowed: false; retryAfterMs: number };\n\n/**\n * Decides whether a request from `clientKey` may proceed. A client that is over its limit is\n * turned away before the session is even looked at.\n */\nexport function guardRequest(clientKey: string, token: string | undefined, deps: GuardDeps): GuardResult {\n\tconst standing = deps.limiter.peek(clientKey, deps.now());\n\tif (!standing.allowed) {\n\t\treturn { allowed: false, retryAfterMs: standing.retryAfterMs };\n\t}\n\tconst verify = deps.verify ?? verifySession;\n\ttry {\n\t\tconst session = verify(token, deps.sessions, deps.now);\n\t\tif (session === null && token !== undefined && token !== \"\") {\n\t\t\tdeps.limiter.hit(clientKey, deps.now());\n\t\t}\n\t\treturn { allowed: true, session };\n\t} catch (e) {\n\t\tif (e instanceof SessionExpiredError) {\n\t\t\tdeps.limiter.hit(clientKey, deps.now());\n\t\t\treturn { allowed: true, session: null };\n\t\t}\n\t\tthrow e;\n\t}\n}\n",
+							"path": "src/auth/rate-limit.ts"
+						}
+					}
+				],
+				"stop": "tool_use",
+				"usage": {
+					"input": 5364,
+					"output": 1060
+				}
+			},
+			{
+				"blocks": [
+					{
+						"type": "tool_use",
+						"id": "call_498377",
+						"name": "write_file",
+						"input": {
+							"content": "import * as assert from \"../premise/assert.js\";\nimport type { Tests } from \"../premise/assert.js\";\nimport { createRateLimiter, guardRequest } from \"../src/auth/rate-limit.js\";\nimport { createMemorySessionStore } from \"../src/store/memory-store.js\";\nimport { MINUTE } from \"../src/util/time.js\";\nimport { SessionExpiredError } from \"../src/auth/session.js\";\nimport { now, T0 } from \"./support.js\";\n\nconst config = { limit: 3, windowMs: 10 * MINUTE };\n\nexport const tests: Tests = {\n\t\"requests with an expired session count against the limit\": () => {\n\t\tconst verify = () => {\n\t\t\tthrow new SessionExpiredError();\n\t\t};\n\t\tconst deps = { sessions: createMemorySessionStore(), limiter: createRateLimiter(config), now, verify };\n\t\t// 3 expired session requests should be allowed\n\t\tassert.eq(guardRequest(\"client-1\", \"expired-token\", deps).allowed, true);\n\t\tassert.eq(guardRequest(\"client-1\", \"expired-token\", deps).allowed, true);\n\t\tassert.eq(guardRequest(\"client-1\", \"expired-token\", deps).allowed, true);\n\t\t// 4th expired session request should be refused\n\t\tconst res = guardRequest(\"client-1\", \"expired-token\", deps);\n\t\tassert.eq(res.allowed, false);\n\t},\n\t\"valid sessions are not counted\": () => {\n\t\tconst verify = () => ({ id: \"s\", userId: \"u\", expiresAt: T0 + MINUTE });\n\t\tconst deps = { sessions: createMemorySessionStore(), limiter: createRateLimiter(config), now, verify };\n\t\tfor (let i = 0; i < 10; i++) {\n\t\t\tassert.eq(guardRequest(\"client-1\", \"valid-token\", deps).allowed, true);\n\t\t}\n\t},\n\t\"anonymous and unknown tokens are not counted\": () => {\n\t\tconst verify = (_token: string | undefined) => null;\n\t\tconst deps = { sessions: createMemorySessionStore(), limiter: createRateLimiter(config), now, verify };\n\t\t// Anonymous (undefined or empty) requests are not counted\n\t\tfor (let i = 0; i < 10; i++) {\n\t\t\tassert.eq(guardRequest(\"client-1\", undefined, deps).allowed, true);\n\t\t\tassert.eq(guardRequest(\"client-1\", \"\", deps).allowed, true);\n\t\t}\n\t\t// Unknown tokens (verify returns null when token is provided) - wait, does verify returning null count?\n\t\t// Goal: \"Valid sessions and requests without a session must not be counted.\" Wait, what about unknown tokens?\n\t\t// Let's check: \"Requests with no token or an unknown token are not counted.\"\n\t\tfor (let i = 0; i < 10; i++) {\n\t\t\tassert.eq(guardRequest(\"client-1\", \"unknown-token\", deps).allowed, true);\n\t\t}\n\t},\n};\n",
+							"path": "tests/expired-rate-limit.test.ts"
+						}
+					}
+				],
+				"stop": "tool_use",
+				"usage": {
+					"input": 6454,
+					"output": 733
+				}
+			},
+			{
+				"blocks": [
+					{
+						"type": "tool_use",
+						"id": "call_625648",
+						"name": "run_checks",
+						"input": {}
+					}
+				],
+				"stop": "tool_use",
+				"usage": {
+					"input": 7218,
+					"output": 10
+				}
+			},
+			{
+				"blocks": [
+					{
+						"type": "tool_use",
+						"id": "call_489549",
+						"name": "write_file",
+						"input": {
+							"content": "import { type Clock, MINUTE } from \"../util/time.js\";\nimport { type Session, SessionExpiredError, type SessionStore, verifySession } from \"./session.js\";\n\nexport interface RateLimitConfig {\n\t/** Hits allowed per window. */\n\tlimit: number;\n\twindowMs: number;\n}\n\nexport interface RateLimitDecision {\n\tallowed: boolean;\n\tremaining: number;\n\t/** How long until the window resets. Zero when allowed. */\n\tretryAfterMs: number;\n}\n\nexport interface RateLimiter {\n\t/** Counts one hit for `key` and says whether it was within the limit. */\n\thit(key: string, at: number): RateLimitDecision;\n\t/** Says whether `key` is currently over the limit, without counting anything. */\n\tpeek(key: string, at: number): RateLimitDecision;\n\treset(key: string): void;\n}\n\nexport const DEFAULT_LOGIN_LIMIT: RateLimitConfig = { limit: 5, windowMs: 15 * MINUTE };\n\ninterface Window {\n\tstartedAt: number;\n\thits: number;\n}\n\n/** A fixed-window limiter: at most `limit` hits per `windowMs`, counted per key. */\nexport function createRateLimiter(config: RateLimitConfig = DEFAULT_LOGIN_LIMIT): RateLimiter {\n\tconst windows = new Map<string, Window>();\n\n\tfunction current(key: string, at: number): Window {\n\t\tconst existing = windows.get(key);\n\t\tif (existing !== undefined && at - existing.startedAt < config.windowMs) {\n\t\t\treturn existing;\n\t\t}\n\t\treturn { startedAt: at, hits: 0 };\n\t}\n\n\tfunction retryAfter(window: Window, at: number): number {\n\t\treturn window.startedAt + config.windowMs - at;\n\t}\n\n\treturn {\n\t\thit(key, at) {\n\t\t\tconst window = current(key, at);\n\t\t\twindow.hits += 1;\n\t\t\twindows.set(key, window);\n\t\t\tconst allowed = window.hits <= config.limit;\n\t\t\treturn { allowed, remaining: Math.max(0, config.limit - window.hits), retryAfterMs: allowed ? 0 : retryAfter(window, at) };\n\t\t},\n\t\tpeek(key, at) {\n\t\t\tconst window = current(key, at);\n\t\t\t// Blocked once the limit is used up: one more hit would go over.\n\t\t\tconst allowed = window.hits < config.limit;\n\t\t\treturn { allowed, remaining: Math.max(0, config.limit - window.hits), retryAfterMs: allowed ? 0 : retryAfter(window, at) };\n\t\t},\n\t\treset(key) {\n\t\t\twindows.delete(key);\n\t\t},\n\t};\n}\n\n/** Looks a token up and says whose session it is. `verifySession` is the real one. */\nexport type VerifySession = (token: string | undefined, store: SessionStore, now: Clock) => Session | null;\n\nexport interface GuardDeps {\n\tsessions: SessionStore;\n\tlimiter: RateLimiter;\n\tnow: Clock;\n\t/** How a token is checked. Left out everywhere except in tests, where a stand-in keeps the test about the guard alone. */\n\tverify?: VerifySession;\n}\n\nexport type GuardResult = { allowed: true; session: Session | null } | { allowed: false; retryAfterMs: number };\n\n/**\n * Decides whether a request from `clientKey` may proceed. A client that is over its limit is\n * turned away before the session is even looked at.\n */\nexport function guardRequest(clientKey: string, token: string | undefined, deps: GuardDeps): GuardResult {\n\tconst standing = deps.limiter.peek(clientKey, deps.now());\n\tif (!standing.allowed) {\n\t\treturn { allowed: false, retryAfterMs: standing.retryAfterMs };\n\t}\n\tconst verify = deps.verify ?? verifySession;\n\ttry {\n\t\tconst session = verify(token, deps.sessions, deps.now);\n\t\treturn { allowed: true, session };\n\t} catch (e) {\n\t\tif (e instanceof SessionExpiredError) {\n\t\t\tdeps.limiter.hit(clientKey, deps.now());\n\t\t\treturn { allowed: true, session: null };\n\t\t}\n\t\tthrow e;\n\t}\n}\n",
+							"path": "src/auth/rate-limit.ts"
+						}
+					}
+				],
+				"stop": "tool_use",
+				"usage": {
+					"input": 7354,
+					"output": 1025
+				}
+			},
+			{
+				"blocks": [
+					{
+						"type": "tool_use",
+						"id": "call_643143",
+						"name": "run_checks",
+						"input": {}
+					}
+				],
+				"stop": "tool_use",
+				"usage": {
+					"input": 8409,
+					"output": 10
+				}
+			},
+			{
+				"blocks": [
+					{
+						"type": "tool_use",
+						"id": "call_53326",
+						"name": "submit",
+						"input": {
+							"message": "Count expired-session requests against client rate limit in guardRequest"
+						}
+					}
+				],
+				"stop": "tool_use",
+				"usage": {
+					"input": 8538,
+					"output": 25
+				}
+			}
+		]
+	}
+}

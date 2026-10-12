@@ -46,6 +46,9 @@ export function rederiveBlock(intent: Intent, reason?: string): string {
 			? broken.map((premise) => `- ${premise.assertion?.description ?? premise.symbol}: ${premise.brokenBy?.reason ?? "it no longer holds"}`)
 			: ["- (none recorded)"]),
 	];
+	if (broken.some((premise) => premise.source === "asserted")) {
+		lines.push("Before declare_changes, say what you rely on about each of those symbols now: assert_premise with a check that passes on the code as it is today.");
+	}
 	if (reason !== undefined && reason.trim() !== "") {
 		lines.push("", "Why your earlier work did not land:", `- ${reason.trim()}`);
 		if (reason.includes("landed Intent")) {
