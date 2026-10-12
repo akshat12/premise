@@ -77,9 +77,33 @@ export function isAbout(premise: Premise, symbol: SymbolId): boolean {
 /** Code with its comments taken out, so that a name in a comment is not read as a use of it. */
 export const withoutComments = (code: string): string => code.replace(/\/\*[\s\S]*?\*\//g, " ").replace(/(^|[^:\\])\/\/[^\n]*/g, "$1 ");
 
-/** Whether `code` calls the function `name` itself: not a method of that name on something else, and not in a comment. */
+/**
+ * The namespaces of imports in `code`: `const ns = { a, b, c };`, which is what `import * as ns from` is
+ * turned into when an assertion is tidied (agent/assertion-input.ts). Each maps to the names it holds.
+ * An object with anything but bare names in it (`{ a: () => 1 }`) is somebody's own object, not a namespace.
+ */
+function namespaces(code: string): Map<string, Set<string>> {
+	const found = new Map<string, Set<string>>();
+	for (const match of code.matchAll(/(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*\{\s*([A-Za-z_$][\w$]*(?:\s*,\s*[A-Za-z_$][\w$]*)*)\s*,?\s*\}/g)) {
+		found.set(match[1] as string, new Set((match[2] as string).split(",").map((name) => name.trim())));
+	}
+	return found;
+}
+
+/**
+ * Whether `code` calls the function `name` itself: by its name, or through a namespace of its import
+ * (`session.verifySession(...)`). Not a method of that name on some other object, and not in a comment.
+ */
 export function callsFunction(code: string, name: string): boolean {
-	return name !== "" && new RegExp(`(^|[^A-Za-z0-9_$.])${name.replace(/[$]/g, "\\$")}\\s*\\(`).test(withoutComments(code));
+	if (name === "") {
+		return false;
+	}
+	const bare = withoutComments(code);
+	const escape = (text: string) => text.replace(/[$]/g, "\\$");
+	if (new RegExp(`(^|[^A-Za-z0-9_$.])${escape(name)}\\s*\\(`).test(bare)) {
+		return true;
+	}
+	return [...namespaces(bare)].some(([alias, names]) => names.has(name) && new RegExp(`(^|[^A-Za-z0-9_$.])${escape(alias)}\\s*\\.\\s*${escape(name)}\\s*\\(`).test(bare));
 }
 
 /**

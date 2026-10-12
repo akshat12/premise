@@ -5,6 +5,7 @@ import type { CommitSha, GateReport, Intent, IntentId, SymbolId } from "../../sh
 import { type FileChanges, type FileMap, StaleHeadError } from "../ports/repo-store";
 import type { RunRequest, RunResult } from "../runner";
 import { diffSurface, type SurfaceMap, type TypecheckResult } from "../surface";
+import { diffLines, splitLines } from "../diff/lines";
 import { threeWayRebase } from "./rebase";
 import { describeStandingFailure, judgeStanding, planStanding, type Standing, type StandingFailure, standingRequest, type StandingVerdict } from "./standing";
 import { referenceChecks, suiteTests, type TestRef } from "./suite";
@@ -234,7 +235,8 @@ export const isSourcePath = (path: string) => !path.startsWith("tests/") && !pat
  * carries it: the same source files changed, each to the content that rebase would give. So the
  * identical edit is recognised even where the landing in between touched the same file, and a redo
  * that drops or adds a file is different work. Where a file cannot be carried (the two changed the
- * same lines), or `previousBase` is not known, the file is compared whole.
+ * same or neighbouring lines), the edits themselves are compared. Where `previousBase` is not known,
+ * files are compared whole.
  * Returns the source paths the redo changed when it is the stopped work over again; null when the
  * redo changed no source, or differs anywhere. Pure.
  */
@@ -248,10 +250,32 @@ export function sameAsStopped(base: FileMap, head: FileMap, previous: FileMap, p
 		return changed.every((path) => previous[path] === head[path]) ? changed : null;
 	}
 	const carried = threeWayRebase(previousBase, previous, base);
-	const wanted = (path: string) => (carried.conflicts.includes(path) ? previous[path] : carried.files[path]);
+	const clashed = (path: string) => carried.conflicts.includes(path);
 	// Every source file the stopped work would change on this trunk, and nothing else.
-	const expected = sources(base, previous, previousBase).filter((path) => wanted(path) !== base[path]);
-	return changed.length === expected.length && changed.every((path) => head[path] === wanted(path)) ? changed : null;
+	const expected = sources(base, previous, previousBase).filter((path) => clashed(path) || carried.files[path] !== base[path]);
+	// A file that cannot be carried (the landing changed the same or the next lines) is the same if it is the
+	// stopped file whole, or if the redo's edit to it is the stopped work's edit: the same lines out, the same lines in.
+	const same = (path: string) =>
+		clashed(path) ? head[path] === previous[path] || editOf(previousBase[path] ?? "", previous[path] ?? "") === editOf(base[path] ?? "", head[path] ?? "") : head[path] === carried.files[path];
+	return changed.length === expected.length && changed.every(same) ? changed : null;
+}
+
+/** What an edit takes out and puts in, run by run, without where in the file it does so. Two edits with the same value are the same edit. */
+function editOf(before: string, after: string): string {
+	const runs: { out: string[]; in: string[] }[] = [];
+	let open: { out: string[]; in: string[] } | null = null;
+	for (const line of diffLines(splitLines(before), splitLines(after))) {
+		if (line.kind === " ") {
+			open = null;
+			continue;
+		}
+		if (open === null) {
+			open = { out: [], in: [] };
+			runs.push(open);
+		}
+		(line.kind === "-" ? open.out : open.in).push(line.text);
+	}
+	return JSON.stringify(runs);
 }
 
 /** One line saying why an Intent did not get through the gate. Shown as the note on its status change. */

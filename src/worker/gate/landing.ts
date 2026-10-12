@@ -23,7 +23,7 @@ import { release } from "../ports/release";
  * to tell that this object is running the new code after a deploy: a busy Durable Object can go
  * on running the previous version for minutes.
  */
-export const GATE_VERSION = 7;
+export const GATE_VERSION = 8;
 /** How many times the gate starts on an Intent, or tries to start its re-derive, before giving up on that attempt. */
 export const MAX_ATTEMPTS = 3;
 const RETRY_DELAY_MS = 2_000;
