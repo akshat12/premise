@@ -50,6 +50,10 @@ export interface TapeRow {
 	callsign: string;
 	/** The first sentence of the goal. */
 	title: string;
+	/** The symbols it said it will change, by name. */
+	changes: string[];
+	/** What it relies on, in a few words: a behaviour it stated, else how many symbols' types. `broken` while that no longer holds. */
+	relies: { text: string; broken: boolean } | null;
 	status: IntentStatus;
 	/** How many re-derive races it has been through (the R1, R2 stamp). */
 	races: number;
@@ -143,7 +147,6 @@ const SNAP_MS = 3000;
 const WORKLOAD_BUCKET_MS = 5000;
 
 const brief = (goal: string) => (goal.split(". ")[0] ?? goal).replace(/`/g, "").replace(/\.$/, "");
-const short = (name: string) => name.split(" ")[0] ?? name;
 const list = (items: readonly string[]) => (items.length <= 1 ? (items[0] ?? "") : `${items.slice(0, -1).join(", ")} and ${items.at(-1)}`);
 
 interface Stretch {
@@ -170,17 +173,20 @@ interface Building {
 
 /**
  * `total`, when the whole run's length is known (a replay), fixes the axis from the start, so it
- * never changes scale while the run plays.
+ * never changes scale while the run plays. `names` gives agents plain names ("Agent 2") to be
+ * called by instead of their callsigns.
  */
-export function buildTape(events: readonly PremiseEvent[], intents: Readonly<Record<IntentId, IntentView>>, total?: number): Tape {
+export function buildTape(events: readonly PremiseEvent[], intents: Readonly<Record<IntentId, IntentView>>, total?: number, names?: Readonly<Record<IntentId, string>>): Tape {
 	const start = events[0]?.ts ?? 0;
 	const at = (event: PremiseEvent) => event.ts - start;
 	const now = events.length > 0 ? at(events[events.length - 1] as PremiseEvent) : 0;
 	const span = spanFor(Math.max(now, total ?? 0));
 	const named = (id: IntentId) => {
 		const intent = intents[id];
-		return intent ? callsign(intent) : id;
+		return names?.[id] ?? (intent ? callsign(intent) : id);
 	};
+	// "T01 NULL" is quoted by its code, "T01". A plain name is quoted whole.
+	const short = (name: string) => (names === undefined ? (name.split(" ")[0] ?? name) : name);
 
 	const building = new Map<IntentId, Building>();
 	const kinds = new Map<IntentId, "agent" | "workload">();
@@ -310,7 +316,7 @@ export function buildTape(events: readonly PremiseEvent[], intents: Readonly<Rec
 			const who = outside ? "Pushed to trunk outside the gate" : workload ? "Workload landed" : `${short(named(entry.by))} landed`;
 			const rows = [...entry.rows].sort((a, b) => named(a).localeCompare(named(b), undefined, { numeric: true }));
 			const actor = outside ? "A push to trunk from outside the gate" : workload ? "A scripted workload Intent landed and" : `${named(entry.by)} landed and`;
-			const sentence = `${clock(when)} · ${actor} changed ${list(symbols.slice(0, 3))}${symbols.length > 3 ? ` and ${symbols.length - 3} more` : ""}. ${list(rows.map(named))} relied on ${symbols.length === 1 ? "it" : "them"} and went stale.`;
+			const sentence = `${clock(when)} · ${actor} changed ${list(symbols.slice(0, 3))}${symbols.length > 3 ? ` and ${symbols.length - 3} more` : ""}. ${list(rows.map(named))} relied on ${symbols.length === 1 ? "it" : "them"} and ${rows.length === 1 ? "was" : "were"} stopped.`;
 			return { n: index + 1, at: when, flag: `${who} · ${what}`, sentence, rows };
 		});
 	/** The landing that made this Intent stale at `staleAt`: the latest one before it that broke one of its premises. */
@@ -411,13 +417,24 @@ export function buildTape(events: readonly PremiseEvent[], intents: Readonly<Rec
 				}
 			});
 			const ended = row.end === undefined ? undefined : { ...row.end, sha: row.end.kind === "landed" ? (row.intent.headCommit ?? null) : null };
-			const name = callsign(row.intent);
+			const name = named(row.intent.id);
 			const title = brief(row.intent.goal);
+			// What the row's label says it changes and relies on. A behaviour it stated counts for more than a list of types.
+			const stated = row.intent.premises.filter((premise) => premise.source === "asserted" && premise.assertion !== undefined);
+			const typed = new Set(row.intent.premises.filter((premise) => premise.source !== "asserted").map((premise) => premise.symbol)).size;
+			const relies =
+				stated.length > 0
+					? { text: (stated.find((premise) => premise.state === "broken") ?? stated[0])?.assertion?.description ?? "", broken: stated.some((premise) => premise.state === "broken") && row.intent.status !== "landed" }
+					: typed > 0
+						? { text: `the types of ${typed} ${typed === 1 ? "symbol" : "symbols"} it read`, broken: false }
+						: null;
 			const state = ended === undefined ? `${STATUS_LOOK[row.intent.status].word.replace(/^./, (letter) => letter.toUpperCase())} now` : `${ended.kind === "landed" ? "Landed" : "Failed"} at ${clock(ended.at)}`;
 			return {
 				id: row.intent.id,
 				callsign: name,
 				title,
+				changes: row.intent.claims.map((claim) => symbolName(claim.symbol)),
+				relies,
 				status: row.intent.status,
 				races: row.intent.races ?? 0,
 				segments,

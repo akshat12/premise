@@ -107,7 +107,7 @@ export function Drawer({ intent, events, callsignOf, named, onSelect, onClose, d
 		}
 	};
 	return (
-		<section ref={section} className="drawer flex flex-col" data-review={review} data-dragging={dragging} style={height === null ? undefined : { height }} aria-label={`${callsign(intent)} details`}>
+		<section ref={section} className="drawer flex flex-col" data-review={review} data-dragging={dragging} style={height === null ? undefined : { height }} aria-label={`${callsignOf(intent.id)} details`}>
 			<div
 				className="drawer-handle"
 				role="separator"
@@ -153,7 +153,7 @@ export function Drawer({ intent, events, callsignOf, named, onSelect, onClose, d
 				<div style={{ minWidth: 0 }}>
 					<div className="flex items-center gap-3">
 						<span className="callsign" style={{ fontSize: 20, lineHeight: 1 }}>
-							{callsign(intent)}
+							{callsignOf(intent.id)}
 						</span>
 						<StatusMark status={intent.status} />
 						<RaceIndicator intent={intent} />

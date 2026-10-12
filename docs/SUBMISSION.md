@@ -42,7 +42,7 @@ Four reviewer passes on Oct 11 led to changes in the gate, the comparison and th
 | | Item | Owner | When | Link or command |
 |---|---|---|---|---|
 | [ ] | **The public GitHub repo has a LICENSE (MIT), the README and run instructions.** Open it logged out to check. | Akshat | Tue Oct 13 | Repo link: ______ |
-| [ ] | **The deployed URL works in a private window.** `/` works without auth: press `→` once and two strips are red (T02 and T11), with T04 untouched. | Akshat | Tue Oct 13, and again Wed Oct 14 before submitting | <https://premise.akshatdivekar.workers.dev/?demo=main> |
+| [ ] | **The deployed URL works in a private window.** `/` works without auth: it opens on "Step 1 of 7", and at step 4 Agents 2 and 4 are red with Agent 3 untouched. | Akshat | Tue Oct 13, and again Wed Oct 14 before submitting | <https://premise.akshatdivekar.workers.dev/?demo=main> |
 | [ ] | The deployed build is the published code: `git status` is clean, then `npm run deploy`. | Akshat; Claude can do this | Tue Oct 13 | `npm run deploy` |
 | [ ] | A stranger's path works: on another machine or a fresh clone, the README's "Local only" steps run. (Done once on Oct 10 from a clean clone with no Cloudflare login; repeat from the public repo.) | Akshat | Tue Oct 13 | `README.md`, "Run it yourself" |
 
@@ -87,7 +87,7 @@ Four reviewer passes on Oct 11 led to changes in the gate, the comparison and th
 > npm test
 > ```
 >
-> Or open https://premise.akshatdivekar.workers.dev/?demo=main and press the right arrow key. Deploying to your own account on real Artifacts is in the README.
+> Or open https://premise.akshatdivekar.workers.dev/ and press Next. Deploying to your own account on real Artifacts is in the README.
 
 ## After submitting
 

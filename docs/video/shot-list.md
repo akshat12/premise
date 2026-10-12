@@ -1,6 +1,6 @@
 # Shot list
 
-> **Revised Oct 11.** The script was rewritten after the review (cold open on the premise break, six minutes, the Tape view and T11's drawer added, no rewind, no dispatch panel, no code shot), and the front page now plays a four-agent demo recording. The set-up below still holds, except that the address is the bare domain. The table of `→` stops just below describes the Oct 9 demo recording and no longer applies. Use "Shots (Oct 11 script, four-agent demo recording)"; the older table after it is kept only for reference.
+> **Revised Oct 11.** The script was rewritten after the review (cold open on the premise break, six minutes, the Tape view and T11's drawer added, no rewind, no dispatch panel, no code shot), and the front page now plays a four-agent demo recording. The set-up below still holds, except that the address is the bare domain. The table of `→` stops just below describes the Oct 9 demo recording and no longer applies. Use "Shots (Oct 11 script, the story page)"; the older table after it is kept only for reference. The "Keys the page understands" line in the set-up is also out of date: the keys are `→` Next, `←` Back, `Space` play or pause, `Esc` close the panel, `⌘K` everything else.
 
 One shot per row of `script.md`. Every shot except 8 and 10 is the same page.
 
@@ -26,22 +26,23 @@ The `→` key stops at these moments, in this order. A paused replay stays pause
 | 7th to 11th | 2:54 to 4:33 | Five more markers |
 | 12th | 4:35 | The end: 264 landed, everything green |
 
-## Shots (Oct 11 script, four-agent demo recording)
+## Shots (Oct 11 script, the story page)
 
-The `→` key now makes four stops in the front-page demo recording: the premise break, T02 redone, T11 redone, the end. It no longer stops at "⏩ compressed" markers.
+The front page is now the story: a sentence at the top with **Back**, **Next** and **Play**, and four rows under it. `→` is Next, `←` is Back, `Space` plays it through. The seven dots beside "Step n of 7" jump straight to a step. The page opens on step 1, held.
 
 | # | Script row | Do this | Check before you speak |
 |---|---|---|---|
-| 1 | 0:00 Cold open | Load `https://premise.akshatdivekar.workers.dev/`. Press `Space` at once to pause, then `→` once. | Four strips. T01 green; T02 and T11 red with `verifySession` struck through; T04 "at the gate". The caption begins "T01 NULL landed and changed verifySession". |
-| 2 | 0:35 What it is | Click **Play again** (the circular arrow). Start speaking as you click. | The pill says "Replay 1×" and four strips appear. |
-| 3 | 1:05 The break | Keep it playing; about 30 seconds in, T01 turns green and two strips turn red. Press `Space`. Rest the pointer on the struck-through `verifySession` chip on T02. | "Broken builds on trunk" is 0. T04 is not red. |
-| 4 | 1:30 Re-derive | Click the **T02** strip. Press `Space` to resume and watch its strip: "rebase ✗", then green with R1 (about 25 seconds). | The drawer is open on T02. |
-| 5 | 2:05 T11 | Press `Space` to pause once T11 is green. Press `Esc`, click **T11**. Point at the timeline line that ends "Every test passed (3 acceptance checks, 3 reference checks, 91 tests already on trunk)", then at the **Changes** column. Use "Expand" on it if the diff is cramped. | The line begins "Gate turned back the rebased work: its premise no longer holds". |
-| 6 | 2:55 Tape | Press `Esc`. Click **Tape**. | The red line and its flag are on screen; two rows stop at it. |
-| 7 | 3:15 Scale | Click **Scale**. | The green-edged note at the top says these numbers are from a larger run. The figures read 309, 315, 61.4. |
-| 8 | 3:50 Architecture | Second browser tab: `docs/architecture.svg`. | The whole diagram fits without scrolling. |
-| 9 | 4:15 A/B | First tab. Click **A/B**. After the headline, scroll until the amber "What it cost" paragraph is in view. | The three columns read 3, 1, 0 in the first row and 0, 2, 0 of 12 in the second. |
-| 10 | 5:15 End frame | Open `docs/video/end-frame.html?repo=github.com/OWNER/premise` (replace OWNER with the account the repo is published under). Hold five seconds after the last word. | The repo address on the frame is the real, public one. |
+| 1 | 0:00 Cold open | Load `https://premise.akshatdivekar.workers.dev/`. Click the fourth dot. | "Step 4 of 7". Agents 2 and 4 are red and say "stopped"; Agent 3 is not. |
+| 2 | 0:35 What it is | Click the first dot, speak, then press `→` once. | "Step 1 of 7", then "Step 2 of 7": every row shows a pencil line and an eye line. |
+| 3 | 1:05 The break | Press `→`, wait for the tape to stop, press `→` again. | The red flag reads "Agent 1 landed · verifySession changed". |
+| 4 | 1:30 Re-derive | Press `→`. | "Step 5 of 7". Agent 2's row has a blue "re-derived" bar and a green tick. |
+| 5 | 2:05 Agent 4 | Press `→`. Then click Agent 4's row and point at the **Changes** column; drag the panel's top edge up if the diff is cramped. | "Step 6 of 7". The callout under Agent 4's row has three ticks and one cross. |
+| 6 | 2:55 The end | Press `Esc`, then `→`. | "Step 7 of 7": "Everything landed. Nothing broken reached trunk." |
+| 7 | 3:10 At scale | Click **At scale**. | The green-edged note at the top says these numbers are from a larger run. The figures read 309, 315, 61.4. |
+| 8 | 3:45 Architecture | Second browser tab: `docs/architecture.svg`. | The whole diagram fits without scrolling. |
+| 9 | 4:10 Compared | First tab. Click **Compared**. After the headline, scroll until the amber "What it cost" paragraph is in view. | The three columns read 3, 1, 0 in the first row and 0, 2, 0 of 12 in the second. |
+| 10 | 5:05 Live model | Open `https://premise.akshatdivekar.workers.dev/?demo=live` and click the last dot. | The sentence reads "The run is over. One problem reached trunk." |
+| 11 | 5:40 End frame | Open `docs/video/end-frame.html?repo=github.com/OWNER/premise` (replace OWNER with the account the repo is published under). Hold five seconds after the last word. | The repo address on the frame is the real, public one. |
 
 ## Shots (Oct 9 script, superseded)
 

@@ -576,6 +576,9 @@ kbd {
    premise, and an Intent that needs a person. Everything else is outlined. */
 .tape {
 	--tape-label: 176px;
+	/* A row's height, and how far down it its bars sit. Roomier rows change these two. */
+	--tape-row: 40px;
+	--tape-pad: 10px;
 	--tape-line: #eceef2;
 	--tape-edge: #8a94a3; /* 3.07:1 on white: the least a bar's outline may be */
 	position: relative;
@@ -676,7 +679,7 @@ kbd {
 	position: absolute;
 	top: 0;
 	box-sizing: border-box;
-	max-width: 260px;
+	max-width: 380px;
 	height: 24px;
 	overflow: hidden;
 	padding: 0 10px;
@@ -821,7 +824,7 @@ kbd {
 }
 .tape-row {
 	display: flex;
-	height: 40px;
+	height: var(--tape-row);
 	border-bottom: 1px solid var(--tape-line);
 	transition: opacity 120ms linear;
 }
@@ -896,7 +899,7 @@ button.tape-label:focus-visible {
 }
 .tape-bar {
 	position: absolute;
-	top: 10px;
+	top: var(--tape-pad);
 	display: flex;
 	align-items: center;
 	gap: 4px;
@@ -954,7 +957,7 @@ button.tape-label:focus-visible {
 }
 .tape-stale::before {
 	position: absolute;
-	top: 19px;
+	top: calc(var(--tape-pad) + 9px);
 	right: 0;
 	left: 0;
 	height: 2px;
@@ -963,7 +966,7 @@ button.tape-label:focus-visible {
 }
 .tape-stale-label {
 	position: absolute;
-	top: 10px;
+	top: var(--tape-pad);
 	left: 10px;
 	height: 20px;
 	padding: 0 4px;
@@ -1002,7 +1005,7 @@ button.tape-label:focus-visible {
 }
 .tape-dot {
 	position: absolute;
-	top: 14px;
+	top: calc(var(--tape-pad) + 4px);
 	z-index: 2;
 	box-sizing: border-box;
 	width: 12px;
@@ -1014,7 +1017,7 @@ button.tape-label:focus-visible {
 }
 .tape-cap {
 	position: absolute;
-	top: 10px;
+	top: var(--tape-pad);
 	z-index: 1;
 	display: flex;
 	align-items: center;
@@ -1095,7 +1098,7 @@ button.tape-label:focus-visible {
 /* A person was asked to settle something here. Hollow once it is over. */
 .tape-ask {
 	position: absolute;
-	top: 1px;
+	top: calc(var(--tape-pad) - 9px);
 	z-index: 2;
 	display: flex;
 	align-items: center;
@@ -1280,4 +1283,296 @@ button.tape-label:focus-visible {
 		font-size: 13px;
 		line-height: 18px;
 	}
+}
+
+/* ---- The tape with room: a handful of agents get tall rows that say what each is doing ---- */
+.tape[data-density="roomy"] {
+	--tape-label: 400px;
+	--tape-row: 104px;
+	--tape-pad: 42px;
+	font-size: 14px;
+}
+.tape[data-density="medium"] {
+	--tape-label: 300px;
+	--tape-row: 50px;
+	--tape-pad: 15px;
+}
+.tape[data-layout="medium"][data-density="roomy"] {
+	--tape-label: 280px;
+}
+.tape[data-layout="medium"][data-density="medium"] {
+	--tape-label: 220px;
+}
+.tape[data-density="roomy"] .tape-label {
+	gap: 3px;
+	padding: 0 14px 0 22px;
+}
+.tape[data-density="roomy"] .tape-band {
+	width: 6px;
+}
+.tape[data-density="roomy"] .tape-callsign {
+	font-size: 22px;
+}
+.tape-status-inline {
+	margin-left: auto;
+}
+.tape-job {
+	overflow: hidden;
+	color: var(--ink-soft);
+	font-size: 13px;
+	line-height: 17px;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+.tape[data-density="roomy"] .tape-job,
+.tape[data-density="roomy"] .tape-relies {
+	font-size: 14px;
+	line-height: 19px;
+}
+.tape-relies[data-kind="changes"] > svg {
+	color: var(--ink);
+}
+.tape-relies-what.symbol {
+	font-size: 13px;
+}
+.tape-relies {
+	display: flex;
+	align-items: baseline;
+	gap: 5px;
+	min-width: 0;
+	font-size: 13px;
+	line-height: 17px;
+}
+.tape-relies > svg {
+	flex: none;
+	align-self: center;
+	color: var(--holds);
+}
+.tape-relies > span {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+.tape-relies-what {
+	font-weight: 600;
+}
+.tape-relies[data-broken="true"] {
+	color: var(--redpen);
+}
+.tape-relies[data-broken="true"] > svg {
+	color: var(--redpen);
+}
+.tape-relies[data-broken="true"] .tape-relies-what {
+	text-decoration: line-through;
+}
+/* The rows a story step is about: a pale strip colour, so the eye lands on them. */
+.tape-row[data-focus="true"],
+.tape-row[data-focus="true"] .tape-label {
+	background: var(--strip);
+}
+.tape-row[data-dimmed="true"] {
+	opacity: 0.45;
+}
+.tape-note {
+	margin-left: 4px;
+	color: var(--ink-soft);
+	font-size: 13px;
+	font-weight: 500;
+	white-space: nowrap;
+}
+/* What the gate ran on work whose tests all passed: three ticks and one cross, under the row's bars. */
+.tape-row[data-callout="true"] {
+	--tape-row: 176px;
+}
+.tape-checks {
+	position: absolute;
+	top: calc(var(--tape-pad) + 34px);
+	z-index: 3;
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 4px 16px;
+	max-width: calc(100% - 16px);
+	box-sizing: border-box;
+	padding: 9px 14px;
+	border: 1px solid var(--redpen);
+	border-radius: 6px;
+	background: #fff;
+	color: var(--ink);
+	font-size: 14px;
+	animation: story-in 260ms ease-out 120ms both;
+}
+.tape-check {
+	display: inline-flex;
+	align-items: center;
+	gap: 5px;
+	white-space: nowrap;
+}
+.tape-check-premise {
+	flex-basis: 100%;
+	overflow: hidden;
+	color: var(--ink-soft);
+	font-size: 13px;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+.tape-check[data-ok="true"] {
+	color: #1b5e46;
+}
+.tape-check[data-ok="false"] {
+	color: var(--redpen);
+	font-weight: 600;
+}
+
+/* ---- The story bar: the run in one sentence at a time ---- */
+.story {
+	display: flex;
+	flex: none;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 14px 32px;
+	padding: 18px 24px 20px;
+	border-bottom: 1px solid var(--rule);
+	background: #fff;
+	font-family: "Geist Sans", system-ui, sans-serif;
+}
+.story-text {
+	flex: 1;
+	min-width: 280px;
+}
+.story-progress {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	margin-bottom: 8px;
+}
+.story-count {
+	color: var(--ink-soft);
+	font-size: 13px;
+	font-weight: 600;
+}
+.story-dots {
+	display: flex;
+	gap: 6px;
+}
+.story-dot {
+	position: relative;
+	width: 26px;
+	height: 6px;
+	padding: 0;
+	border: 0;
+	border-radius: 3px;
+	background: var(--rule);
+	cursor: pointer;
+	transition: background-color 160ms linear;
+}
+/* The dot is thin; its hit area is not. */
+.story-dot::after {
+	position: absolute;
+	inset: -12px -3px;
+	content: "";
+}
+.story-dot[data-state="done"] {
+	background: var(--ink);
+}
+.story-dot[data-state="now"] {
+	background: var(--bluestamp);
+}
+.story-dot:focus-visible {
+	outline: 2px solid var(--bluestamp);
+	outline-offset: 3px;
+}
+.story-title {
+	max-width: 1040px;
+	margin: 0;
+	font-size: 30px;
+	font-weight: 600;
+	letter-spacing: -0.01em;
+	line-height: 1.2;
+	animation: story-in 280ms ease-out both;
+}
+.story-body {
+	max-width: 900px;
+	margin: 8px 0 0;
+	color: var(--ink-soft);
+	font-size: 16px;
+	line-height: 1.5;
+	animation: story-in 280ms ease-out 70ms both;
+}
+@keyframes story-in {
+	from {
+		opacity: 0;
+		transform: translateY(6px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+.story-controls {
+	display: flex;
+	flex: none;
+	align-items: center;
+	gap: 8px;
+}
+@media (max-width: 767px) {
+	.story {
+		padding: 12px;
+	}
+	.story-title {
+		font-size: 21px;
+	}
+	.story-body {
+		font-size: 14px;
+	}
+	.story-play-word {
+		display: none;
+	}
+	.story-dot {
+		width: 18px;
+	}
+}
+@media (prefers-reduced-motion: reduce) {
+	.story-title,
+	.story-body,
+	.tape-checks {
+		animation: none;
+	}
+}
+
+/* ---- The top bar while a demo recording is on screen ---- */
+.simplebar {
+	display: flex;
+	flex: none;
+	align-items: center;
+	gap: 8px 20px;
+	min-height: 56px;
+	box-sizing: border-box;
+	padding: 6px 24px;
+	border-bottom: 1px solid var(--rule);
+	background: #fff;
+}
+.simplebar-name {
+	font-size: 26px;
+	line-height: 1;
+}
+.simplebar-tagline {
+	min-width: 0;
+	overflow: hidden;
+	color: var(--ink-soft);
+	font-family: "Geist Sans", system-ui, sans-serif;
+	font-size: 14px;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+.simplebar-views {
+	flex: none;
+	margin-left: auto;
+}
+.simplebar[data-layout="phone"] {
+	padding: 6px 12px;
+	gap: 8px;
+}
+.simplebar[data-layout="medium"] .simplebar-tagline {
+	display: none;
 }

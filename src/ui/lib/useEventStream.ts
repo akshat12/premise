@@ -6,7 +6,10 @@ import { appendEvents, backoffMs, dueBy, liveUrl, PING_INTERVAL_MS, replayOffset
 /** The replay looks at its clock at most once a frame. */
 const FRAME_MS = 16;
 
-export type StreamSource = { kind: "live"; url: string } | { kind: "replay"; events: PremiseEvent[]; speed: number; paused?: boolean };
+export type StreamSource =
+	| { kind: "live"; url: string }
+	/** `until`: show no more than this many events, however far the clock has run (the replay then waits there). */
+	| { kind: "replay"; events: PremiseEvent[]; speed: number; paused?: boolean; until?: number };
 
 export interface EventStream {
 	events: PremiseEvent[];
@@ -35,6 +38,7 @@ export function useEventStream(source: StreamSource): EventStream {
 	const replayEvents = source.kind === "replay" ? source.events : null;
 	const replaySpeed = source.kind === "replay" ? source.speed : 1;
 	const replayPaused = source.kind === "replay" && source.paused === true;
+	const replayUntil = source.kind === "replay" ? (source.until ?? Infinity) : Infinity;
 
 	useEffect(() => {
 		if (liveTarget === null) {
@@ -100,6 +104,7 @@ export function useEventStream(source: StreamSource): EventStream {
 	// Where the clock stopped at the last pause, so that resuming carries on from there and not from the last event. A seek clears it.
 	const frozen = useRef<number | null>(null);
 	const offsetsRef = useRef<number[]>([]);
+	const untilRef = useRef(Infinity);
 
 	useEffect(() => {
 		if (replayEvents === null) {
@@ -115,6 +120,7 @@ export function useEventStream(source: StreamSource): EventStream {
 		}
 		const offsets = replayOffsets(replayEvents);
 		offsetsRef.current = offsets;
+		untilRef.current = replayUntil;
 		setConnected(true);
 		if (replayPaused) {
 			return () => setConnected(false);
@@ -128,13 +134,13 @@ export function useEventStream(source: StreamSource): EventStream {
 		running.current = { from: startedFrom, at: startedAt, speed: replaySpeed };
 		const tick = () => {
 			const clock = startedFrom + (performance.now() - startedAt) * replaySpeed;
-			const index = dueBy(offsets, positionRef.current, clock);
+			const index = Math.min(dueBy(offsets, positionRef.current, clock), Math.max(positionRef.current, replayUntil));
 			if (index !== positionRef.current) {
 				positionRef.current = index;
 				setPosition(index);
 			}
 			const next = offsets[index];
-			if (next !== undefined) {
+			if (next !== undefined && index < replayUntil) {
 				timer = setTimeout(tick, Math.max(FRAME_MS, (next - clock) / replaySpeed));
 			}
 		};
@@ -142,17 +148,21 @@ export function useEventStream(source: StreamSource): EventStream {
 
 		return () => {
 			clearTimeout(timer);
-			frozen.current = startedFrom + (performance.now() - startedAt) * replaySpeed;
+			// Held at `until`, the clock stands at the last event shown, not wherever it ran on to.
+			frozen.current = positionRef.current >= replayUntil ? (offsets[positionRef.current - 1] ?? 0) : startedFrom + (performance.now() - startedAt) * replaySpeed;
 			running.current = null;
 			setConnected(false);
 		};
-	}, [replayEvents, replaySpeed, replayPaused, seeks]);
+	}, [replayEvents, replaySpeed, replayPaused, replayUntil, seeks]);
 
 	const clock = useCallback(() => {
 		const offsets = offsetsRef.current;
 		const end = offsets.at(-1) ?? 0;
 		const lastShown = positionRef.current > 0 ? (offsets[positionRef.current - 1] ?? 0) : 0;
 		const playing = running.current;
+		if (positionRef.current >= untilRef.current) {
+			return lastShown;
+		}
 		const value = playing === null ? Math.max(lastShown, frozen.current ?? 0) : playing.from + (performance.now() - playing.at) * playing.speed;
 		return Math.min(end, Math.max(lastShown, value));
 	}, []);

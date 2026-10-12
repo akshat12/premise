@@ -2,6 +2,18 @@
 
 Every UI task (T20–T23) must follow this brief. Read it fully before writing UI code, and re-read the **Self-critique** section before you finish.
 
+## The front page is the story on the tape (2026-10-11, supersedes the strip board)
+
+The user found the strip board hard to follow for someone new, and the tape easy. So the Lanes and Ledger views are gone, and the front page is the tape with the run told above it. Where the sections below describe flight strips, lanes, bays or the ledger rail, they describe what was built first and is no longer on screen; the tokens, type, motion rules, copy rules and accessibility floor still hold.
+
+- **One sentence at a time.** The story bar is the biggest text on the page (30px): "Step 3 of 7", a sentence, a line or two under it, Back and Next, and Play. Someone who has never seen Premise should be able to follow the run by pressing Next. The sentences are generated from the event log (`src/ui/lib/story.ts`), never written by hand for a run.
+- **Next runs the tape there.** It plays forward to the step in about a second and holds. Back shows the earlier step at once. → and ← do the same; Space plays it through at normal speed.
+- **Plain names.** Rows are "Agent 1" to "Agent N" in task order. The callsigns (T02 AUDIT) are not shown. One product word is introduced per step: Intent, premise, trunk, re-derive. A stopped Intent's status word is "stopped", not "stale".
+- **Rows grow with the room.** Up to 6 agents: tall rows with the job, "Changes …" (pencil) and "Relies on …" (eye). 7 to 16: one line for the job; what it relies on shows when the row is in focus. More: the name alone.
+- **Focus points.** The rows a step is about are tinted and the rest dim. A row whose tests all passed shows what the gate ran: three ticks, one cross, and the premise it had stated.
+- **The top bar is three things:** the name, one line saying what Premise is, and the tabs (The story, At scale, Compared). The live board, dispatching and shortcuts are under "More" (⌘K). The live board keeps the fuller bar.
+- **The tape glides.** Its playhead follows the replay's clock every frame, on an axis fixed for the whole run.
+
 ## What the screen is for
 - **Who:** a developer, a lead, or a judge watching dozens to hundreds of agents change one codebase at once.
 - **Primary job:** see at a glance what is moving, what broke and why, and when a human is needed. Everything else is secondary.

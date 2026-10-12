@@ -49,7 +49,7 @@ interface TopBarProps {
  * after a click the tab keeps focus, and the → key (jump to the next key moment) would go to the
  * tabs instead of the replay. So a pointer click gives focus back to the page; keyboard use is untouched.
  */
-function releaseFocus(event: React.PointerEvent<HTMLElement>) {
+export function releaseFocus(event: React.PointerEvent<HTMLElement>) {
 	const tabs = event.currentTarget;
 	window.setTimeout(() => {
 		const focused = document.activeElement;

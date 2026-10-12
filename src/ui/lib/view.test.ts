@@ -31,7 +31,7 @@ describe("status looks", () => {
 			expect(look.word.length).toBeGreaterThan(3);
 			expect(look.icon).toBeTruthy();
 		}
-		expect(STATUS_LOOK.stale).toMatchObject({ band: "redpen", word: "stale" });
+		expect(STATUS_LOOK.stale).toMatchObject({ band: "redpen", word: "stopped" });
 		expect(STATUS_LOOK.rederiving.band).toBe("bluestamp");
 		expect(STATUS_LOOK.landed.band).toBe("holds");
 		expect(STATUS_LOOK.waiting.band).toBe("amber");

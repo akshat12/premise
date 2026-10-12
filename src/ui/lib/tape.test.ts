@@ -52,7 +52,7 @@ describe("buildTape, on the recorded run", () => {
 		expect(tape.breaks).toHaveLength(1);
 		const line = tape.breaks[0];
 		expect(line).toMatchObject({ n: 1, flag: "T01 landed · verifySession changed" });
-		expect(line?.sentence).toBe("0:25 · T01 NULL landed and changed verifySession. T02 AUDIT, T03 EXPIRED and T11 EXPIRED relied on it and went stale.");
+		expect(line?.sentence).toBe("0:25 · T01 NULL landed and changed verifySession. T02 AUDIT, T03 EXPIRED and T11 EXPIRED relied on it and were stopped.");
 		expect(seconds(line?.at ?? 0)).toBeCloseTo(25.4, 0);
 	});
 
@@ -220,7 +220,7 @@ describe("buildTape, cases the recording does not have", () => {
 			[1, "T01 landed · f changed"],
 			[2, "T02 landed · g +1 changed"],
 		]);
-		expect(tape.breaks[1]?.sentence).toBe("0:31 · T02 BETA landed and changed g and h. T03 GAMMA relied on them and went stale.");
+		expect(tape.breaks[1]?.sentence).toBe("0:31 · T02 BETA landed and changed g and h. T03 GAMMA relied on them and was stopped.");
 	});
 
 	it("records an answer when a person gave one", () => {
@@ -266,7 +266,7 @@ describe("buildTape, cases the recording does not have", () => {
 			]),
 		);
 		expect(tape.breaks.map((line) => line.flag)).toEqual(["Workload landed · f changed", "Pushed to trunk outside the gate · g changed"]);
-		expect(tape.breaks[1]?.sentence).toBe("0:40 · A push to trunk from outside the gate changed g. T01 ALPHA relied on it and went stale.");
+		expect(tape.breaks[1]?.sentence).toBe("0:40 · A push to trunk from outside the gate changed g. T01 ALPHA relied on it and was stopped.");
 	});
 });
 

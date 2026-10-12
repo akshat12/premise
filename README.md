@@ -4,9 +4,9 @@
 
 When many agents change one codebase at once, the changes that hurt are not the ones that conflict. They are the ones that rebase cleanly, typecheck, and are wrong, because another agent changed what the code was relying on. Premise is a Git platform, built on Cloudflare Workers and [Artifacts](https://developers.cloudflare.com/artifacts/), that records what each agent's work relies on and acts when that stops being true.
 
-**See it now:** <https://premise.akshatdivekar.workers.dev/> replays a real run of four agents in the browser, in about a minute. Press `→` to step through its four key moments. A line under the top bar says what you are looking at.
+**See it now:** <https://premise.akshatdivekar.workers.dev/> walks through a real run of four agents in seven steps. Press **Next** (or `→`) and read the sentence at the top.
 
-![The strip board at the moment a premise breaks: T01 has landed and changed verifySession, T02 and T11 are red, T04 is untouched](docs/screens/break.jpg)
+![Step 4 of the story: Agent 1 has landed a change to verifySession, Agents 2 and 4 are stopped, Agent 3 carries on](docs/screens/story-stopped.jpg)
 
 ## The idea in 20 seconds
 
@@ -15,12 +15,12 @@ When many agents change one codebase at once, the changes that hurt are not the 
 - **Re-derive.** A stale Intent first tries a plain rebase, which takes about a second. If that does not pass the **gate**, its agent redoes the work on a fresh fork of the new trunk, told what broke.
 - **The gate.** Nothing reaches trunk without a clean rebase, a typecheck, the Intent's own tests, the task's reference checks (kept on trunk where no agent can write them), every test already on trunk, and the Intent's premise assertions.
 
-The case the demo is built around, with four agents:
+The case the demo is built around, with four agents (the page calls them Agent 1 to 4; in the repo they are tasks T01, T02, T04 and T11):
 
-- **T01** changes `verifySession` to return `null` for an expired session instead of throwing. The signature is unchanged, so the typecheck passes.
-- **T02** wrote code that catches the throw. After a rebase its own tests fail. Its work is redone and lands.
-- **T11** also catches the throw, but its tests use a stand-in for `verifySession`. After a rebase every test passes. Only its premise is red. Its work is redone and lands.
-- **T04** read the same function but relies only on its types. Nothing happens to it.
+- **Agent 1** changes `verifySession` to return `null` for an expired session instead of throwing. The signature is unchanged, so the typecheck passes.
+- **Agent 2** wrote code that catches the throw. After a rebase its own tests fail. Its work is redone and lands.
+- **Agent 3** read the same function but relies only on its types. Nothing happens to it.
+- **Agent 4** also catches the throw, but its tests use a stand-in for `verifySession`. After a rebase every test passes. Only its premise is red. Its work is redone and lands.
 
 ## What the comparison shows, and what it does not
 
@@ -47,16 +47,15 @@ Every row, what it means, and the per-seed results are in [docs/ab-results.md](d
 
 ## See it in 2 minutes
 
-- **The demo recording:** <https://premise.akshatdivekar.workers.dev/>. A real run of the deployed system on Artifacts, replayed in the browser: the four agents above, each on its own fork, in about a minute. `→` or "Next" jumps between the four key moments, `Space` pauses, `?` lists every key. Click an Intent to see why it did what it did, what it relies on, its story, and its changes.
-- **Tape:** the tab next to "Lanes". The same run with time running left to right: the red line is the landing that broke two premises.
-- **Scale:** the numbers from a larger run of the same system, twelve agents and 294 scripted workload Intents (309 forks, 266 Intents landed in about four minutes). <https://premise.akshatdivekar.workers.dev/?demo=scale> plays it.
-- **A/B:** the comparison above.
+- **The story:** <https://premise.akshatdivekar.workers.dev/>. A real run of the deployed system on Artifacts, told in seven steps: the four agents above, each on its own fork, drawn as four rows over time. **Next** and **Back** (or `→` and `←`) move between the steps, **Play** runs it through at normal speed, and clicking a row opens that agent's Intent: why it did what it did, what it relies on, its story, and its changes.
+- **At scale:** the numbers from a larger run of the same system, twelve agents and 294 scripted workload Intents (309 forks, 266 Intents landed in about four minutes). <https://premise.akshatdivekar.workers.dev/?demo=scale> walks through it.
+- **Compared:** the three-rule comparison above.
 - **With a live model:** <https://premise.akshatdivekar.workers.dev/?demo=live> replays the same four tasks with Gemini 3.5 Flash-Lite as every agent. See "What a model does on its own" for what happened.
 - **Video:** _link to come_.
 
 The agents in the first two demo recordings are scripted: their turns are generated from reference solutions, so a run is repeatable and needs no model key. Everything else is real: the forks, pushes, typechecks, tests, premise checks and landings happened on Cloudflare on 2026-10-11, and the replay is that run's event log.
 
-![T11's drawer: why it did what it did, what it relies on, its story, and its changes](docs/screens/t11-drawer.jpg)
+![Step 6: after the change, Agent 4's own tests, the reference checks and every existing test pass, and its premise fails](docs/screens/story-premise.jpg)
 
 ## How premises work
 

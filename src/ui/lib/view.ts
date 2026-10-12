@@ -43,7 +43,7 @@ export const STATUS_LOOK: Record<IntentStatus, { band: Band; icon: StatusIcon; w
 	queued: { band: "ink-soft", icon: "gate", word: "at the gate", means: "Waiting its turn at the gate" },
 	gating: { band: "ink-soft", icon: "gate", word: "in the gate", means: "The gate is running: rebase, typecheck, tests, premise assertions" },
 	landed: { band: "holds", icon: "landed", word: "landed", means: "Passed the gate and is on trunk" },
-	stale: { band: "redpen", icon: "stale", word: "stale", means: "Something it relies on changed on trunk. Its work is stopped until it is redone" },
+	stale: { band: "redpen", icon: "stale", word: "stopped", means: "Something it relies on changed on trunk. Its work is stopped until it is redone" },
 	rederiving: { band: "bluestamp", icon: "rederive", word: "re-deriving", means: "Redoing the work on the new trunk: a plain rebase first, then the agent if that does not pass" },
 	escalated: { band: "redpen", icon: "bell", word: "needs you", means: "It could not be settled automatically, so a person is asked" },
 	failed: { band: "redpen", icon: "failed", word: "failed", means: "It gave up without landing" },
