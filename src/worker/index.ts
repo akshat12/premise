@@ -15,11 +15,17 @@ import { handleEvents } from "./routes/events";
 // See recoverMemoryStore for what it is checking.
 let memoryChecked: Promise<unknown> | undefined;
 
+/** When this isolate served its first request. */
+let awakeSince: number | undefined;
+
 export default {
 	async fetch(request, env): Promise<Response> {
 		const url = new URL(request.url);
+		awakeSince ??= Date.now();
 		if (url.pathname === "/api/health") {
-			return Response.json(healthBody(env));
+			// How long this isolate has been serving requests. The demo script reads it: the local runtime is
+			// not ready for a full run in its first seconds (see scripts/demo.ts).
+			return Response.json(healthBody(env), { headers: { "x-premise-awake-ms": String(Date.now() - awakeSince) } });
 		}
 		if (env.REPO_STORE === "memory" && url.pathname.startsWith("/api/")) {
 			await (memoryChecked ??= recoverMemoryStore(env).catch((error: unknown) => {

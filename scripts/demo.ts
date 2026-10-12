@@ -29,6 +29,8 @@ function open(page: string): void {
 
 const local = /\/\/(localhost|127\.0\.0\.1|\[::1\])(:|\/|$)/.test(url);
 const pause = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+/** How long the local runtime is left alone after its first request before it is given a run. */
+const SETTLE_MS = 8000;
 
 /** Resets, dispatches every task, and starts the workload. */
 async function start(api: ReturnType<typeof worker>, show: boolean): Promise<void> {
@@ -60,6 +62,15 @@ if (flag("replay")) {
 				? `Something answered at ${url}, but it is not Premise's Worker. If \`npm run dev:local\` said the port was in use and chose another, pass it: npm run demo -- --url http://localhost:<port>`
 				: `Nothing answered at ${url}. Start it with \`npm run dev:local\` (or \`npm run dev\`), or pass --url <your Worker>. If the dev server chose another port, pass that: --url http://localhost:<port>`,
 		);
+	}
+	if (local) {
+		// The local Workers runtime has been seen to crash when it is handed a full run in its first seconds.
+		// The Worker says how long it has been awake; a young one is given a moment.
+		const awake = Number((await fetch(`${url}/api/health`).catch(() => null))?.headers.get("x-premise-awake-ms") ?? Number.NaN);
+		if (!(awake >= SETTLE_MS)) {
+			console.log("The local runtime has only just started. Giving it a few seconds to settle.");
+			await pause(SETTLE_MS - (Number.isFinite(awake) ? awake : 0));
+		}
 	}
 	try {
 		await start(api, true);
