@@ -101,9 +101,7 @@ Prompt for these reviews: "Review the commits since <last checkpoint> against do
   - `react-dom`
   - `@phosphor-icons/react`
   - `@cloudflare/kumo`
-  - `@fontsource/barlow-condensed`
-  - `@fontsource/ibm-plex-mono`
-  - `@fontsource/geist-sans`, `@fontsource/geist-mono` (the Tape view's text; added 2026-10-11, see DECISIONS)
+  - `@fontsource/geist-sans`, `@fontsource/geist-mono` (the app's two faces; added 2026-10-11, see DECISIONS. Barlow Condensed and IBM Plex Mono were removed 2026-10-12)
   - `isomorphic-git`
   - `node-diff3`
   - `typescript` (yes, at runtime, inside the Worker)

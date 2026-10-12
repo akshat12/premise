@@ -152,7 +152,7 @@ export function Drawer({ intent, events, callsignOf, named, onSelect, onClose, d
 			<header className="drawer-head flex items-start justify-between gap-4">
 				<div style={{ minWidth: 0 }}>
 					<div className="flex items-center gap-3">
-						<span className="callsign" style={{ fontSize: 20, lineHeight: 1 }}>
+						<span className="callsign" style={{ fontSize: 13, lineHeight: 1 }}>
 							{callsignOf(intent.id)}
 						</span>
 						<StatusMark status={intent.status} />

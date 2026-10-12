@@ -2,15 +2,29 @@
 
 Every UI task (T20–T23) must follow this brief. Read it fully before writing UI code, and re-read the **Self-critique** section before you finish.
 
+## The look: an instrument panel on paper (2026-10-12, supersedes the Type and colour notes below)
+
+The user sent a reference (a dark dashboard with mono uppercase micro-labels, large light numerals, hairline grids and one orange accent) and asked for the same manner in light mode, keeping the rows. Design-canvas board G is the mock; the app follows it. Layout and behaviour are unchanged. Where a section below disagrees with this one, this one wins.
+
+- **Two faces, self-hosted.** Geist Sans for sentences and numerals, Geist Mono for every label. Barlow Condensed and IBM Plex Mono are gone.
+- **Labels** (`.label`, and names with `.callsign`) are Geist Mono, uppercase, 11px, letter-spacing 0.08em: statuses, time ticks, the key, tab names, buttons, "Changes" and "Relies on". This replaces "no all-caps labels". Sentences stay in sentence case. Nothing is under 11px.
+- **Numerals** (`.figure`) are Geist Sans weight 300 with tabular figures: the counter strip, the gate readout, the Scale and Compared numbers.
+- **Paper and ink.** Board `#f3f4f2`, panels `#fbfbfa`, ink `#14181d`, soft ink `#5c6470`, hairlines `#dcdfdb`. Panels have a 1px hairline, a 6px radius and small black corner brackets (`.bracketed`). Bars are square-cornered.
+- **One accent.** `--redpen` is now a warm orange-red, `#c2410c`, for text and for fills that carry white text (5.2:1). `--accent-line` `#e8590c` is for lines and dots only. It means a premise broke or a person is needed, and nothing else: the primary button is ink, not blue. Green (landed) and blue (re-deriving) stay, as outlines and small marks.
+- **The counter strip** sits under the story in a replay: Agents, Premises broken, Re-derived, Landed, Problems on trunk. It reads the same log as the tape, so the numbers move as the story is stepped through. It shrinks on a short window and is not shown on a phone.
+- **The gate readout** on a row whose tests all passed is four readings (Its tests 3 / 3, Reference checks 3 / 3, Existing tests 91 / 91, Its premise Failed) and the premise it had stated.
+- **The story bar** says "Step 06 / 07" over square progress segments; the sentence is 34px, weight 500.
+- **The top bar in a replay** says "Replay of a recorded run", so nobody takes the page for agents running now.
+
 ## The front page is the story on the tape (2026-10-11, supersedes the strip board)
 
 The user found the strip board hard to follow for someone new, and the tape easy. So the Lanes and Ledger views are gone, and the front page is the tape with the run told above it. Where the sections below describe flight strips, lanes, bays or the ledger rail, they describe what was built first and is no longer on screen; the tokens, type, motion rules, copy rules and accessibility floor still hold.
 
-- **One sentence at a time.** The story bar is the biggest text on the page (30px): "Step 3 of 7", a sentence, a line or two under it, Back and Next, and Play. Someone who has never seen Premise should be able to follow the run by pressing Next. The sentences are generated from the event log (`src/ui/lib/story.ts`), never written by hand for a run.
+- **One sentence at a time.** The story bar is the biggest text on the page (34px): "Step 03 / 07", a sentence, a line or two under it, Back and Next, and Play. Someone who has never seen Premise should be able to follow the run by pressing Next. The sentences are generated from the event log (`src/ui/lib/story.ts`), never written by hand for a run.
 - **Next runs the tape there.** It plays forward to the step in about a second and holds. Back shows the earlier step at once. → and ← do the same; Space plays it through at normal speed.
 - **Plain names.** Rows are "Agent 1" to "Agent N" in task order. The callsigns (T02 AUDIT) are not shown. One product word is introduced per step: Intent, premise, trunk, re-derive. A stopped Intent's status word is "stopped", not "stale".
 - **Rows grow with the room.** Up to 6 agents: tall rows with the job, "Changes …" (pencil) and "Relies on …" (eye). 7 to 16: one line for the job; what it relies on shows when the row is in focus. More: the name alone.
-- **Focus points.** The rows a step is about are tinted and the rest dim. A row whose tests all passed shows what the gate ran: three ticks, one cross, and the premise it had stated.
+- **Focus points.** The rows a step is about are tinted and the rest dim. A row whose tests all passed shows what the gate ran: three readings that passed, one that failed, and the premise it had stated.
 - **The top bar is three things:** the name, one line saying what Premise is, and the tabs (The story, At scale, Compared). The live board, dispatching and shortcuts are under "More" (⌘K). The live board keeps the fuller bar.
 - **The tape glides.** Its playhead follows the replay's clock every frame, on an axis fixed for the whole run.
 
@@ -66,6 +80,7 @@ Do **not** use Cloudflare orange as a UI accent. Use it only on the Kumo `Cloudf
 **Never rely on colour alone.** Every state also has an icon (Phosphor) and a word.
 
 ## Type
+- **Superseded 2026-10-12:** see "The look" at the top. The lines below are kept for the record.
 - **UI text:** Kumo's default family, which keeps the product consistent with the Cloudflare dashboard.
 - **Callsigns and the hero counters:** `Barlow Condensed`, weight 600, `font-variant-numeric: tabular-nums`. Condensed type is what printed strips and ATC displays use, and it lets big numbers fit.
 - **Symbol names in chips:** `IBM Plex Mono`, weight 500. These are code identifiers, so a monospace face carries meaning here. Use it nowhere else.
@@ -102,7 +117,7 @@ A second way to look at the same Intents, as a tab beside Lanes: time runs left 
 - **The break line** is thin and behind the bars across all rows, and heavy with a dot only through the rows it stopped. A stale stretch is drawn from the landing itself (true times are in the tooltip).
 - **The axis** shows 1, 1½, 2, 3, 5 or 10 minutes, whichever first keeps "now" inside it, and steps rather than zooms. What has not happened yet is tinted. In a replay the axis is a slider.
 - **The label column** is the strip in small: status band, callsign (Barlow Condensed), R stamp, status icon and word.
-- **Type:** the tape's small text is Geist Sans and Geist Mono, self-hosted. Callsigns stay in Barlow Condensed so an Intent's name looks the same in every view. Nothing is under 12px.
+- **Type:** Geist Sans and Geist Mono, self-hosted (see "The look"). Nothing is under 11px.
 - **Phone:** marks only, nothing scrolling sideways; breaks are numbered on the trunk line and listed in words above the rows.
 
 ## Motion: one orchestrated moment, everything else responds to the user

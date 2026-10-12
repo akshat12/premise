@@ -20,7 +20,13 @@ export function SimpleBar({ layout, views, onMore }: SimpleBarProps) {
 	return (
 		<header className="simplebar" data-layout={layout}>
 			<span className="callsign simplebar-name">Premise</span>
-			{layout === "phone" ? null : <span className="simplebar-tagline">Many agents, one codebase. Premise tracks what each one relies on.</span>}
+			{layout === "phone" ? null : (
+				<>
+					<span className="simplebar-rule" aria-hidden="true" />
+					<span className="label simplebar-tagline">Many agents, one codebase. Premise tracks what each one relies on.</span>
+				</>
+			)}
+			<span className="label simplebar-replay">Replay of a recorded run</span>
 			{/* A clicked tab gives focus back to the page, so the arrow keys go on walking the story. */}
 			<div className="simplebar-views" onPointerUp={releaseFocus}>
 				{views}

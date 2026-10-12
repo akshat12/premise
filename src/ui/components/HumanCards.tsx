@@ -97,13 +97,13 @@ function HumanCard({ inline, intent, other, readOnly, token, named, nameOf, onNe
 			<p className="flex items-center gap-2" role="note" style={{ width: inline ? "100%" : 360, maxWidth: inline ? 480 : "100%", margin: 0, background: "#fff", border: "1px solid var(--rule)", borderLeft: "4px solid var(--amber)", borderRadius: 3, padding: "6px 10px", fontSize: 13 }}>
 				<Bell size={14} weight="fill" color="var(--amber)" aria-hidden="true" style={{ flex: "none" }} />
 				<span>
-					<span className="callsign" style={{ fontSize: 14 }}>
+					<span className="callsign" style={{ fontSize: 11.5 }}>
 						{shortName(intent)}
 					</span>
 					{other ? (
 						<>
 							{" and "}
-							<span className="callsign" style={{ fontSize: 14 }}>
+							<span className="callsign" style={{ fontSize: 11.5 }}>
 								{shortName(other)}
 							</span>
 							{" both want "}
@@ -124,14 +124,14 @@ function HumanCard({ inline, intent, other, readOnly, token, named, nameOf, onNe
 				{title}
 			</p>
 			<p style={GOAL_LINE} title={intent.goal}>
-				<span className="callsign" style={{ fontSize: 15 }}>
+				<span className="callsign" style={{ fontSize: 12 }}>
 					{callsign(intent)}
 				</span>{" "}
 				{brief(intent.goal)}
 			</p>
 			{stalemate && other ? (
 				<p style={{ ...GOAL_LINE, margin: "4px 0 0" }} title={other.goal}>
-					<span className="callsign" style={{ fontSize: 15 }}>
+					<span className="callsign" style={{ fontSize: 12 }}>
 						{callsign(other)}
 					</span>{" "}
 					{brief(other.goal)}

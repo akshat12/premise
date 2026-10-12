@@ -23,8 +23,10 @@ const cell = { padding: "8px 16px 8px 0", verticalAlign: "top", borderTop: "1px 
 export function AbPanel({ results }: { results: AbResults | null }) {
 	if (results === null) {
 		return (
-			<section aria-label="A/B results" className="plane">
-				<h2 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>A/B results</h2>
+			<section aria-label="A/B results" className="plane bracketed">
+				<h2 className="label" style={{ margin: 0 }}>
+				Compared: three landing rules
+			</h2>
 				<p style={{ margin: "4px 0 0", fontSize: 13, color: "var(--ink-soft)" }}>
 					No comparison has been run yet. Run <code>npx tsx scripts/ab.ts --url &lt;worker url&gt;</code> to make one.
 				</p>
@@ -38,13 +40,15 @@ export function AbPanel({ results }: { results: AbResults | null }) {
 	const tasks = results.trials[0]?.baseline.tasksDispatched ?? 0;
 	const seeds = results.seeds.length === 1 ? `seed ${results.seeds[0]}` : `seeds ${results.seeds.join(", ")}`;
 	return (
-		<section aria-label="A/B results" className="plane">
-			<h2 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>A/B results</h2>
+		<section aria-label="A/B results" className="plane bracketed">
+			<h2 className="label" style={{ margin: 0 }}>
+				Compared: three landing rules
+			</h2>
 			<p style={{ margin: "4px 0 0", fontSize: 13, color: "var(--ink-soft)", maxWidth: 760 }}>
 				The same {tasks} tasks and {results.n} scripted workload Intents ({seeds}), run under three landing rules on {results.date}, {local ? "on a local Worker with in-memory repos" : "on real Artifacts"}. The breaking change is planted and lands first in every run;
 				the agents are scripted. Where the seeds disagree a cell gives the lowest and highest value.
 			</p>
-			<p style={{ margin: "16px 0 0", fontSize: 18, lineHeight: 1.35, fontWeight: 600, maxWidth: 760 }}>{results.headline}</p>
+			<p style={{ margin: "14px 0 0", fontSize: 22, lineHeight: 1.3, fontWeight: 500, letterSpacing: "-0.01em", maxWidth: 760 }}>{results.headline}</p>
 			<p style={{ margin: "16px 0 0", fontSize: 13, maxWidth: 760, borderLeft: "4px solid var(--holds)", paddingLeft: 12 }}>
 				<strong>What the queue with tests misses.</strong> One of the three tasks written against the old behaviour tests its code with a stand-in for the function that changed, as unit tests often do. Its tests still pass after the rebase, so a queue
 				that runs tests lands it. Only its premise, an executable assertion about the real function, is red.
@@ -56,16 +60,16 @@ export function AbPanel({ results }: { results: AbResults | null }) {
 			<table style={{ marginTop: 24, fontSize: 13, borderCollapse: "collapse", width: "100%" }}>
 				<thead>
 					<tr style={{ textAlign: "left" }}>
-						<th scope="col" style={{ padding: "0 16px 8px 0", fontWeight: 600 }}>
+						<th scope="col" className="label" style={{ padding: "0 16px 8px 0" }}>
 							Measure
 						</th>
-						<th scope="col" className="ab-value" style={{ padding: "0 16px 8px 0", fontWeight: 600 }}>
+						<th scope="col" className="label ab-value" style={{ padding: "0 16px 8px 0" }}>
 							Typecheck only
 						</th>
-						<th scope="col" className="ab-value" style={{ padding: "0 16px 8px 0", fontWeight: 600 }}>
+						<th scope="col" className="label ab-value" style={{ padding: "0 16px 8px 0" }}>
 							Queue with tests
 						</th>
-						<th scope="col" className="ab-value" style={{ padding: "0 16px 8px 0", fontWeight: 600 }}>
+						<th scope="col" className="label ab-value" style={{ padding: "0 16px 8px 0" }}>
 							Premise
 						</th>
 					</tr>
@@ -77,13 +81,13 @@ export function AbPanel({ results }: { results: AbResults | null }) {
 								{row.metric}
 								{row.note ? <span style={{ display: "block", fontSize: 12, color: "var(--ink-soft)", fontWeight: 400, marginTop: 2, maxWidth: 520 }}>{row.note}</span> : null}
 							</th>
-							<td className="callsign ab-figure" style={cell}>
+							<td className="figure ab-figure" style={cell}>
 								{row.baseline}
 							</td>
-							<td className="callsign ab-figure" style={cell}>
+							<td className="figure ab-figure" style={cell}>
 								{row.queue}
 							</td>
-							<td className="callsign ab-figure" style={cell}>
+							<td className="figure ab-figure" style={cell}>
 								{row.premise}
 							</td>
 						</tr>

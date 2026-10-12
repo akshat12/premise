@@ -32,12 +32,12 @@ The front page is now the story: a sentence at the top with **Back**, **Next** a
 
 | # | Script row | Do this | Check before you speak |
 |---|---|---|---|
-| 1 | 0:00 Cold open | Load `https://premise.akshatdivekar.workers.dev/`. Click the fourth dot. | "Step 4 of 7". Agents 2 and 4 are red and say "stopped"; Agent 3 is not. |
-| 2 | 0:35 What it is | Click the first dot, speak, then press `→` once. | "Step 1 of 7", then "Step 2 of 7": every row shows a pencil line and an eye line. |
-| 3 | 1:05 The break | Press `→`, wait for the tape to stop, press `→` again. | The red flag reads "Agent 1 landed · verifySession changed". |
-| 4 | 1:30 Re-derive | Press `→`. | "Step 5 of 7". Agent 2's row has a blue "re-derived" bar and a green tick. |
-| 5 | 2:05 Agent 4 | Press `→`. Then click Agent 4's row and point at the **Changes** column; drag the panel's top edge up if the diff is cramped. | "Step 6 of 7". The callout under Agent 4's row has three ticks and one cross. |
-| 6 | 2:55 The end | Press `Esc`, then `→`. | "Step 7 of 7": "Everything landed. Nothing broken reached trunk." |
+| 1 | 0:00 Cold open | Load `https://premise.akshatdivekar.workers.dev/`. Click the fourth dot. | "Step 04 / 07". Agents 2 and 4 are marked in orange and say "stopped"; Agent 3 is not. |
+| 2 | 0:35 What it is | Click the first dot, speak, then press `→` once. | "Step 01 / 07", then "Step 02 / 07": every row shows a pencil line and an eye line. |
+| 3 | 1:05 The break | Press `→`, wait for the tape to stop, press `→` again. | The orange flag reads "AGENT 1 LANDED · VERIFYSESSION CHANGED". |
+| 4 | 1:30 Re-derive | Press `→`. | "Step 05 / 07". Agent 2's row has a blue "re-derived" bar and a green tick. |
+| 5 | 2:05 Agent 4 | Press `→`. Then click Agent 4's row and point at the **Changes** column; drag the panel's top edge up if the diff is cramped. | "Step 06 / 07". The callout under Agent 4's row has three ticks and one cross. |
+| 6 | 2:55 The end | Press `Esc`, then `→`. | "Step 07 / 07": "Everything landed. Nothing broken reached trunk." |
 | 7 | 3:10 At scale | Click **At scale**. | The green-edged note at the top says these numbers are from a larger run. The figures read 309, 315, 61.4. |
 | 8 | 3:45 Architecture | Second browser tab: `docs/architecture.svg`. | The whole diagram fits without scrolling. |
 | 9 | 4:10 Compared | First tab. Click **Compared**. After the headline, scroll until the amber "What it cost" paragraph is in view. | The three columns read 3, 1, 0 in the first row and 0, 2, 0 of 12 in the second. |

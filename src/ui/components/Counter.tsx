@@ -51,10 +51,10 @@ export function RollingNumber({ value }: { value: number }) {
 export function Counter({ label, value, hero = false, alert = false, wrap = false }: { label: string; value: number; hero?: boolean; alert?: boolean; wrap?: boolean }) {
 	return (
 		<div className="flex flex-col justify-center leading-none" aria-label={`${label}: ${value}`}>
-			<span className="callsign" style={{ fontSize: hero ? 32 : 20, lineHeight: 1, color: alert && value > 0 ? "var(--redpen)" : "var(--ink)" }}>
+			<span className="figure" style={{ fontSize: hero ? 32 : 22, lineHeight: 1, color: alert && value > 0 ? "var(--redpen)" : "var(--ink)" }}>
 				<RollingNumber value={value} />
 			</span>
-			<span style={{ fontSize: 12, lineHeight: "14px", color: "var(--ink-soft)", marginTop: 2, whiteSpace: wrap ? "normal" : "nowrap" }}>{label}</span>
+			<span className="label" style={{ fontSize: 11, marginTop: 3, whiteSpace: wrap ? "normal" : "nowrap" }}>{label}</span>
 		</div>
 	);
 }

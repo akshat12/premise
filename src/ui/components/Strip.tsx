@@ -139,7 +139,7 @@ export function Strip({ intent, shared, selected, dimmed, callsignOf, onSelect, 
 			<span className="strip-band" aria-hidden="true" />
 			<button type="button" className="strip-open" onClick={() => onSelect(intent.id)} aria-pressed={selected} aria-label={`${name}, ${intent.goal.split(".")[0]}, ${look.word}${note ? `: ${note}` : ""}`}>
 				<span className="flex items-center gap-2">
-					<span className="callsign" style={{ fontSize: 20, lineHeight: 1, whiteSpace: "nowrap" }}>
+					<span className="callsign" style={{ fontSize: 13, lineHeight: 1, whiteSpace: "nowrap" }}>
 						{name}
 					</span>
 					{(intent.races ?? 0) > 0 ? (

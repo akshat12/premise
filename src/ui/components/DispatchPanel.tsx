@@ -101,7 +101,7 @@ export function DispatchPanel({ token, onToken, onClose, onStarted }: DispatchPa
 									onCheckedChange={() => toggle(task.id)}
 									label={
 										<span>
-											<span className="callsign" style={{ fontSize: 15, marginRight: 8 }}>
+											<span className="callsign" style={{ fontSize: 12, marginRight: 8 }}>
 												{callsignOf(task)}
 											</span>
 											<span style={{ fontSize: 13 }}>{task.title}</span>

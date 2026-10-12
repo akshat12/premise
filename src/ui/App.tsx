@@ -15,6 +15,8 @@ import { BuiltOn } from "./components/BuiltOn";
 import { type Command, Palette, Shortcuts } from "./components/Palette";
 import { ScaleView } from "./components/ScaleView";
 import { SimpleBar } from "./components/SimpleBar";
+import { RunFigures } from "./components/RunFigures";
+import { figuresFor } from "./lib/figures";
 import { StoryBar } from "./components/StoryBar";
 import { TapeView } from "./components/TapeView";
 import { type LiveState, TopBar } from "./components/TopBar";
@@ -330,6 +332,7 @@ export function App() {
 	);
 
 	const cards = useMemo(() => openCards(state), [state]);
+	const figures = useMemo(() => figuresFor(events, state.intents, state.metrics), [events, state.intents, state.metrics]);
 	const actions = useMemo<Command[]>(
 		() => [
 			{ id: "dispatch", title: "Dispatch tasks", run: () => setDispatching(true) },
@@ -385,8 +388,9 @@ export function App() {
 			{storied && view === "tape" && story !== null ? (
 				<StoryBar steps={story.steps} index={stepIndex} playing={!paused && chase === null} moving={chase !== null} onStep={goToStep} onPlay={playThrough} onPause={() => setPaused(true)} onRestart={() => goToStep(0)} />
 			) : null}
+			{storied && view === "tape" && layout !== "phone" ? <RunFigures figures={figures} /> : null}
 			{notice ? (
-				<div role="status" className="flex items-center justify-between" style={{ padding: "6px 16px", background: "#fff", borderBottom: "1px solid var(--rule)", fontSize: 13 }}>
+				<div role="status" className="flex items-center justify-between" style={{ padding: "6px 16px", background: "var(--surface)", borderBottom: "1px solid var(--rule)", fontSize: 13 }}>
 					{notice}
 					<Button variant="ghost" size="xs" onClick={() => setNotice(null)}>
 						Dismiss
@@ -394,9 +398,9 @@ export function App() {
 				</div>
 			) : null}
 			<div className="flex min-h-0 flex-1">
-				<main className="min-w-0 flex-1 overflow-auto" style={{ padding: wide ? "0 24px 16px" : "0 12px 12px" }} aria-label={VIEW_LABEL[view]}>
+				<main className="min-w-0 flex-1 overflow-auto" style={{ padding: wide ? "0 24px 8px" : "0 12px 8px" }} aria-label={VIEW_LABEL[view]}>
 					{/* A spacer that scrolls away, so the tape's sticky header meets the top of the scroll area with nothing showing above it. */}
-					<div aria-hidden="true" style={{ height: wide ? 16 : 12 }} />
+					<div aria-hidden="true" style={{ height: 12 }} />
 					{view === "tape" ? humanCards : null}
 					{view === "ab" ? (
 						<AbPanel results={AB_RESULTS} />
@@ -446,7 +450,7 @@ export function App() {
 							{...(storied && story !== null ? { notes: story.notes } : {})}
 						/>
 					)}
-					<div style={{ marginTop: 12 }}>
+					<div style={{ marginTop: 6 }}>
 						<BuiltOn />
 					</div>
 				</main>

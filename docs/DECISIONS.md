@@ -901,3 +901,13 @@ At the user's request four reviewer agents graded the project against the offici
 - **Why the hole stays open.** T11's hint tells the agent to test with a stand-in, and its reference checks use a stand-in that throws. That is the scenario's point on the first attempt (only the premise can see the break), and it means that on a redo nothing but the agent's own reasoning connects the new premise to the code. A true premise with wrong code lands. The README says so.
 - **Not done.** The two changes are not deployed and there has been no third live run. `/?demo=live` is still the Oct 11 run; the README dates both runs.
 - **Design canvas.** Board G restyles the guided tape after a reference the user sent (mono uppercase labels, light numerals, hairlines, one orange accent). It is a mock; the app is unchanged until the user says so.
+
+### Oct 12, later: deployed, and the instrument look
+
+- **Deployed** the agent changes above (Worker version `f0323a21`), at the user's word. Still no third live run.
+- **The look.** The user approved board G. `theme.css` tokens, type and the tape's marks were restyled; `docs/UI.md` has a new first section that supersedes its Type and colour notes. No layout or behaviour changed, with three additions: the counter strip (`RunFigures.tsx`), "Replay of a recorded run" in the replay's top bar, and the gate readout as four readings.
+- **Fonts.** Geist Sans 300 and Geist Mono 400 were added to the imports; both packages were already approved. `@fontsource/barlow-condensed` and `@fontsource/ibm-plex-mono` were uninstalled, as nothing uses them now.
+- **`--redpen` kept its name** and changed its value to `#c2410c`, because the name is in dozens of places and in this file's history. It is the accent; `--accent-line` is its brighter form for lines and dots, which must never carry text (3.5:1).
+- **Kumo's primary button** takes its colours from `--color-kumo-brand` through inline variables, so `.story-controls` sets that variable to ink.
+- **A crowded flag** (the next break lands under its words) is written to the left of its line when there is room. In the twelve-agent recording there is not, so the second break's numbered marker sits on the first flag with a ring round it. Known and left.
+- **Counter strip wording.** "Premises broken" is the log's own count, so in the larger run it includes the scripted workload's (28 at step 5). "Problems on trunk" is behavioural regressions plus broken builds; it shows 1 for the live-model run.

@@ -9,11 +9,13 @@ const clock = (ms: number) => `${Math.floor(ms / 60_000)}:${String(Math.floor((m
 
 function Figure({ label, value }: { label: string; value: string }) {
 	return (
-		<div className="flex flex-col leading-none" style={{ minWidth: 120 }}>
-			<span className="callsign" style={{ fontSize: 32, lineHeight: 1, fontVariantNumeric: "tabular-nums" }}>
+		<div className="flex flex-col leading-none" style={{ minWidth: 140 }}>
+			<span className="figure" style={{ fontSize: 36, lineHeight: 1 }}>
 				{value}
 			</span>
-			<span style={{ fontSize: 13, color: "var(--ink-soft)", marginTop: 4 }}>{label}</span>
+			<span className="label" style={{ marginTop: 6 }}>
+				{label}
+			</span>
 		</div>
 	);
 }
@@ -40,12 +42,12 @@ function Sparkline({ buckets, elapsedMs }: { buckets: readonly number[]; elapsed
 				})}
 				<line x1="0" x2="100%" y1={height + top - 0.5} y2={height + top - 0.5} stroke="var(--rule)" />
 				{peakAt >= 0 && peak > 1 ? (
-					<text x={`${Math.min(98, Math.max(2, peakX))}%`} y={11} textAnchor={peakX > 96 ? "end" : peakX < 4 ? "start" : "middle"} style={{ fontSize: 12, fill: "var(--ink-soft)" }}>
+					<text x={`${Math.min(98, Math.max(2, peakX))}%`} y={11} textAnchor={peakX > 96 ? "end" : peakX < 4 ? "start" : "middle"} style={{ fontSize: 11, fontFamily: "var(--font-label)", fill: "var(--ink-soft)" }}>
 						{peak}
 					</text>
 				) : null}
 			</svg>
-			<figcaption className="flex justify-between" style={{ fontSize: 12, color: "var(--ink-soft)", marginTop: 4 }}>
+			<figcaption className="label flex justify-between" style={{ marginTop: 6 }}>
 				<span>0:00</span>
 				<span>Landings in each {BUCKET_MS / 1000} s</span>
 				<span>{clock(elapsedMs)}</span>
@@ -75,11 +77,13 @@ export function ScaleView({ events, metrics, intents, otherRun }: ScaleViewProps
 	const cost = operationsCost(operations);
 
 	return (
-		<section aria-label="Scale" className="plane">
-			<h2 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>Scale</h2>
+		<section aria-label="Scale" className="plane bracketed">
+			<h2 className="label" style={{ margin: 0 }}>
+				At scale
+			</h2>
 			{otherRun ? (
 				<p style={{ margin: "8px 0 0", fontSize: 13, maxWidth: 720, borderLeft: "4px solid var(--holds)", paddingLeft: 12 }}>
-					The run on the Lanes tab is four agents, to keep the story easy to follow. These numbers are from a larger run of the same system on real Artifacts, shown as it ended.{" "}
+					The story is told with four agents, to keep it easy to follow. These numbers are from a larger run of the same system on real Artifacts, shown as it ended.{" "}
 					<a href={otherRun.href} style={{ color: "var(--bluestamp)", fontWeight: 600 }}>
 						Play that run
 					</a>
@@ -100,19 +104,19 @@ export function ScaleView({ events, metrics, intents, otherRun }: ScaleViewProps
 				<Sparkline buckets={stats.buckets} elapsedMs={stats.elapsedMs} />
 			</div>
 			<dl className="facts">
-				<dt style={{ color: "var(--ink-soft)" }}>Intents</dt>
+				<dt className="label" style={{ paddingTop: 3 }}>Intents</dt>
 				<dd style={{ margin: 0 }}>
-					{whole.format(tally.landed)} landed, {whole.format(tally.flying)} in flight, {whole.format(tally.stopped)} stopped
+					{whole.format(tally.landed)} landed, {whole.format(tally.flying)} in flight, {whole.format(tally.stopped)} did not land
 				</dd>
-				<dt style={{ color: "var(--ink-soft)" }}>Ledger contention</dt>
+				<dt className="label" style={{ paddingTop: 3 }}>Ledger contention</dt>
 				<dd style={{ margin: 0 }}>
 					{whole.format(stats.contention)} {stats.contention === 1 ? "claim" : "claims"} met another Intent on the same symbol and got Wait, Split or Depend
 				</dd>
-				<dt style={{ color: "var(--ink-soft)" }}>Premises</dt>
+				<dt className="label" style={{ paddingTop: 3 }}>Premises</dt>
 				<dd style={{ margin: 0 }}>
 					{whole.format(metrics.premisesBroken)} broken; {whole.format(metrics.rederives.succeeded)} stale Intents settled without a person
 				</dd>
-				<dt style={{ color: "var(--ink-soft)" }}>Artifacts</dt>
+				<dt className="label" style={{ paddingTop: 3 }}>Artifacts</dt>
 				<dd style={{ margin: 0 }}>
 					Operations ≈ {whole.format(operations)} (a fork for each Intent, then a clone and a push for each commit); est. cost ≈ ${cost.toFixed(2)} at ${USD_PER_1000_OPERATIONS.toFixed(2)} per 1,000. The first{" "}
 					{whole.format(INCLUDED_OPERATIONS_PER_MONTH)} a month are included.

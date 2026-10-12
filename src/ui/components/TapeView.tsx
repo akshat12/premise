@@ -1,4 +1,4 @@
-import { ArrowsClockwise, Bell, Check, CheckCircle, Eye, PencilSimple, X, XCircle } from "@phosphor-icons/react";
+import { ArrowsClockwise, Bell, CheckCircle, Eye, PencilSimple, XCircle } from "@phosphor-icons/react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { IntentId } from "../../shared/types";
 import { jobLine, type StoryStep } from "../lib/story";
@@ -57,8 +57,18 @@ function useWidth<T extends HTMLElement>(): [React.RefObject<T | null>, number] 
 /** A break this recent is drawn in (350ms); an older one is simply there. */
 const FRESH_MS = 1500;
 
-/** Roughly how wide a 12 to 13px label is, with its padding. Close enough to decide whether to draw it. */
-const wide = (label: string, icon = false) => label.length * 6.8 + 16 + (icon ? 18 : 0);
+/** Roughly how wide an uppercase mono label is, with its padding. Close enough to decide whether to draw it. */
+const wide = (label: string, icon = false) => label.length * 7.4 + 18 + (icon ? 18 : 0);
+
+/** One reading in the gate's readout: a label over what was found. */
+function Reading({ label, value, ok }: { label: string; value: string; ok: boolean }) {
+	return (
+		<span className="tape-check" data-ok={ok}>
+			<span className="label">{label}</span>
+			<span className="figure">{value}</span>
+		</span>
+	);
+}
 
 interface MarksProps {
 	row: TapeRow;
@@ -106,7 +116,7 @@ function Marks({ row, tape, width, bare, note, checks }: MarksProps) {
 	const room = end === undefined ? 0 : ((tape.span - end.at) / tape.span) * width;
 	const hit = row.hits[0];
 	// The callout hangs under the break. Near the right edge it is anchored to the right instead, so it stays on the tape.
-	const calloutRight = hit !== undefined && (hit / tape.span) * width > width - 560;
+	const calloutRight = hit !== undefined && (hit / tape.span) * width > width - 600;
 	return (
 		<span className="tape-track" data-bare={bare} aria-hidden="true">
 			{row.segments.map((segment) => (
@@ -133,28 +143,13 @@ function Marks({ row, tape, width, bare, note, checks }: MarksProps) {
 			) : null}
 			{checks !== undefined && hit !== undefined && !bare ? (
 				<span className="tape-checks" style={calloutRight ? { right: 8 } : { left: `calc(${pct(hit)} + 10px)` }}>
-					<b>After the change:</b>
-					<span className="tape-check" data-ok="true">
-						<Check size={14} weight="bold" />
-						its {checks.own} {checks.own === 1 ? "test passes" : "tests pass"}
+					<span className="tape-readings">
+						<Reading label="Its tests" value={`${checks.own} / ${checks.own}`} ok />
+						{checks.reference > 0 ? <Reading label="Reference checks" value={`${checks.reference} / ${checks.reference}`} ok /> : null}
+						{checks.suite > 0 ? <Reading label="Existing tests" value={`${checks.suite} / ${checks.suite}`} ok /> : null}
+						<Reading label="Its premise" value="Failed" ok={false} />
 					</span>
-					{checks.reference > 0 ? (
-						<span className="tape-check" data-ok="true">
-							<Check size={14} weight="bold" />
-							{checks.reference} reference {checks.reference === 1 ? "check passes" : "checks pass"}
-						</span>
-					) : null}
-					{checks.suite > 0 ? (
-						<span className="tape-check" data-ok="true">
-							<Check size={14} weight="bold" />
-							{checks.suite} existing tests pass
-						</span>
-					) : null}
-					<span className="tape-check" data-ok="false">
-						<X size={14} weight="bold" />
-						its premise fails
-					</span>
-					{checks.premise ? <span className="tape-check-premise">The premise it had stated: “{checks.premise}”</span> : null}
+					{checks.premise ? <span className="tape-check-premise">Its premise was: “{checks.premise}”</span> : null}
 				</span>
 			) : null}
 		</span>
@@ -264,10 +259,13 @@ export function TapeView({ tape, workload, layout, selected, onSelect, live, end
 	// (or off either edge) is a numbered marker instead.
 	const fitted = useMemo(() => {
 		let taken = -Infinity;
-		return tape.breaks.map((line) => {
+		return tape.breaks.map((line, index) => {
 			const x = (line.at / tape.span) * width;
 			const size = Math.min(380, wide(line.flag) + 8);
-			const flip = x + size > width;
+			// A flag whose words would run under the next break's marker is written to the left of its line, where there is room.
+			const next = tape.breaks[index + 1];
+			const crowded = next !== undefined && (next.at / tape.span) * width - 14 < x + size;
+			const flip = x + size > width || (crowded && x - size >= Math.max(0, taken + 8));
 			const [from, to] = flip ? [x - size, x] : [x, x + size];
 			const written = !phone && width > 0 && from >= Math.max(0, taken + 8);
 			taken = Math.max(taken, written ? to : x + 12);
@@ -398,7 +396,8 @@ export function TapeView({ tape, workload, layout, selected, onSelect, live, end
 								<span className="tape-relies" data-kind="changes" title={`Changes ${row.changes.join(", ")}`}>
 									<PencilSimple size={14} aria-hidden="true" />
 									<span>
-										Changes <span className="tape-relies-what symbol">{row.changes.slice(0, 2).join(", ")}</span>
+										<span className="tape-relies-label">Changes</span>
+										<span className="tape-relies-what symbol">{row.changes.slice(0, 2).join(", ")}</span>
 										{row.changes.length > 2 ? ` and ${row.changes.length - 2} more` : ""}
 									</span>
 								</span>
@@ -407,7 +406,8 @@ export function TapeView({ tape, workload, layout, selected, onSelect, live, end
 								<span className="tape-relies" data-broken={row.relies.broken} title={`Relies on: ${row.relies.text}`}>
 									<Eye size={14} aria-hidden="true" />
 									<span>
-										Relies on <span className="tape-relies-what">{row.relies.text}</span>
+										<span className="tape-relies-label">{row.relies.broken ? "Relied on" : "Relies on"}</span>
+										<span className="tape-relies-what">{row.relies.text}</span>
 									</span>
 								</span>
 							) : null}
@@ -426,7 +426,7 @@ export function TapeView({ tape, workload, layout, selected, onSelect, live, end
 	);
 
 	return (
-		<section ref={sectionRef} className="tape" data-layout={layout} data-density={density} data-seekable={seekable} aria-label="The agents over time">
+		<section ref={sectionRef} className="tape bracketed" data-layout={layout} data-density={density} data-seekable={seekable} aria-label="The agents over time">
 			{/* Said aloud when it changes: a landing that broke premises, and any Intent that is waiting on a person. */}
 			<p className="tape-sr" aria-live="polite">
 				{[latest?.sentence, ...needing.map((row) => `${row.callsign} needs you.`), ...asked.map((row) => `${row.callsign}: ${row.asks.at(-1)?.tip ?? ""}`)].filter(Boolean).join(" ")}

@@ -33,7 +33,7 @@ export function StoryBar({ steps, index, playing, moving, onStep, onPlay, onPaus
 			<div className="story-text">
 				<div className="story-progress">
 					<span className="story-count">
-						Step {at + 1} of {steps.length}
+						Step {String(at + 1).padStart(2, "0")} / {String(steps.length).padStart(2, "0")}
 					</span>
 					<span className="story-dots">
 						{steps.map((step, position) => (

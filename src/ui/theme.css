@@ -1,23 +1,30 @@
 /* Premise's own tokens. Everything else on screen uses Kumo's semantic tokens.
-   These are for the strip board and the premise states only (see docs/UI.md). */
+   The look is an instrument panel on paper (see docs/UI.md): small uppercase mono labels, large
+   light numerals, hairlines, and one warm accent that means a premise broke. */
 :root {
 	/* Light mode only. Kumo's colours are written with light-dark(), which follows `color-scheme`,
 	   so pinning it here keeps the whole app light whatever the system is set to. */
 	color-scheme: only light;
 
-	--board: #edf0f3;
-	--strip: #fffdf4;
-	--strip-workload: #f2f6fc;
-	--ink: #17202b;
-	--ink-soft: #5a6675;
-	--holds: #23775a;
-	--redpen: #c42f28;
+	--board: #f3f4f2;
+	--surface: #fbfbfa; /* panels: one step lighter than the board */
+	--strip: #fff; /* the rows a step is about */
+	--strip-workload: #f1f3f1;
+	--ink: #14181d;
+	--ink-soft: #5c6470; /* 5.4:1 on the board */
+	--holds: #1b6b4f;
+	--redpen: #c2410c; /* the accent as text or behind white text: 5.2:1 */
+	--accent-line: #e8590c; /* the accent as a line or a dot: 3.5:1, never text */
+	--accent-wash: #fff4ec;
 	--bluestamp: #2b55c2;
 	--amber: #8f5b0e; /* 5.7:1 on white, so it can be text */
-	--rule: #d5dae1;
+	--rule: #dcdfdb;
+	--rule-strong: #c9cdc8;
 
-	--font-callsign: "Barlow Condensed", "Arial Narrow", sans-serif;
-	--font-symbol: "IBM Plex Mono", ui-monospace, monospace;
+	--font-text: "Geist Sans", system-ui, sans-serif;
+	--font-label: "Geist Mono", ui-monospace, monospace;
+	--font-callsign: var(--font-label);
+	--font-symbol: var(--font-label);
 }
 
 html,
@@ -30,13 +37,51 @@ body {
 	margin: 0;
 	background: var(--board);
 	color: var(--ink);
+	font-family: var(--font-text);
 }
 
+/* A name: an agent, the product, a row's heading. */
 .callsign {
 	font-family: var(--font-callsign);
 	font-weight: 600;
 	font-variant-numeric: tabular-nums;
-	letter-spacing: 0.01em;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+}
+/* The small uppercase label that sits over a number or beside a mark. */
+.label {
+	color: var(--ink-soft);
+	font-family: var(--font-label);
+	font-size: 11px;
+	font-weight: 500;
+	letter-spacing: 0.08em;
+	line-height: 14px;
+	text-transform: uppercase;
+}
+/* A number the screen is about: large and light. */
+.figure {
+	font-family: var(--font-text);
+	font-weight: 300;
+	font-variant-numeric: tabular-nums;
+	letter-spacing: -0.01em;
+}
+/* Small black brackets on a panel's corners. The panel must be positioned. */
+.bracketed::after {
+	position: absolute;
+	inset: -1px;
+	z-index: 6;
+	background:
+		linear-gradient(var(--ink), var(--ink)) top left / 10px 2px,
+		linear-gradient(var(--ink), var(--ink)) top left / 2px 10px,
+		linear-gradient(var(--ink), var(--ink)) top right / 10px 2px,
+		linear-gradient(var(--ink), var(--ink)) top right / 2px 10px,
+		linear-gradient(var(--ink), var(--ink)) bottom left / 10px 2px,
+		linear-gradient(var(--ink), var(--ink)) bottom left / 2px 10px,
+		linear-gradient(var(--ink), var(--ink)) bottom right / 10px 2px,
+		linear-gradient(var(--ink), var(--ink)) bottom right / 2px 10px;
+	background-repeat: no-repeat;
+	content: "";
+	pointer-events: none;
 }
 
 .symbol {
@@ -175,20 +220,19 @@ body {
 	align-items: center;
 	height: 20px;
 	padding: 0 5px;
-	border: 2px solid var(--bluestamp);
+	border: 1px solid var(--bluestamp);
 	border-radius: 2px;
 	color: var(--bluestamp);
-	font-size: 14px;
+	font-size: 11px;
 	line-height: 1;
-	transform: rotate(-4deg);
 	animation: stamp-in 120ms ease-out both;
 }
 @keyframes stamp-in {
 	from {
-		transform: rotate(-4deg) scale(1.15);
+		transform: scale(1.15);
 	}
 	to {
-		transform: rotate(-4deg) scale(1);
+		transform: scale(1);
 	}
 }
 
@@ -237,7 +281,7 @@ body {
 /* ---- Drawer ---- */
 .drawer {
 	border-top: 1px solid var(--rule);
-	background: #fff;
+	background: var(--surface);
 	animation: drawer-up 160ms ease-out both;
 }
 @keyframes drawer-up {
@@ -310,11 +354,12 @@ kbd {
 
 /* ---- Planes: the flat white surface the Scale and A/B views sit on ---- */
 .plane {
+	position: relative;
 	max-width: 960px;
 	padding: 24px;
 	border: 1px solid var(--rule);
-	border-radius: 3px;
-	background: #fff;
+	border-radius: 6px;
+	background: var(--surface);
 }
 .facts {
 	display: grid;
@@ -328,7 +373,7 @@ kbd {
 	width: 216px;
 }
 .ab-figure {
-	font-size: 20px;
+	font-size: 26px;
 	line-height: 1;
 }
 
@@ -409,7 +454,7 @@ kbd {
 	gap: 8px;
 	padding: 8px 12px;
 	border-bottom: 1px solid var(--rule);
-	background: #fff;
+	background: var(--surface);
 }
 /* The view tabs scroll sideways rather than push the player off the row. */
 .topbar-scroll {
@@ -566,7 +611,7 @@ kbd {
 		width: 76px;
 	}
 	.ab-figure {
-		font-size: 16px;
+		font-size: 18px;
 		line-height: 1.2;
 	}
 }
@@ -579,14 +624,14 @@ kbd {
 	/* A row's height, and how far down it its bars sit. Roomier rows change these two. */
 	--tape-row: 40px;
 	--tape-pad: 10px;
-	--tape-line: #eceef2;
-	--tape-edge: #8a94a3; /* 3.07:1 on white: the least a bar's outline may be */
+	--tape-line: #eceeea;
+	--tape-edge: #868e97; /* 3.2:1 on the panel: the least a bar's outline may be */
 	position: relative;
 	border: 1px solid var(--rule);
-	border-radius: 3px;
-	background: #fff;
+	border-radius: 6px;
+	background: var(--surface);
 	color: var(--ink);
-	font-family: "Geist Sans", system-ui, sans-serif;
+	font-family: var(--font-text);
 	font-size: 13px;
 }
 .tape[data-layout="medium"] {
@@ -603,7 +648,10 @@ kbd {
 }
 .tape-soft {
 	color: var(--ink-soft);
-	font-size: 12px;
+	font-family: var(--font-label);
+	font-size: 11px;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
 }
 
 /* The header stays put while the rows scroll under it. */
@@ -612,7 +660,8 @@ kbd {
 	top: 0;
 	z-index: 4;
 	border-bottom: 1px solid var(--rule);
-	background: #fff;
+	border-radius: 6px 6px 0 0;
+	background: var(--surface);
 }
 .tape-headrow {
 	display: flex;
@@ -626,6 +675,10 @@ kbd {
 	width: var(--tape-label);
 	padding: 0 8px 0 16px;
 	border-right: 1px solid var(--rule);
+	font-family: var(--font-label);
+	font-size: 11px;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
 }
 .tape-axis {
 	position: relative;
@@ -648,10 +701,12 @@ kbd {
 	top: 3px;
 	padding-left: 6px;
 	color: var(--ink-soft);
-	font-family: "Geist Mono", ui-monospace, monospace;
-	font-size: 12px;
+	font-family: var(--font-label);
+	font-size: 11px;
+	letter-spacing: 0.04em;
 	line-height: 16px;
 }
+/* The playhead's readout: the one solid black mark on the axis. */
 .tape-now-pill {
 	position: absolute;
 	top: 2px;
@@ -659,12 +714,14 @@ kbd {
 	box-sizing: border-box;
 	height: 18px;
 	padding: 0 6px;
-	border: 1px solid var(--ink-soft);
-	border-radius: 3px;
-	background: #fff;
-	font-family: "Geist Mono", ui-monospace, monospace;
-	font-size: 12px;
+	border: 1px solid var(--ink);
+	border-radius: 2px;
+	background: var(--ink);
+	color: #fff;
+	font-family: var(--font-label);
+	font-size: 11px;
 	font-weight: 600;
+	letter-spacing: 0.04em;
 	line-height: 16px;
 	transform: translateX(-50%);
 }
@@ -687,10 +744,12 @@ kbd {
 	border-radius: 3px 3px 3px 0;
 	background: var(--redpen);
 	color: #fff;
-	font: inherit;
-	font-size: 13px;
+	font-family: var(--font-label);
+	font-size: 11px;
 	font-weight: 600;
+	letter-spacing: 0.06em;
 	line-height: 24px;
+	text-transform: uppercase;
 	text-overflow: ellipsis;
 	white-space: nowrap;
 	cursor: pointer;
@@ -703,8 +762,11 @@ kbd {
 	width: 24px;
 	padding: 0;
 	border-radius: 12px;
+	/* It can sit on the end of the flag before it: the ring keeps it a mark of its own. */
+	box-shadow: 0 0 0 2px var(--surface);
 	text-align: center;
 	transform: translateX(-50%);
+	z-index: 1;
 }
 .tape-flag:focus-visible {
 	outline: 2px solid var(--bluestamp);
@@ -742,7 +804,7 @@ kbd {
 	bottom: 0;
 	width: 2px;
 	margin-left: -1px;
-	background: var(--redpen);
+	background: var(--accent-line);
 }
 .tape-diamond {
 	position: absolute;
@@ -750,7 +812,7 @@ kbd {
 	width: 10px;
 	height: 10px;
 	margin-left: -5px;
-	background: var(--redpen);
+	background: var(--accent-line);
 	transform: rotate(45deg);
 }
 
@@ -793,8 +855,8 @@ kbd {
 }
 /* The landing's moment, thin and behind the bars. It is drawn heavy only through the rows it stopped (.tape-hit). */
 .tape-break {
-	background: var(--redpen);
-	opacity: 0.45;
+	background: var(--accent-line);
+	opacity: 0.5;
 }
 .tape-now {
 	background: var(--ink-soft);
@@ -846,7 +908,7 @@ kbd {
 	padding: 0 8px 0 16px;
 	border: 0;
 	border-right: 1px solid var(--rule);
-	background: #fff;
+	background: var(--surface);
 	color: inherit;
 	font: inherit;
 	text-align: left;
@@ -855,7 +917,7 @@ button.tape-label {
 	cursor: pointer;
 }
 button.tape-label:hover {
-	background: #f7f8fa;
+	background: #f4f5f3;
 }
 button.tape-label:focus-visible {
 	outline: 2px solid var(--bluestamp);
@@ -877,19 +939,25 @@ button.tape-label:focus-visible {
 	min-width: 0;
 }
 .tape-callsign {
-	font-size: 18px;
-	line-height: 1;
+	font-size: 12px;
+	line-height: 16px;
 	white-space: nowrap;
 }
 .tape-stamp {
 	height: 16px;
 	padding: 0 3px;
-	border-width: 1.5px;
-	font-size: 12px;
+	font-size: 10px;
 }
 .tape-status {
 	display: inline-flex;
 	min-width: 0;
+}
+/* The status word beside a name is a label like the rest. */
+.tape-status > span {
+	font-family: var(--font-label);
+	font-size: 11px !important;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
 }
 .tape-track {
 	position: relative;
@@ -909,9 +977,12 @@ button.tape-label:focus-visible {
 	overflow: hidden;
 	padding: 0 6px;
 	border: 1px solid var(--tape-edge);
-	border-radius: 2px;
-	font-size: 13px;
+	border-radius: 0;
+	font-family: var(--font-label);
+	font-size: 11px;
+	letter-spacing: 0.06em;
 	line-height: 16px;
+	text-transform: uppercase;
 	white-space: nowrap;
 }
 /* Working is filled; waiting at the gate is the same outline, empty. The difference is not a colour. */
@@ -921,7 +992,7 @@ button.tape-label:focus-visible {
 	color: #3f4753;
 }
 .tape-bar[data-kind="work"] {
-	background: #dde2ea;
+	background: #e4e7e2;
 }
 .tape-bar[data-kind="gate"] {
 	background: #fff;
@@ -938,7 +1009,7 @@ button.tape-label:focus-visible {
 }
 .tape-bar[data-kind="rederive"] {
 	border-color: var(--bluestamp);
-	background: #e4ebfb;
+	background: #e6ecfa;
 	color: var(--bluestamp);
 	font-weight: 600;
 }
@@ -961,7 +1032,7 @@ button.tape-label:focus-visible {
 	right: 0;
 	left: 0;
 	height: 2px;
-	background: var(--redpen);
+	background: var(--accent-line);
 	content: "";
 }
 .tape-stale-label {
@@ -969,12 +1040,15 @@ button.tape-label:focus-visible {
 	top: var(--tape-pad);
 	left: 10px;
 	height: 20px;
-	padding: 0 4px;
+	padding: 0 5px;
 	background: #fff;
 	color: var(--redpen);
-	font-size: 13px;
+	font-family: var(--font-label);
+	font-size: 11px;
 	font-weight: 600;
+	letter-spacing: 0.06em;
 	line-height: 20px;
+	text-transform: uppercase;
 	white-space: nowrap;
 }
 /* Only a break that has just happened is drawn in. Opening the tape later shows it already there. */
@@ -989,7 +1063,7 @@ button.tape-label:focus-visible {
 	z-index: 1;
 	width: 2px;
 	margin-left: -1px;
-	background: var(--redpen);
+	background: var(--accent-line);
 	transform-origin: top;
 }
 [data-fresh="true"] > .tape-hit {
@@ -1013,7 +1087,7 @@ button.tape-label:focus-visible {
 	margin-left: -6px;
 	border: 2px solid #fff;
 	border-radius: 50%;
-	background: var(--redpen);
+	background: var(--accent-line);
 }
 .tape-cap {
 	position: absolute;
@@ -1035,8 +1109,11 @@ button.tape-label:focus-visible {
 	color: var(--redpen);
 }
 .tape-cap-word {
-	font-size: 13px;
+	font-family: var(--font-label);
+	font-size: 11px;
 	font-weight: 600;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
 }
 
 .tape-workrow {
@@ -1045,7 +1122,7 @@ button.tape-label:focus-visible {
 	height: auto;
 	min-height: 48px;
 	border-bottom: 0;
-	background: #f7f8fa;
+	background: var(--strip-workload);
 }
 .tape-workrow .tape-label {
 	padding-top: 6px;
@@ -1053,7 +1130,7 @@ button.tape-label:focus-visible {
 }
 .tape-workrow .tape-label {
 	--band: var(--bluestamp);
-	background: #f7f8fa;
+	background: var(--strip-workload);
 }
 .tape-density-slot {
 	position: absolute;
@@ -1069,8 +1146,8 @@ button.tape-label:focus-visible {
 	box-sizing: border-box;
 	width: 100%;
 	border: 1px solid var(--holds);
-	border-radius: 1px 1px 0 0;
-	background: #dcefe5;
+	border-radius: 0;
+	background: #dcebe3;
 }
 .tape-density-stale {
 	position: absolute;
@@ -1078,7 +1155,7 @@ button.tape-label:focus-visible {
 	bottom: -5px;
 	left: 1px;
 	height: 3px;
-	background: var(--redpen);
+	background: var(--accent-line);
 }
 
 .tape-foot {
@@ -1137,8 +1214,12 @@ button.tape-label:focus-visible {
 	gap: 4px 18px;
 	margin: 0;
 	padding: 0;
-	font-size: 12px;
+	color: var(--ink-soft);
+	font-family: var(--font-label);
+	font-size: 11px;
+	letter-spacing: 0.08em;
 	list-style: none;
+	text-transform: uppercase;
 }
 .tape-key li {
 	display: inline-flex;
@@ -1156,7 +1237,7 @@ button.tape-label:focus-visible {
 	position: relative;
 	width: 22px;
 	height: 12px;
-	background: linear-gradient(var(--redpen), var(--redpen)) 0 5px / 100% 2px no-repeat;
+	background: linear-gradient(var(--accent-line), var(--accent-line)) 0 5px / 100% 2px no-repeat;
 }
 .tape-swatch-break .tape-dot {
 	top: 0;
@@ -1270,7 +1351,7 @@ button.tape-label:focus-visible {
 	gap: 12px;
 	margin: 0;
 	padding: 7px 16px;
-	background: #fff;
+	background: var(--surface);
 	border-bottom: 1px solid var(--rule);
 	font-size: 14px;
 	line-height: 20px;
@@ -1288,8 +1369,8 @@ button.tape-label:focus-visible {
 /* ---- The tape with room: a handful of agents get tall rows that say what each is doing ---- */
 .tape[data-density="roomy"] {
 	--tape-label: 400px;
-	--tape-row: 104px;
-	--tape-pad: 42px;
+	--tape-row: 94px;
+	--tape-pad: 37px;
 	font-size: 14px;
 }
 .tape[data-density="medium"] {
@@ -1316,14 +1397,13 @@ button.tape-label:focus-visible {
 	width: 6px;
 }
 .tape[data-density="roomy"] .tape-callsign {
-	font-size: 22px;
+	font-size: 12px;
 }
 .tape-status-inline {
 	margin-left: auto;
 }
 .tape-job {
 	overflow: hidden;
-	color: var(--ink-soft);
 	font-size: 13px;
 	line-height: 17px;
 	text-overflow: ellipsis;
@@ -1338,7 +1418,19 @@ button.tape-label:focus-visible {
 	color: var(--ink);
 }
 .tape-relies-what.symbol {
-	font-size: 13px;
+	font-size: 12px;
+}
+/* "Changes" and "Relies on": the two labels every Intent has. */
+.tape-relies-label {
+	margin-right: 4px;
+	color: var(--ink-soft);
+	font-family: var(--font-label);
+	font-size: 11px;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+}
+.tape-relies[data-broken="true"] .tape-relies-label {
+	color: var(--redpen);
 }
 .tape-relies {
 	display: flex;
@@ -1359,7 +1451,7 @@ button.tape-label:focus-visible {
 	white-space: nowrap;
 }
 .tape-relies-what {
-	font-weight: 600;
+	font-weight: 500;
 }
 .tape-relies[data-broken="true"] {
 	color: var(--redpen);
@@ -1381,52 +1473,77 @@ button.tape-label:focus-visible {
 .tape-note {
 	margin-left: 4px;
 	color: var(--ink-soft);
-	font-size: 13px;
+	font-family: var(--font-label);
+	font-size: 11px;
 	font-weight: 500;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
 	white-space: nowrap;
 }
 /* What the gate ran on work whose tests all passed: three ticks and one cross, under the row's bars. */
 .tape-row[data-callout="true"] {
-	--tape-row: 176px;
+	--tape-row: 168px;
 }
 .tape-checks {
 	position: absolute;
-	top: calc(var(--tape-pad) + 34px);
+	top: calc(var(--tape-pad) + 32px);
 	z-index: 3;
 	display: flex;
-	flex-wrap: wrap;
-	align-items: center;
-	gap: 4px 16px;
+	flex-direction: column;
 	max-width: calc(100% - 16px);
 	box-sizing: border-box;
-	padding: 9px 14px;
-	border: 1px solid var(--redpen);
-	border-radius: 6px;
+	overflow: hidden;
+	border: 1px solid var(--ink);
+	border-radius: 4px;
 	background: #fff;
 	color: var(--ink);
-	font-size: 14px;
 	animation: story-in 260ms ease-out 120ms both;
 }
+.tape-readings {
+	display: flex;
+}
+/* One reading: a label over what the gate found. */
 .tape-check {
-	display: inline-flex;
-	align-items: center;
-	gap: 5px;
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	flex: 1 0 auto;
+	min-width: 96px;
+	padding: 7px 18px 8px 14px;
 	white-space: nowrap;
 }
-.tape-check-premise {
-	flex-basis: 100%;
-	overflow: hidden;
-	color: var(--ink-soft);
-	font-size: 13px;
-	text-overflow: ellipsis;
-	white-space: nowrap;
+.tape-check + .tape-check {
+	border-left: 1px solid var(--rule);
 }
-.tape-check[data-ok="true"] {
-	color: #1b5e46;
+.tape-check > .figure {
+	font-size: 21px;
+	line-height: 24px;
+}
+.tape-check[data-ok="true"] > .figure {
+	color: var(--holds);
 }
 .tape-check[data-ok="false"] {
+	background: var(--accent-wash);
+}
+.tape-check[data-ok="false"] > .label,
+.tape-check[data-ok="false"] > .figure {
 	color: var(--redpen);
-	font-weight: 600;
+}
+.tape-check[data-ok="false"] > .figure {
+	font-weight: 500;
+}
+/* The sentence takes the readings' width and is cut to fit it; it never makes the readout wider. */
+.tape-check-premise {
+	width: 0;
+	min-width: 100%;
+	box-sizing: border-box;
+	overflow: hidden;
+	padding: 5px 14px 6px;
+	border-top: 1px solid var(--rule);
+	color: var(--ink-soft);
+	font-size: 12.5px;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 
 /* ---- The story bar: the run in one sentence at a time ---- */
@@ -1436,10 +1553,8 @@ button.tape-label:focus-visible {
 	flex-wrap: wrap;
 	align-items: center;
 	gap: 14px 32px;
-	padding: 18px 24px 20px;
-	border-bottom: 1px solid var(--rule);
-	background: #fff;
-	font-family: "Geist Sans", system-ui, sans-serif;
+	padding: 20px 24px 4px;
+	font-family: var(--font-text);
 }
 .story-text {
 	flex: 1;
@@ -1453,21 +1568,24 @@ button.tape-label:focus-visible {
 }
 .story-count {
 	color: var(--ink-soft);
-	font-size: 13px;
-	font-weight: 600;
+	font-family: var(--font-label);
+	font-size: 11px;
+	font-variant-numeric: tabular-nums;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
 }
 .story-dots {
 	display: flex;
-	gap: 6px;
+	gap: 4px;
 }
 .story-dot {
 	position: relative;
-	width: 26px;
-	height: 6px;
+	width: 28px;
+	height: 3px;
 	padding: 0;
 	border: 0;
-	border-radius: 3px;
-	background: var(--rule);
+	border-radius: 0;
+	background: var(--rule-strong);
 	cursor: pointer;
 	transition: background-color 160ms linear;
 }
@@ -1481,7 +1599,7 @@ button.tape-label:focus-visible {
 	background: var(--ink);
 }
 .story-dot[data-state="now"] {
-	background: var(--bluestamp);
+	background: var(--accent-line);
 }
 .story-dot:focus-visible {
 	outline: 2px solid var(--bluestamp);
@@ -1490,10 +1608,10 @@ button.tape-label:focus-visible {
 .story-title {
 	max-width: 1040px;
 	margin: 0;
-	font-size: 30px;
-	font-weight: 600;
-	letter-spacing: -0.01em;
-	line-height: 1.2;
+	font-size: 34px;
+	font-weight: 500;
+	letter-spacing: -0.02em;
+	line-height: 1.14;
 	animation: story-in 280ms ease-out both;
 }
 .story-body {
@@ -1519,13 +1637,22 @@ button.tape-label:focus-visible {
 	flex: none;
 	align-items: center;
 	gap: 8px;
+	/* Kumo's emphasis button takes its colours from the brand colour. Here it is ink: the accent is kept for the premise break. */
+	--color-kumo-brand: var(--ink);
+}
+.story-controls button {
+	border-radius: 4px;
+	font-family: var(--font-label);
+	font-size: 12px;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
 }
 @media (max-width: 767px) {
 	.story {
-		padding: 12px;
+		padding: 12px 12px 0;
 	}
 	.story-title {
-		font-size: 21px;
+		font-size: 22px;
 	}
 	.story-body {
 		font-size: 14px;
@@ -1555,20 +1682,49 @@ button.tape-label:focus-visible {
 	box-sizing: border-box;
 	padding: 6px 24px;
 	border-bottom: 1px solid var(--rule);
-	background: #fff;
+	background: var(--surface);
 }
 .simplebar-name {
-	font-size: 26px;
+	font-size: 13px;
+	letter-spacing: 0.14em;
 	line-height: 1;
+}
+.simplebar-rule {
+	flex: none;
+	width: 1px;
+	height: 16px;
+	background: var(--rule);
 }
 .simplebar-tagline {
 	min-width: 0;
 	overflow: hidden;
-	color: var(--ink-soft);
-	font-family: "Geist Sans", system-ui, sans-serif;
-	font-size: 14px;
 	text-overflow: ellipsis;
 	white-space: nowrap;
+}
+/* Says that this is a recording being played back, not agents running now. */
+.simplebar-replay {
+	display: inline-flex;
+	flex: none;
+	align-items: center;
+	gap: 6px;
+	margin-left: auto;
+	color: var(--redpen);
+}
+.simplebar-replay::before {
+	width: 7px;
+	height: 7px;
+	border-radius: 50%;
+	background: var(--accent-line);
+	content: "";
+}
+.simplebar-replay + .simplebar-views {
+	margin-left: 0;
+}
+.simplebar-views button {
+	font-family: var(--font-label);
+	font-size: 11px;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
 }
 .simplebar-views {
 	flex: none;
@@ -1578,6 +1734,80 @@ button.tape-label:focus-visible {
 	padding: 6px 12px;
 	gap: 8px;
 }
-.simplebar[data-layout="medium"] .simplebar-tagline {
+.simplebar[data-layout="medium"] .simplebar-tagline,
+.simplebar[data-layout="medium"] .simplebar-rule {
 	display: none;
+}
+.simplebar[data-layout="phone"] .simplebar-replay {
+	display: none;
+}
+
+/* ---- The run in numbers: a strip of readings under the story ---- */
+.figures {
+	display: grid;
+	flex: none;
+	grid-template-columns: repeat(5, minmax(0, 1fr));
+	margin: 12px 24px 0;
+	border: 1px solid var(--rule);
+	border-radius: 6px;
+	background: var(--surface);
+}
+.figures-cell {
+	display: flex;
+	flex-direction: column;
+	min-width: 0;
+	padding: 8px 16px 8px;
+}
+.figures-cell + .figures-cell {
+	border-left: 1px solid var(--rule);
+}
+.figures-cell > .label {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+.figures-cell > .figure {
+	font-size: 30px;
+	line-height: 32px;
+}
+.figures-cell[data-tone="accent"] > .figure {
+	color: var(--redpen);
+}
+.figures-cell[data-tone="good"] > .figure {
+	color: var(--holds);
+}
+.figures-sub {
+	font-size: 11px;
+	letter-spacing: 0.06em;
+}
+@media (max-width: 1279px) {
+	.figures {
+		margin: 12px 12px 0;
+	}
+	.figures-sub {
+		display: none;
+	}
+}
+/* A short window gives the tape the room: smaller readings, then none. */
+@media (max-height: 820px) {
+	.figures-sub {
+		display: none;
+	}
+	.figures-cell > .figure {
+		font-size: 24px;
+		line-height: 26px;
+	}
+}
+@media (max-height: 680px) {
+	.figures {
+		display: none;
+	}
+}
+
+/* ---- The line under the page ---- */
+.builton {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 4px 16px 0;
 }

@@ -68,7 +68,7 @@ export function TopBar({ metrics, trunk, live, marker, layout, views, mode, tran
 		return (
 			<header className="topbar-narrow">
 				<div className="flex items-center gap-3">
-					<span className="callsign" style={{ fontSize: 24, lineHeight: 1 }}>
+					<span className="callsign" style={{ fontSize: 13, letterSpacing: "0.14em", lineHeight: 1 }}>
 						Premise
 					</span>
 					<LivePill state={live} />
@@ -116,7 +116,7 @@ export function TopBar({ metrics, trunk, live, marker, layout, views, mode, tran
 	return (
 		<header className="flex items-center gap-5 px-4" style={{ position: "relative", height: 56, background: "#fff", borderBottom: "1px solid var(--rule)", flex: "none" }}>
 			<div className="flex items-baseline gap-3" style={{ flex: "none", whiteSpace: "nowrap" }}>
-				<span className="callsign" style={{ fontSize: 24, lineHeight: 1 }}>
+				<span className="callsign" style={{ fontSize: 13, letterSpacing: "0.14em", lineHeight: 1 }}>
 					Premise
 				</span>
 				<Tooltip content={trunk ?? "Nothing has landed yet"}>
