@@ -56,9 +56,11 @@ interface CardProps {
 	token: string;
 	named: (text: string) => string;
 	onNeedToken: () => void;
+	nameOf?: (id: IntentId) => string;
 }
 
-function HumanCard({ inline, intent, other, readOnly, token, named, onNeedToken }: CardProps) {
+function HumanCard({ inline, intent, other, readOnly, token, named, nameOf, onNeedToken }: CardProps) {
+	const shortName = (subject: IntentView) => nameOf?.(subject.id) ?? callsign(subject).split(" ")[0];
 	const [applied, setApplied] = useState<Choice | null>(null);
 	const [error, setError] = useState<string | null>(null);
 	const [busy, setBusy] = useState(false);
@@ -96,13 +98,13 @@ function HumanCard({ inline, intent, other, readOnly, token, named, onNeedToken 
 				<Bell size={14} weight="fill" color="var(--amber)" aria-hidden="true" style={{ flex: "none" }} />
 				<span>
 					<span className="callsign" style={{ fontSize: 14 }}>
-						{callsign(intent).split(" ")[0]}
+						{shortName(intent)}
 					</span>
 					{other ? (
 						<>
 							{" and "}
 							<span className="callsign" style={{ fontSize: 14 }}>
-								{callsign(other).split(" ")[0]}
+								{shortName(other)}
 							</span>
 							{" both want "}
 						</>
@@ -178,13 +180,15 @@ interface HumanCardsProps {
 	readOnly: boolean;
 	token: string;
 	named: (text: string) => string;
+	/** What an Intent is called on screen ("Agent 5", or its callsign). */
+	nameOf?: (id: IntentId) => string;
 	onNeedToken: () => void;
 	/** Narrow screens: the cards sit at the top of the page's content instead of floating over its corner. */
 	inline?: boolean;
 }
 
 /** One card for each Intent that is waiting for a person, stacked at the top right. */
-export function HumanCards({ cards, intents, readOnly, token, named, onNeedToken, inline = false }: HumanCardsProps) {
+export function HumanCards({ cards, intents, readOnly, token, named, nameOf, onNeedToken, inline = false }: HumanCardsProps) {
 	if (cards.length === 0) {
 		return null;
 	}
@@ -192,7 +196,7 @@ export function HumanCards({ cards, intents, readOnly, token, named, onNeedToken
 		<div className="human-cards flex flex-col gap-2" style={inline ? { marginBottom: 12 } : { position: "fixed", top: 64, right: 12, zIndex: 20 }} aria-live="polite">
 			{cards.map((intent) => {
 				const otherId = waitingOn(intent);
-				return <HumanCard key={intent.id} inline={inline} intent={intent} other={otherId === undefined ? undefined : intents[otherId]} readOnly={readOnly} token={token} named={named} onNeedToken={onNeedToken} />;
+				return <HumanCard key={intent.id} inline={inline} intent={intent} other={otherId === undefined ? undefined : intents[otherId]} readOnly={readOnly} token={token} named={named} {...(nameOf ? { nameOf } : {})} onNeedToken={onNeedToken} />;
 			})}
 		</div>
 	);

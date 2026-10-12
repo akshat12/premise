@@ -373,7 +373,7 @@ export function App() {
 	};
 	const toggleSelected = (id: IntentId) => setSelected((current) => (current === id ? null : id));
 	// A card that needs a person sits above the tape: floating over its corner, it would cover "now", the part being watched.
-	const humanCards = <HumanCards inline cards={cards} intents={state.intents} readOnly={mode === "replay"} token={token} named={named} onNeedToken={() => setDispatching(true)} />;
+	const humanCards = <HumanCards inline cards={cards} intents={state.intents} readOnly={mode === "replay"} token={token} named={named} nameOf={callsignOf} onNeedToken={() => setDispatching(true)} />;
 	const storied = story !== null && story.steps.length > 0 && still === null;
 	return (
 		<div className="flex h-full flex-col" style={wide ? { minWidth: 1280 } : undefined}>

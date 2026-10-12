@@ -107,10 +107,15 @@ export function storyFor(events: readonly PremiseEvent[], caption: (position: nu
 	const landingIndex = events.findIndex((event) => event.t === "trunk.advanced" && event.commit === commit);
 	const landing = landingIndex === -1 ? undefined : events[landingIndex];
 	const typesChanged = landing?.t === "trunk.advanced" && landing.changedSymbols.length > 0;
-	// Everything the landing broke, and the status changes that followed straight after.
+	// Everything the landing broke, and each stopped Intent's change of status, which follows within a moment
+	// (other events can fall in between, so it is looked for by Intent, not by position).
 	let stoppedAt = (broken.at(-1)?.index ?? breakIndex) + 1;
-	while (stoppedAt < events.length && events[stoppedAt]?.t === "intent.status" && (events[stoppedAt]?.ts ?? 0) - (events[stoppedAt - 1]?.ts ?? 0) < 400) {
-		stoppedAt++;
+	for (const id of stoppedIds) {
+		const from = broken.find((item) => item.id === id)?.index ?? breakIndex;
+		const told = events.findIndex((event, index) => index > from && event.t === "intent.status" && event.id === id && event.status === "stale");
+		if (told !== -1 && (events[told]?.ts ?? 0) - (events[from]?.ts ?? 0) < 3000) {
+			stoppedAt = Math.max(stoppedAt, told + 1);
+		}
 	}
 
 	// What became of each stopped Intent.

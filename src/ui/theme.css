@@ -1297,6 +1297,11 @@ button.tape-label:focus-visible {
 	--tape-row: 50px;
 	--tape-pad: 15px;
 }
+/* A row a step is about shows what it relies on as well, so it needs a third line. */
+.tape[data-density="medium"] .tape-row[data-focus="true"] {
+	--tape-row: 68px;
+	--tape-pad: 24px;
+}
 .tape[data-layout="medium"][data-density="roomy"] {
 	--tape-label: 280px;
 }
