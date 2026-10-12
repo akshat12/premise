@@ -2,7 +2,7 @@
 
 **A queue that only typechecks shipped 3 behavioural regressions and sent 0 of 12 tasks back to a person; a queue that also runs the tests shipped 1 behavioural regression and sent 2 of 12 tasks back to a person; Premise shipped 0 behavioural regressions and sent 0 of 12 tasks back to a person.**
 
-Run on 2026-10-11 against https://premise.akshatdivekar.workers.dev. Every rule ran the same 12 demo tasks and the same scripted workload (100 Intents), each on its own fresh copy of trunk, for seeds 7, 11, 23. Where the seeds disagree, a cell gives the lowest and the highest value.
+Run on 2026-10-12 against https://premise.akshatdivekar.workers.dev. Every rule ran the same 12 demo tasks and the same scripted workload (100 Intents), each on its own fresh copy of trunk, for seeds 7, 11, 23. Where the seeds disagree, a cell gives the lowest and the highest value.
 
 - **Typecheck only** lands whatever rebases cleanly and typechecks. No tests, no claims, no premises, no re-derive.
 - **Queue with tests** also runs the change's own tests, the task's reference checks and every test already on trunk, after the rebase. This is the fair comparison: it is what a careful team's queue does. It still has no claims, no premises and no re-derive, so what it turns away goes back to its author.
@@ -13,7 +13,7 @@ Run on 2026-10-11 against https://premise.akshatdivekar.workers.dev. Every rule 
 
 Read the table knowing how the run is set up. None of this is hidden in the code, and none of it is a measurement of real teams.
 
-- **The breaking change is planted and lands first.** One task changes how `verifySession` reports an expired session; three others are written against the old behaviour. The run holds the other eleven tasks at the gate until that one has landed, in every mode, so all three modes see the same order.
+- **The breaking change is planted and lands first.** One task changes how `verifySession` reports an expired session; three others are written against the old behaviour. The run holds every other landing, the scripted workload included, until that one has landed, in every mode, so all three modes see the same order.
 - **Two of the three dependents have tests that catch it.** After the rebase their own tests fail, so a queue that runs tests turns them away just as Premise does. The difference there is what happens next: the queue stops, and Premise re-derives the work and lands it.
 - **The third dependent is the case tests miss, and it is built to be.** Its tests check the rate limiter with a stand-in for the session check, the way unit tests often do. The stand-in still throws, so every test passes after the rebase while the real path is broken. Only its premise (an executable assertion about the real `verifySession`) fails. An end-to-end probe that no rule runs before landing is what counts it as a regression.
 - **The agents here are scripted.** Their turns are generated from the reference solutions, including the assertion each dependent makes. Whether a model makes that assertion unprompted is a separate question; see the README.
@@ -25,19 +25,19 @@ Read the table knowing how the run is set up. None of this is hidden in the code
 | Demo tasks sent back to a person | 0 of 12 | 2 of 12 | 0 of 12 |
 | Stopped Intents redone and landed with nobody involved | 0 | 0 | 3 |
 | Broken builds on trunk | 0 | 0 | 0 |
-| Scripted workload Intents that did not land | 9 to 11 | 10 to 11 | 12 to 14 |
-| Human merges | 9 to 11 | 10 to 11 | 0 |
-| Intents landed | 84 of 93 to 99 of 110 | 94 of 107 to 98 of 111 | 93 of 107 to 100 of 112 |
-| Premises broken | 0 | 0 | 20 to 26 |
-| Stopped Intents a plain rebase settled | 0 | 0 | 14 to 22 |
-| False positives: agents | n/a | n/a | 0% (0 of 3) to 25% (1 of 4) |
-| False positives: scripted workload | n/a | n/a | 100% (14 of 14) to 100% (21 of 21) |
-| Turned away at the gate | 9 text, 0 type, 0 checks to 11 text, 0 type, 0 checks | 10 text, 0 type, 2 checks to 11 text, 0 type, 2 checks | 0 text, 0 type, 0 checks to 0 text, 0 type, 3 checks |
-| Gave up waiting for a claim | 0 | 0 | 12 to 14 |
-| Landings per minute | 56.2 to 70.3 | 64.6 to 71.4 | 41.5 to 54.1 |
-| Wall time | 84.5 s to 89.8 s | 79.0 s to 91.1 s | 103.2 s to 144.5 s |
+| Scripted workload Intents that did not land | 11 | 11 | 11 to 15 |
+| Human merges | 11 | 11 | 0 |
+| Intents landed | 96 of 107 to 101 of 112 | 98 of 111 to 99 of 112 | 97 of 112 to 101 of 112 |
+| Premises broken | 0 | 0 | 19 to 40 |
+| Stopped Intents a plain rebase settled | 0 | 0 | 14 to 25 |
+| False positives: agents | n/a | n/a | 0% (0 of 3) |
+| False positives: scripted workload | n/a | n/a | 100% (14 of 14) to 100% (25 of 25) |
+| Turned away at the gate | 11 text, 0 type, 0 checks | 11 text, 0 type, 2 checks | 0 text, 0 type, 0 checks to 0 text, 0 type, 3 checks |
+| Gave up waiting for a claim | 0 | 0 | 11 to 15 |
+| Landings per minute | 48.2 to 50.0 | 38.9 to 45.1 | 32.3 to 38.2 |
+| Wall time | 115.3 s to 125.6 s | 130.4 s to 152.6 s | 155.6 s to 187.6 s |
 | Reference checks and probes failing at the end | 3 | 1 | 0 |
-| Forks created | 93 to 110 | 107 to 111 | 110 to 115 |
+| Forks created | 107 to 112 | 111 to 112 | 115 |
 
 ## What the numbers mean
 

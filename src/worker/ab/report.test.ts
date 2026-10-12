@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { emptyCounters } from "../metrics";
 import { hiddenTestFile, hiddenTests, newlyRed, probeFile, redTests, testKey } from "./regress";
-import { buildReport, type ModeResult, renderMarkdown, spread, sumOfNumbers, type Trial } from "./report";
+import { buildReport, type ModeResult, renderMarkdown, shareCount, spread, sumOfNumbers, type Trial } from "./report";
 
 const result = (mode: ModeResult["mode"], fields: Partial<ModeResult> = {}): ModeResult => ({
 	...emptyCounters(),
@@ -77,6 +77,9 @@ describe("buildReport", () => {
 		// A cell that holds several counts is ordered by their total, not by the zero it starts with.
 		expect(spread(["0 text, 0 type, 0 checks", "0 text, 0 type, 3 checks", "0 text, 0 type, 2 checks"], sumOfNumbers)).toBe("0 text, 0 type, 0 checks to 0 text, 0 type, 3 checks");
 		expect(sumOfNumbers("2 text, 1 type, 4 checks")).toBe(7);
+		// Shares that are all 100% are ordered by how many they count, not left in the order the runs were made.
+		expect(spread(["100% (14 of 14)", "100% (25 of 25)", "100% (19 of 19)"], shareCount)).toBe("100% (14 of 14) to 100% (25 of 25)");
+		expect(spread(["0% (0 of 3)", "25% (1 of 4)"], shareCount)).toBe("0% (0 of 3) to 25% (1 of 4)");
 		const trials = [trial(7, { behaviouralRegressionsOnTrunk: 3, humanMerges: 11 }), trial(11, { behaviouralRegressionsOnTrunk: 3, humanMerges: 9 }), trial(23, { behaviouralRegressionsOnTrunk: 3, humanMerges: 14 })];
 		const rows = Object.fromEntries(buildReport(trials).table.map((row) => [row.metric, row.baseline]));
 		expect(rows["Behavioural regressions that reached trunk"]).toBe("3");

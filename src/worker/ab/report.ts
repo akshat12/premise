@@ -87,6 +87,9 @@ export function spread(values: readonly string[], order: (value: string) => numb
 /** Orders a cell that holds several counts ("0 text, 0 type, 3 checks") by their total. `parseFloat` would read only the first. */
 export const sumOfNumbers = (value: string): number => (value.match(/\d+/g) ?? []).reduce((sum, digits) => sum + Number(digits), 0);
 
+/** Orders a share ("100% (19 of 19)") by how many it counts, so three runs at 100% are still given lowest to highest. */
+export const shareCount = (value: string): number => Number(/\((\d+) of/.exec(value)?.[1] ?? Number.NaN);
+
 /** Tasks dispatched that are not on trunk at the end: someone has to pick each one up. */
 export const tasksSentBack = (result: ModeResult): number => result.tasksDispatched - result.tasksLanded;
 /** Scripted workload Intents that are not on trunk at the end. */
@@ -134,12 +137,12 @@ export function buildReport(trials: readonly Trial[]): { table: Row[]; headline:
 		{ metric: "Stopped Intents a plain rebase settled", ...each((r) => String(r.races.rebaseWon)) },
 		{
 			metric: "False positives: agents",
-			...each((r) => share(r.agentRaces)),
+			...each((r) => share(r.agentRaces), shareCount),
 			note: "Of the agents' Intents that were stopped, the share whose plain rebase then passed the whole gate: the broken premise cost time and changed nothing.",
 		},
 		{
 			metric: "False positives: scripted workload",
-			...each((r) => share(workloadRaces(r))),
+			...each((r) => share(workloadRaces(r)), shareCount),
 			note: "The same for the scripted workload. These Intents have no tests or assertions of their own, so a stopped one whose rebase is clean and passes trunk's suite always counts here. Read it as the cost of treating every type-surface change as a broken premise.",
 		},
 		{ metric: "Turned away at the gate", ...each((r) => `${r.rejected.textConflicts} text, ${r.rejected.typecheck} type, ${r.rejected.checks} checks`, sumOfNumbers), note: "Text conflicts, type errors after rebase, and failed tests or assertions (the first rule runs neither)." },

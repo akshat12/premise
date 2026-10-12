@@ -24,24 +24,24 @@ The case the demo is built around, with four agents (the page calls them Agent 1
 
 ## What the comparison shows, and what it does not
 
-The same 12 tasks and 100 scripted workload Intents, landed under three rules, on seeds 7, 11 and 23, on the deployed Worker and real Artifacts (2026-10-11). The first two rules are comparisons; the middle one is the fair one.
+The same 12 tasks and 100 scripted workload Intents, landed under three rules, on seeds 7, 11 and 23, on the deployed Worker and real Artifacts (2026-10-12, on the build that is deployed now). The first two rules are comparisons; the middle one is the fair one.
 
 | | Typecheck only | Queue that also runs tests | Premise |
 |---|---|---|---|
 | Behavioural regressions that reached trunk | 3 | 1 | 0 |
 | Demo tasks sent back to a person | 0 of 12 | 2 of 12 | 0 of 12 |
 | Stopped Intents redone and landed with nobody involved | 0 | 0 | 3 |
-| Scripted workload Intents that did not land | 9 to 11 | 10 to 11 | 12 to 14 |
-| Wall time | 85 to 90 s | 79 to 91 s | 103 to 145 s |
+| Scripted workload Intents that did not land | 11 | 11 | 11 to 15 |
+| Wall time | 115 to 126 s | 130 to 153 s | 156 to 188 s |
 
 Read it knowing how the run is set up:
 
-- **The breaking change is planted, and it lands before any other task** in every run. (In these runs a scripted workload landing could still come first; the gate has since been changed to hold those too.) This shows a mechanism working. It is not a measurement of how often real teams hit this.
+- **The breaking change is planted, and it lands first** in every run: the gate holds every other landing, the scripted workload included, until it has. This shows a mechanism working. It is not a measurement of how often real teams hit this.
 - **A queue that runs tests catches two of the three.** Their own tests fail after the rebase. There the difference is only what happens next: the queue turns the work away and stops, and Premise re-derives it and lands it.
 - **The third is the case tests miss, and it is built to be.** Its tests check the rate limiter with a stand-in for the session check, the way unit tests often do. The stand-in still throws, so every test passes after the rebase while the real path is broken. Only its premise, an executable assertion about the real `verifySession`, is red. A premise is the assumption a stand-in encodes, checked against the real thing.
-- **Premise is slower and lands fewer workload Intents.** Scripted Intents that want a symbol another Intent holds give up after three more tries. In the two queues the same collisions are text conflicts for a person.
-- **Most broken premises change nothing.** Nearly all are type-surface changes, and every one of the 14 to 21 workload Intents they turned stale passed the whole gate on a plain rebase a second later. Of the agents' stale Intents, 0 or 1 in each run did.
-- **The agents are scripted,** and Artifacts refused some forks under load: each run asks for 112 Intents, and between 93 and 112 of them got a fork, so the totals differ between runs. For each rule, the outcome for the twelve tasks was the same on every seed.
+- **Premise is slower, and lands the same number of workload Intents or fewer.** Scripted Intents that want a symbol another Intent holds give up after three more tries. In the two queues the same collisions are text conflicts for a person.
+- **Most broken premises change nothing.** Nearly all are type-surface changes, and every one of the 14 to 25 workload Intents they turned stale passed the whole gate on a plain rebase a second later. None of the agents' three stale Intents did, in any run: each needed the re-derive.
+- **The agents are scripted,** and Artifacts refused some forks under load: each run asks for 112 Intents, and between 107 and 112 of them got a fork, so the totals differ between runs. For each rule, the outcome for the twelve tasks was the same on every seed.
 
 Every row, what it means, and the per-seed results are in [docs/ab-results.md](docs/ab-results.md).
 
@@ -53,7 +53,7 @@ Every row, what it means, and the per-seed results are in [docs/ab-results.md](d
 - **With a live model:** <https://premise.akshatdivekar.workers.dev/?demo=live> replays the same four tasks with Gemini 3.5 Flash-Lite as every agent. See "What a model does on its own" for what happened.
 - **Video:** _link to come_.
 
-The agents in the first two demo recordings are scripted: their turns are generated from reference solutions, so a run is repeatable and needs no model key. Everything else is real: the forks, pushes, typechecks, tests, premise checks and landings happened on Cloudflare on 2026-10-11, and the replay is that run's event log.
+The agents in the first two demo recordings are scripted: their turns are generated from reference solutions, so a run is repeatable and needs no model key. Everything else is real: the forks, pushes, typechecks, tests, premise checks and landings happened on Cloudflare on 2026-10-11, and the replay is that run's event log. (The comparison above was run again on 2026-10-12; the two recordings were not.)
 
 ![Step 6: after the change, Agent 4's own tests, the reference checks and every existing test pass, and its premise fails](docs/screens/story-premise.jpg)
 

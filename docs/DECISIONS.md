@@ -979,3 +979,11 @@ Every failure from the first pass was confirmed fixed. Two things came back.
 - The verifier's third pass on `4478e00` said ready: cold `npm test` 941 passed and 4 skipped, its earlier tests still green, no regression from new break attempts. That commit was deployed (Worker version `8e79abae`); `/api/gate` reports version 8.
 - **After the deploy, one change it recommended:** an assertion written through a namespace import was filed under the first export the namespace lists, so a break asked the redo about the wrong symbol. `assertionSymbol` now uses `callsFunction`, which sees the namespace call.
 - For about fifteen seconds after a deploy a request for the new stylesheet can be answered with the page itself (the single-page fallback), so the page comes up unstyled until reloaded. Do not deploy while someone is being shown the site.
+
+### The comparison, run again on the deployed build (Oct 12, evening)
+
+- **Why.** The committed numbers were from Oct 11, before the hold covered the workload and before rebase landings were measured for regressions. Running it again also put the day's gate changes through about a thousand real forks and landings.
+- **Result** (real Artifacts, n = 100, seeds 7, 11, 23, Worker version `8e79abae`): the headline rows are unchanged. Regressions 3 / 1 / 0; tasks sent back 0 / 2 / 0 of 12; stopped Intents redone and landed 0 / 0 / 3; broken builds 0 / 0 / 0. In Premise mode all twelve tasks landed on every seed, no re-derive failed, nobody was asked.
+- **What moved.** Wall time is longer in every mode (115 to 126 s, 130 to 153 s, 156 to 188 s; it was 85 to 90, 79 to 91, 103 to 145), most likely because every landing now waits for the planted change. Workload Intents that did not land: 11 / 11 / 11 to 15. No agent Intent landed on a plain rebase this time (it was 0 or 1), so the measurement gap did not arise. Forks per run: 107 to 112.
+- **A second slip of the same kind in the table:** the false-positive rows are shares ("100% (19 of 19)"), and three runs at 100% were left in the order they were made, so the range read "14 of 14 to 19 of 19" when one run had 25. `shareCount` orders them by the count. Re-rendered from the stored trials.
+- The Oct 11 results are not kept in the repo; `git show 35ef6d6:docs/ab-results.json` has them.
