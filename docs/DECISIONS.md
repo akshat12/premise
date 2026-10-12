@@ -911,3 +911,44 @@ At the user's request four reviewer agents graded the project against the offici
 - **Kumo's primary button** takes its colours from `--color-kumo-brand` through inline variables, so `.story-controls` sets that variable to ink.
 - **A crowded flag** (the next break lands under its words) is written to the left of its line when there is room. In the twelve-agent recording there is not, so the second break's numbered marker sits on the first flag with a ring round it. Known and left.
 - **Counter strip wording.** "Premises broken" is the log's own count, so in the larger run it includes the scripted workload's (28 at step 5). "Problems on trunk" is behavioural regressions plus broken builds; it shows 1 for the live-model run.
+
+## 2026-10-12, afternoon: an audit by four reviewers, and what it changed
+
+The user asked what was still wrong. Four read-only reviews ran in parallel (a clean-clone run of the README, docs against code, the Worker, the UI) and the screens were walked by hand. What follows is what was found and done; each item was checked by a test or in the browser.
+
+### The gate and the agent (types.ts changed: `Intent.stopped`)
+
+- **A redo the gate turned back as "the same as the stopped work" landed a moment later.** The check was only on the re-derive path; the next race tried the same commit as a plain rebase, which had no such check. `startRace` now asks `redoneTheSame` first and skips the rebase.
+- **What a redo is compared with is now recorded, not guessed.** `Intent.stopped = { work, over }` is set in `startRace` when a premise the Intent had asserted broke: `work` is the push that was stopped (null if it had not pushed), `over` the premises. It is kept across later attempts. Before, the comparison was with "the attempt before", so a scripted agent's second re-derive (always the same files) was turned back and only landed through the bypass above. Closing the bypass alone would have sent those to a person. This is why `src/shared/types.ts` gained an optional field.
+- **Known cost.** Work that was right all along, stopped over a premise it did not need, and redone identically, is turned back; after two tries a person is asked. In the README's limitations.
+- **The redo rule is asked again on later attempts** (it used to lapse after the first, because the broken premises are cleared at restart), is answered by an assertion that *calls* the symbol whatever it is filed under (it used to depend on the order of `imports`), and is not asked about a symbol that is gone.
+- **`assert_premise` checks a `symbol` the agent names:** a real id, an exported symbol, in a file the check imports and mentions. A malformed id used to be stored and then break `land` and `fail`.
+- **Landings by rebase were never measured for regressions** (`afterLanding` was not called from `race()`). It is now. The committed A/B was run before this; in it 0 or 1 agent Intent per seed landed that way, so its Premise column may have watched one task fewer than the other columns. Not re-run yet.
+- **Steps that are retried carry on.** `record-push`, `hand-off` and the checker used to give up when an earlier try had already moved the Intent to `submitted`, `checking` or `queued`, which could strand it, and if it was the Intent others were held behind, hold the gate for good.
+- **After a landing nothing may be lost to one failed call.** The work is on trunk, so the status, the standing checks, the events and invalidation are each tried up to three times and logged if they still fail, and the rest go on (`gate/persist.ts`). Invalidation retries its reads and tells each Intent separately.
+- **The event log drops events about Intents it never saw created,** which is what a run still finishing after a reset produces. `ctx.base()` no longer keeps a failed read. `GATE_VERSION` is 7.
+- **Not done:** `landing.hold()` is still called after the agents are started (not reproduced as a problem); per-Intent Durable Objects and Workflow instances are still never deleted.
+
+### The local run (`npm run dev:local`, `npm run demo`, `npm test`)
+
+- **`npm test` failed on a fresh clone,** always on the first run: `health.workers.test.ts` read whatever trunk the files before it had left (t01 landed). It now resets first. The `retry` added an hour earlier was a wrong diagnosis and is gone.
+- **The local Workers runtime can crash when given a run in its first seconds.** It dies while logging "An RPC stub was not disposed properly". `ports/release.ts` now disposes the stubs we hold (Workflow instances, the Dynamic Worker and its entrypoint), and the workload creates instances one at a time locally, because the local binding's own `createBatch` leaks one. **Both warnings still appear once per start,** so something still leaks (in our agent path or in the local Workflows engine; not found). So `scripts/demo.ts` waits for a just-started local server (the Worker reports how long it has been awake in a header on `/api/health`) and starts the run once more if it fails. Eight immediate starts in a fresh clone: the demo finished every time, the runtime restarted in four.
+- **A local A/B no longer overwrites the committed results** (it writes `docs/ab-results.local.*`). `package.json` has `engines` (Node 22.12+ or 24).
+
+### The screen
+
+- Each replay says what kind of run it is ("Replay · scripted agents · real Artifacts", "Replay · live model · real Artifacts"); the live-model run also says so in its first step.
+- A row says what its Intent relies on *now*: not a premise it withdrew, and not one that broke and was never restated once it has landed.
+- Playback: a seek while playing is no longer undone; the button goes back to Play at the end; "No Intents in flight" no longer flashes in a replay; Space and the arrows are the story's only on the story view.
+- Counters are counted from the events, not from the periodic metrics, which trail them. "Re-derived" no longer includes plain rebases.
+- The row a step is about is scrolled into view on a short window; the gate readout is two by two on a tablet.
+- Words: "stopped", "did not land" and "needed a person" are used throughout, including the comparison table (re-rendered from its stored trials, nothing re-run). The table's "turned away" range was wrong (0 to 2 checks; the data says 0 to 3): `spread` ordered a three-number cell by its first number.
+- "136" on At scale was ledger answers, not collisions: it now reads "36 Intents … 136 times".
+- Dead code from the strip board is gone: the `Strip` component, the chip, bay and ledger helpers in `lib/view.ts`, `sharedSymbols`, and about 210 lines of CSS. `Strip.tsx` keeps the marks other views use.
+- Not done: `HumanCards`' floating variant and `ViewState.ledger` are still there, unused by any view.
+
+### Documents
+
+- The video script said the gate "does not yet check that redone work is different"; it does, and the row now says so and what the second live run showed. The script is 875 words, about 6:20 with pauses; the live-model row must not be dropped (without it the read is under five minutes).
+- README: T11's hint to test with a stand-in is stated; the three local redo runs are described as they went (none would have landed right); the smoke command, the subscription caveat, two limitations and the test count are corrected.
+- The dry-run checklist, shot list and stage notes are rewritten for the story page. `CLAUDE.md` still describes flight strips and a race; it is the user's file and was left.

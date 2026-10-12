@@ -126,7 +126,7 @@ Little here is new on its own. The parts are borrowed, and the combination is th
 
 ## Run it yourself
 
-Needs Node 22 or later. No Cloudflare account and no model key:
+Needs Node 22.12 or later (22 or 24). No Cloudflare account and no model key:
 
 ```bash
 git clone <this repo> premise && cd premise
@@ -141,14 +141,16 @@ In a second terminal:
 npm run demo                       # resets, dispatches 12 tasks and 40 workload Intents, opens the live board
 ```
 
-<http://localhost:5173/> plays the demo recording, which needs no backend at all. `npm test` runs the tests (about 880, in under two minutes) and `npm run typecheck` the type checks. `npx tsx scripts/ab.ts --url http://localhost:5173 --seeds 7,11,23` reruns the comparison above against the local Worker (the three headline rows come out the same; it takes about ten seconds a run instead of ninety). It resets the local demo first and writes its report to `docs/ab-results.local.md`, leaving the committed results alone.
+If Vite says port 5173 is in use and picks another, pass it to the demo: `npm run demo -- --url http://localhost:<port>`. The local Workers runtime occasionally restarts when it is given a run in its first seconds; the demo script waits for a just-started server and, if a restart still happens, starts the run once more.
+
+<http://localhost:5173/> plays the demo recording, which needs no backend at all. `npm test` runs the tests (about 890, in under two minutes) and `npm run typecheck` the type checks. While it runs, the Workers test pool prints a few dozen "uncaught exception" lines, from Workflow runs that tests start and then abandon; the summary at the end is what counts. `npx tsx scripts/ab.ts --url http://localhost:5173 --seeds 7,11,23` reruns the comparison above against the local Worker (the three headline rows come out the same; it takes about ten seconds a run instead of ninety). It resets the local demo first and writes its report to `docs/ab-results.local.md`, leaving the committed results alone.
 
 In this mode repos are held in memory and agents replay scripted turns, but everything else is the real code: the ledger, the gate, the TypeScript compiler, the isolate runner, invalidation and re-derive.
 
 <details>
 <summary><strong>Deployed, on real Artifacts</strong> (needs the Workers Paid plan)</summary>
 
-Needs the Workers Paid plan (Artifacts requires it) and Node 22 or later. A model key is optional: without one the agents replay scripted turns.
+Needs the Workers Paid plan (Artifacts requires it) and Node 22.12 or later. A model key is optional: without one the agents replay scripted turns.
 
 1. Install and log in.
    ```bash
@@ -226,6 +228,7 @@ curl -X POST <your worker>/api/admin/llm -H "x-admin-token: <your token>" -H "co
 - **Scripted agents in the recording and the A/B.** Their turns, including the assertions, are generated from reference solutions. The hundreds of workload Intents do real forks, pushes and landings, but a seeded generator writes their edits, and they have no tests. They are labelled as scripted wherever they appear.
 - **Behaviour is tracked only if someone asserts it.** See "What a model does on its own". Observed and derived premises cover types, which the gate's typecheck also covers.
 - **The agent writes its own acceptance tests.** Only their names are fixed. What it cannot touch are the task's reference checks, which the gate runs from trunk's copy. A task with no reference checks would be gated on the agent's own tests and trunk's suite.
+- **A redo that repeats the stopped work is turned back, right or wrong.** If an agent had pushed work when a premise it asserted broke, and its re-derive changes the same source files to the same content, the gate turns it back without running it, and it cannot land as a plain rebase either. That is the point when the work really did depend on what changed. When the premise was never needed and the work was right all along, it is a false positive: the agent is told why and tries again, and after two tries a person is asked. A redo of work that was stopped before anything was pushed has nothing to be compared with.
 - **False positives.** Most broken premises are type-surface changes that turn out not to matter. For an Intent that has already pushed, the cost is one rebase at the gate. For one still working, the agent is stopped and starts again.
 - **Wait and Depend both pause the Intent** until the other lands. The dependency is recorded on the Intent only when a person chooses Depend; the ledger's own Depend answer behaves as Wait. Neither re-forks the waiter, so if the holder's landing changed what the waiter read, the waiter goes stale then and is re-derived.
 - **Scale with real models is unknown.** One Durable Object per trunk runs the gate. The 61 landings a minute in the larger demo recording are batches of ten scripted edits; agents' Intents are gated one at a time, at two to five seconds each. In that run 6 of 300 workload forks failed after retries, and 40 of 294 workload Intents did not land: 33 gave up waiting for a claim, and 7 were wrongly failed by the scripted runner when a premise broke just as they were being queued (fixed since).

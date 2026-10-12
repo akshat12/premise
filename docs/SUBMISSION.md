@@ -76,7 +76,7 @@ Four reviewer passes on Oct 11 led to changes in the gate, the comparison and th
 
 **Instructions to run your project**
 
-> Needs Node 22 or later. No Cloudflare account and no model key:
+> Needs Node 22.12 or later. No Cloudflare account and no model key:
 >
 > ```
 > git clone <repo> premise && cd premise
