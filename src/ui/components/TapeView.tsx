@@ -268,13 +268,15 @@ export function TapeView({ tape, workload, layout, selected, onSelect, live, end
 			const flip = x + size > width || (crowded && x - size >= Math.max(0, taken + 8));
 			const [from, to] = flip ? [x - size, x] : [x, x + size];
 			const written = !phone && width > 0 && from >= Math.max(0, taken + 8);
+			// A break that lands under the words of the flag before it is a small mark on that flag's edge, not a number over its words.
+			const covered = !written && x < taken;
 			taken = Math.max(taken, written ? to : x + 12);
-			return { written, flip: written && flip };
+			return { written, flip: written && flip, covered };
 		});
 	}, [tape.breaks, tape.span, width, phone]);
 
 	const flags = tape.breaks.map((line, index) => {
-		const { written, flip } = fitted[index] ?? { written: false, flip: false };
+		const { written, flip, covered } = fitted[index] ?? { written: false, flip: false, covered: false };
 		return (
 			<button
 				key={line.n}
@@ -282,6 +284,7 @@ export function TapeView({ tape, workload, layout, selected, onSelect, live, end
 				className="tape-flag"
 				data-written={written}
 				data-flip={flip}
+				data-covered={covered}
 				style={flip ? { right: `${(1 - line.at / tape.span) * 100}%` } : { left: pct(line.at) }}
 				aria-pressed={chosen === line.n}
 				aria-label={line.sentence}
@@ -292,7 +295,7 @@ export function TapeView({ tape, workload, layout, selected, onSelect, live, end
 				onBlur={() => setHot(null)}
 				onClick={() => setChosen((current) => (current === line.n ? null : line.n))}
 			>
-				{written ? line.flag : line.n}
+				{written ? line.flag : covered ? null : line.n}
 			</button>
 		);
 	});
@@ -363,6 +366,22 @@ export function TapeView({ tape, workload, layout, selected, onSelect, live, end
 		const frame = requestAnimationFrame(() => sectionRef.current?.querySelector('.tape-row[data-selected="true"]')?.scrollIntoView({ block: "nearest" }));
 		return () => cancelAnimationFrame(frame);
 	}, [selected]);
+
+	// A step is about certain rows. On a short window they can be below the fold, so they are brought into view
+	// when the tape arrives at the step: the last first, then the first, so that if both cannot fit the first wins.
+	const stepId = step?.id;
+	useEffect(() => {
+		if (stepId === undefined) {
+			return;
+		}
+		const frame = requestAnimationFrame(() => {
+			const lit = [...(sectionRef.current?.querySelectorAll('.tape-row[data-focus="true"]') ?? [])];
+			const behavior = window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth";
+			lit.at(-1)?.scrollIntoView({ block: "nearest", behavior });
+			lit[0]?.scrollIntoView({ block: "nearest", behavior });
+		});
+		return () => cancelAnimationFrame(frame);
+	}, [stepId]);
 
 	const rows = (
 		<ol className="tape-rows" aria-label="Intents over time">

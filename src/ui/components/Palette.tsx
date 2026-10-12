@@ -54,7 +54,7 @@ export function Palette({ open, onOpenChange, actions, jumps }: PaletteProps) {
 			onSelect={(command) => choose(command)}
 			getSelectableItems={(all) => all.flatMap((group) => group.items)}
 		>
-			<CommandPalette.Input placeholder="Type a command, or a callsign to jump to" />
+			<CommandPalette.Input placeholder="Type a command, or an agent's name to jump to" />
 			<CommandPalette.List>
 				<CommandPalette.Results>
 					{(group: CommandGroup) => (

@@ -172,6 +172,29 @@ interface Building {
 }
 
 /**
+ * What a row says its Intent relies on. A behaviour it stated counts for more than a list of types.
+ * - An assertion about a symbol the Intent is itself changing is not shown: the Intent withdrew it when it
+ *   declared the change, and the log has no event for that.
+ * - While the Intent has not landed, a stated premise that broke is shown struck through.
+ * - Once it has landed, the row says what the landed work relies on: the premise it holds now, or, if the
+ *   redo stated none, the types it read. A premise that broke and was never restated is not repeated as if it held.
+ */
+export function reliesOn(intent: Pick<IntentView, "premises" | "claims" | "status">): { text: string; broken: boolean } | null {
+	const changing = new Set(intent.claims.map((claim) => claim.symbol));
+	const stated = intent.premises.filter((premise) => premise.source === "asserted" && premise.assertion !== undefined && !changing.has(premise.symbol));
+	const broke = stated.find((premise) => premise.state === "broken");
+	if (broke !== undefined && intent.status !== "landed") {
+		return { text: broke.assertion?.description ?? "", broken: true };
+	}
+	const holds = stated.find((premise) => premise.state === "holding");
+	if (holds !== undefined) {
+		return { text: holds.assertion?.description ?? "", broken: false };
+	}
+	const typed = new Set(intent.premises.filter((premise) => premise.source !== "asserted").map((premise) => premise.symbol)).size;
+	return typed > 0 ? { text: `the types of ${typed} ${typed === 1 ? "symbol" : "symbols"} it read`, broken: false } : null;
+}
+
+/**
  * `total`, when the whole run's length is known (a replay), fixes the axis from the start, so it
  * never changes scale while the run plays. `names` gives agents plain names ("Agent 2") to be
  * called by instead of their callsigns.
@@ -420,14 +443,7 @@ export function buildTape(events: readonly PremiseEvent[], intents: Readonly<Rec
 			const name = named(row.intent.id);
 			const title = brief(row.intent.goal);
 			// What the row's label says it changes and relies on. A behaviour it stated counts for more than a list of types.
-			const stated = row.intent.premises.filter((premise) => premise.source === "asserted" && premise.assertion !== undefined);
-			const typed = new Set(row.intent.premises.filter((premise) => premise.source !== "asserted").map((premise) => premise.symbol)).size;
-			const relies =
-				stated.length > 0
-					? { text: (stated.find((premise) => premise.state === "broken") ?? stated[0])?.assertion?.description ?? "", broken: stated.some((premise) => premise.state === "broken") && row.intent.status !== "landed" }
-					: typed > 0
-						? { text: `the types of ${typed} ${typed === 1 ? "symbol" : "symbols"} it read`, broken: false }
-						: null;
+			const relies = reliesOn(row.intent);
 			const state = ended === undefined ? `${STATUS_LOOK[row.intent.status].word.replace(/^./, (letter) => letter.toUpperCase())} now` : `${ended.kind === "landed" ? "Landed" : "Failed"} at ${clock(ended.at)}`;
 			return {
 				id: row.intent.id,

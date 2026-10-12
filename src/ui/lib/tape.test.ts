@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import type { PremiseEvent, PremiseEventBody } from "../../shared/events";
+import liveRun from "../../../demo/runs/live.json";
 import recording from "../fixtures/run-2026-10-09.json";
+import { readRecording } from "./recording";
 import { reduceAll } from "./reduce";
-import { buildTape, clock, positionAt, spanFor, ticksFor, advanceTape } from "./tape";
+import { buildTape, clock, positionAt, reliesOn, spanFor, ticksFor, advanceTape } from "./tape";
 
 const run = recording as PremiseEvent[];
 const tapeAt = (count: number) => {
@@ -310,5 +312,47 @@ describe("advanceTape", () => {
 	it("keeps one axis for the whole run when the run's length is given", () => {
 		expect(tapeAt(50).span).toBe(tapeAt(900).span);
 		expect(tapeAt(50).span).toBe(tapeAt(run.length).span);
+	});
+});
+
+describe("reliesOn: what a row says its Intent relies on", () => {
+	const symbol = "src/auth/session.ts#verifySession";
+	const asserted = (description: string, state: "holding" | "broken", id = "a1", about = symbol) => ({ symbol: about, source: "asserted" as const, surfaceHash: null, assertion: { id, description, code: "", imports: [] }, state });
+	const observed = (about: string) => ({ symbol: about, source: "observed" as const, surfaceHash: "h", state: "holding" as const });
+	const guard = [{ symbol: "src/auth/rate-limit.ts#guardRequest", mode: "body" as const }];
+
+	it("a stated behaviour counts for more than the types it read", () => {
+		expect(reliesOn({ premises: [observed("src/a.ts#f"), asserted("verifySession throws", "holding")], claims: guard, status: "working" })).toEqual({ text: "verifySession throws", broken: false });
+		expect(reliesOn({ premises: [observed("src/a.ts#f"), observed("src/a.ts#g"), observed("src/a.ts#g")], claims: guard, status: "working" })).toEqual({ text: "the types of 2 symbols it read", broken: false });
+		expect(reliesOn({ premises: [], claims: [], status: "planning" })).toBeNull();
+	});
+
+	it("a premise that broke is struck through until the Intent lands", () => {
+		const premises = [observed("src/a.ts#f"), asserted("verifySession throws", "broken")];
+		expect(reliesOn({ premises, claims: guard, status: "stale" })).toEqual({ text: "verifySession throws", broken: true });
+		expect(reliesOn({ premises, claims: guard, status: "rederiving" })).toEqual({ text: "verifySession throws", broken: true });
+	});
+
+	it("landed work is not said to rely on a premise that broke and was never restated", () => {
+		const premises = [observed("src/a.ts#f"), asserted("verifySession throws", "broken")];
+		expect(reliesOn({ premises, claims: guard, status: "landed" })).toEqual({ text: "the types of 1 symbol it read", broken: false });
+		// If the redo stated something else, that is what it relies on now.
+		expect(reliesOn({ premises: [...premises, asserted("VerifySession can throw", "holding", "a2", "src/auth/rate-limit.ts#VerifySession")], claims: guard, status: "landed" })).toEqual({ text: "VerifySession can throw", broken: false });
+	});
+
+	it("an assertion about the symbol the Intent is itself changing is not shown", () => {
+		const premises = [observed("src/a.ts#f"), asserted("verifySession throws", "holding")];
+		expect(reliesOn({ premises, claims: [{ symbol, mode: "body" }], status: "working" })).toEqual({ text: "the types of 1 symbol it read", broken: false });
+	});
+
+	it("in the live-model recording, no landed row repeats the premise that broke", () => {
+		const live = readRecording(liveRun).events;
+		const state = reduceAll(live);
+		const tape = buildTape(live, state.intents);
+		expect(tape.rows.map((row) => row.status)).toEqual(["landed", "landed", "landed", "landed"]);
+		for (const row of tape.rows) {
+			expect(row.relies?.broken).toBe(false);
+			expect(row.relies?.text).not.toContain("throws SessionExpiredError on expired tokens");
+		}
 	});
 });

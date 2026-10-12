@@ -14,7 +14,7 @@ import { HumanCards } from "./components/HumanCards";
 import { BuiltOn } from "./components/BuiltOn";
 import { type Command, Palette, Shortcuts } from "./components/Palette";
 import { ScaleView } from "./components/ScaleView";
-import { SimpleBar } from "./components/SimpleBar";
+import { type RunKind, SimpleBar } from "./components/SimpleBar";
 import { RunFigures } from "./components/RunFigures";
 import { figuresFor } from "./lib/figures";
 import { StoryBar } from "./components/StoryBar";
@@ -62,7 +62,20 @@ const SCALE_RUN = "scale";
 const OPENINGS: Record<string, string> = {
 	live: "A recorded run on real Artifacts in which the four agents are a live model (Gemini 3.5 Flash-Lite), not scripts. About five and a half minutes of waiting for the model are cut out.",
 };
+/** A sentence added to the story's first step for a run that needs it. */
+const OPENING_NOTES: Record<string, string> = {
+	live: "In this run the four agents are a live model (Gemini 3.5 Flash-Lite), not scripts. About five and a half minutes of waiting for the model are cut out.",
+};
 const DEMO = query.get("demo") ?? DEFAULT_RUN;
+/**
+ * What kind of run each demo recording is, said in the top bar: nobody should take scripted agents
+ * for a model, or a model's run for the scripted one.
+ */
+const RUN_KINDS: Record<string, RunKind> = {
+	main: { label: "Replay · scripted agents", extra: "real Artifacts", detail: "A recorded run on real Artifacts. The four agents replay prepared edits; forks, pushes, the ledger and the gate are the real system." },
+	scale: { label: "Replay · scripted agents", extra: "real Artifacts", detail: "A recorded run on real Artifacts: twelve agents replaying prepared edits and a few hundred scripted workload Intents." },
+	live: { label: "Replay · live model", extra: "real Artifacts", detail: "A recorded run on real Artifacts in which the four agents are a live model (Gemini 3.5 Flash-Lite), not scripts." },
+};
 
 // Recorded runs are bundled, each as a chunk of its own that is fetched only when it is asked for.
 // A recording is the event log, or the log together with what each agent's Intent changed (see lib/recording.ts).
@@ -137,7 +150,16 @@ export function App() {
 	const state = useViewState(events);
 	const lanes = useMemo(() => lanesOf(state), [state]);
 	// The run as a story: its steps, and plain names for the agents ("Agent 2"). Read from the whole recording, not from what has played so far.
-	const story = useMemo(() => (mode === "replay" && FRAME === null && playing.length > 0 ? storyFor(playing, (at) => captionAt(playing, at, OPENINGS[DEMO])) : null), [mode, playing]);
+	const story = useMemo(() => {
+		if (mode !== "replay" || FRAME !== null || playing.length === 0) {
+			return null;
+		}
+		const told = storyFor(playing, (at) => captionAt(playing, at, OPENINGS[DEMO]));
+		// A run that differs from the front page's in a way that matters says so on its first step.
+		const opening = OPENING_NOTES[DEMO];
+		const [first, ...rest] = told.steps;
+		return opening === undefined || first === undefined || rest.length === 0 ? told : { ...told, steps: [{ ...first, body: `${first.body} ${opening}`.trim() }, ...rest] };
+	}, [mode, playing]);
 	const names = story?.names;
 	const stepIndex = story === null ? -1 : stepAt(story.steps, position);
 	// Worked out only while the tape is on screen.
@@ -352,7 +374,7 @@ export function App() {
 				},
 			},
 			{ id: "live", title: "Watch live", run: () => setMode("live") },
-			{ id: "replay", title: "Play the recording", run: () => setMode("replay") },
+			{ id: "replay", title: "Play the demo recording", run: () => setMode("replay") },
 			{ id: "tape", title: "Show the agents over time", run: () => setView("tape") },
 			{ id: "scale", title: "Show the larger run's numbers", run: () => setView("scale") },
 			{ id: "ab", title: "Show the comparison", run: () => setView("ab") },
@@ -381,7 +403,7 @@ export function App() {
 	return (
 		<div className="flex h-full flex-col" style={wide ? { minWidth: 1280 } : undefined}>
 			{mode === "replay" ? (
-				<SimpleBar layout={layout} views={viewTabs} onMore={() => setPaletteOpen(true)} />
+				<SimpleBar layout={layout} views={viewTabs} onMore={() => setPaletteOpen(true)} {...(RUN_KINDS[DEMO] === undefined ? {} : { kind: RUN_KINDS[DEMO] as RunKind })} />
 			) : (
 				<TopBar metrics={state.metrics} trunk={state.trunk.commit} live={live} views={viewTabs} layout={layout} mode={modeTabs} transport={null} quiet={view === "ab"} onDispatch={() => setDispatching(true)} />
 			)}
@@ -428,10 +450,10 @@ export function App() {
 					) : empty || tape === null ? (
 						<Empty
 							icon={<AirplaneTakeoff size={40} />}
-							title="No intents in flight"
+							title="No Intents in flight"
 							description="Dispatch tasks to watch agents work."
 							contents={
-								<Button variant="primary" onClick={() => setDispatching(true)}>
+								<Button variant="primary" className="label-button" onClick={() => setDispatching(true)}>
 									Dispatch tasks
 								</Button>
 							}

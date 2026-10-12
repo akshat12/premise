@@ -59,7 +59,7 @@ export function releaseFocus(event: React.PointerEvent<HTMLElement>) {
 	}, 0);
 }
 
-const markerStyle = { fontSize: 12, color: "var(--ink-soft)", border: "1px solid var(--rule)", borderRadius: 3, padding: "2px 6px", whiteSpace: "nowrap", background: "#fff" } as const;
+const markerStyle = { fontSize: 12, color: "var(--ink-soft)", border: "1px solid var(--rule)", borderRadius: 3, padding: "2px 6px", whiteSpace: "nowrap", background: "var(--surface)" } as const;
 
 export function TopBar({ metrics, trunk, live, marker, layout, views, mode, transport, quiet = false, dispatchQuiet = false, onDispatch }: TopBarProps) {
 	const dispatchLook = dispatchQuiet ? "secondary" : "primary";
@@ -87,7 +87,7 @@ export function TopBar({ metrics, trunk, live, marker, layout, views, mode, tran
 								<AirplaneTakeoff size={16} />
 							</Button>
 						) : (
-							<Button variant={dispatchLook} size="sm" title="Needs the admin token" onClick={onDispatch}>
+							<Button variant={dispatchLook} size="sm" className="label-button" title="Needs the admin token" onClick={onDispatch}>
 								Dispatch tasks
 							</Button>
 						)}
@@ -114,7 +114,7 @@ export function TopBar({ metrics, trunk, live, marker, layout, views, mode, tran
 		);
 	}
 	return (
-		<header className="flex items-center gap-5 px-4" style={{ position: "relative", height: 56, background: "#fff", borderBottom: "1px solid var(--rule)", flex: "none" }}>
+		<header className="flex items-center gap-5 px-4" style={{ position: "relative", height: 56, background: "var(--surface)", borderBottom: "1px solid var(--rule)", flex: "none" }}>
 			<div className="flex items-baseline gap-3" style={{ flex: "none", whiteSpace: "nowrap" }}>
 				<span className="callsign" style={{ fontSize: 13, letterSpacing: "0.14em", lineHeight: 1 }}>
 					Premise
@@ -147,7 +147,7 @@ export function TopBar({ metrics, trunk, live, marker, layout, views, mode, tran
 					<span onPointerUp={releaseFocus}>{mode}</span>
 					{transport}
 				</div>
-				<Button variant={dispatchLook} size="sm" title="Needs the admin token" onClick={onDispatch}>
+				<Button variant={dispatchLook} size="sm" className="label-button" title="Needs the admin token" onClick={onDispatch}>
 					Dispatch tasks
 				</Button>
 			</div>

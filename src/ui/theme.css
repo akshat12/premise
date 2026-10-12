@@ -25,6 +25,10 @@
 	--font-label: "Geist Mono", ui-monospace, monospace;
 	--font-callsign: var(--font-label);
 	--font-symbol: var(--font-label);
+
+	/* Kumo's emphasis buttons and focus rings take their colour from its brand colour. Here that is ink:
+	   the accent is kept for a premise that broke. */
+	--color-kumo-brand: var(--ink);
 }
 
 html,
@@ -767,6 +771,12 @@ kbd {
 	text-align: center;
 	transform: translateX(-50%);
 	z-index: 1;
+}
+.tape-flag[data-covered="true"] {
+	top: 17px;
+	width: 10px;
+	height: 10px;
+	border-radius: 50%;
 }
 .tape-flag:focus-visible {
 	outline: 2px solid var(--bluestamp);
@@ -1637,8 +1647,6 @@ button.tape-label:focus-visible {
 	flex: none;
 	align-items: center;
 	gap: 8px;
-	/* Kumo's emphasis button takes its colours from the brand colour. Here it is ink: the accent is kept for the premise break. */
-	--color-kumo-brand: var(--ink);
 }
 .story-controls button {
 	border-radius: 4px;
@@ -1696,6 +1704,8 @@ button.tape-label:focus-visible {
 	background: var(--rule);
 }
 .simplebar-tagline {
+	/* The tagline gives way first: what kind of run this is matters more. */
+	flex: 0 1000 auto;
 	min-width: 0;
 	overflow: hidden;
 	text-overflow: ellipsis;
@@ -1704,13 +1714,22 @@ button.tape-label:focus-visible {
 /* Says that this is a recording being played back, not agents running now. */
 .simplebar-replay {
 	display: inline-flex;
-	flex: none;
+	flex: 0 1 auto;
 	align-items: center;
 	gap: 6px;
 	margin-left: auto;
 	color: var(--redpen);
 }
+.simplebar-replay {
+	min-width: 0;
+}
+.simplebar-replay > span {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
 .simplebar-replay::before {
+	flex: none;
 	width: 7px;
 	height: 7px;
 	border-radius: 50%;
@@ -1720,7 +1739,9 @@ button.tape-label:focus-visible {
 .simplebar-replay + .simplebar-views {
 	margin-left: 0;
 }
-.simplebar-views button {
+/* Every tab, and the buttons that are a label and nothing else, are set as labels. */
+[role="tab"],
+.label-button {
 	font-family: var(--font-label);
 	font-size: 11px;
 	letter-spacing: 0.08em;
@@ -1736,6 +1757,9 @@ button.tape-label:focus-visible {
 }
 .simplebar[data-layout="medium"] .simplebar-tagline,
 .simplebar[data-layout="medium"] .simplebar-rule {
+	display: none;
+}
+.simplebar[data-layout="medium"] .simplebar-extra {
 	display: none;
 }
 .simplebar[data-layout="phone"] .simplebar-replay {
@@ -1780,15 +1804,40 @@ button.tape-label:focus-visible {
 	font-size: 11px;
 	letter-spacing: 0.06em;
 }
+/* On a narrower tape the four readings are two by two, so the last is never cut off. */
+.tape[data-layout="medium"] .tape-readings {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+}
+.tape[data-layout="medium"] .tape-check:nth-child(odd) {
+	border-left: 0;
+}
+.tape[data-layout="medium"] .tape-check:nth-child(n + 3) {
+	border-top: 1px solid var(--rule);
+}
+.tape[data-layout="medium"] .tape-row[data-callout="true"] {
+	--tape-row: 224px;
+}
 @media (max-width: 1279px) {
 	.figures {
 		margin: 12px 12px 0;
+	}
+	.figures-cell {
+		padding: 8px 10px;
 	}
 	.figures-sub {
 		display: none;
 	}
 }
 /* A short window gives the tape the room: smaller readings, then none. */
+@media (max-height: 820px) and (min-width: 768px) {
+	.story {
+		padding-top: 14px;
+	}
+	.story-title {
+		font-size: 28px;
+	}
+}
 @media (max-height: 820px) {
 	.figures-sub {
 		display: none;
