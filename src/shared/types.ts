@@ -67,10 +67,10 @@ export interface Intent {
   /**
    * Set when the Intent is re-derived after a premise it had asserted broke, and kept until it lands.
    * `over` is the premises that broke: a re-derive must say what it relies on now about those symbols.
-   * `work` is what it had pushed when it was stopped, if anything: a re-derive that is that work over
-   * again is turned back.
+   * `work` is what it had pushed when it was stopped, if anything, and the trunk commit that work
+   * started from: a re-derive that is that work over again is turned back.
    */
-  stopped?: { work: { repo: string; commit: CommitSha } | null; over: Premise[] };
+  stopped?: { work: { repo: string; commit: CommitSha; base?: CommitSha } | null; over: Premise[] };
   dependsOn: IntentId[];
   createdAt: number;
   updatedAt: number;

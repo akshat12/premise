@@ -71,8 +71,15 @@ export function isAbout(premise: Premise, symbol: SymbolId): boolean {
 	if (premise.symbol === symbol) {
 		return true;
 	}
-	const name = (symbol.split("#")[1] ?? "").replace(/[$]/g, "\\$");
-	return name !== "" && premise.assertion !== undefined && new RegExp(`(^|[^A-Za-z0-9_$])${name}\\s*\\(`).test(premise.assertion.code);
+	return premise.assertion !== undefined && callsFunction(premise.assertion.code, symbol.split("#")[1] ?? "");
+}
+
+/** Code with its comments taken out, so that a name in a comment is not read as a use of it. */
+export const withoutComments = (code: string): string => code.replace(/\/\*[\s\S]*?\*\//g, " ").replace(/(^|[^:\\])\/\/[^\n]*/g, "$1 ");
+
+/** Whether `code` calls the function `name` itself: not a method of that name on something else, and not in a comment. */
+export function callsFunction(code: string, name: string): boolean {
+	return name !== "" && new RegExp(`(^|[^A-Za-z0-9_$.])${name.replace(/[$]/g, "\\$")}\\s*\\(`).test(withoutComments(code));
 }
 
 /**

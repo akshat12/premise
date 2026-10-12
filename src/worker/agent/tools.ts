@@ -6,7 +6,7 @@ import { landing } from "../gate/client";
 import { currentMode } from "../hub/publish";
 import { judgeStanding, planStanding, type Standing, standingRequest } from "../gate/standing";
 import { suiteTests } from "../gate/suite";
-import { isAbout, withdrawOwn } from "../intent/premises";
+import { isAbout, withdrawOwn, withoutComments } from "../intent/premises";
 import { functionsCalled, tidyAssertion } from "./assertion-input";
 import type { IntentApi } from "../intent/client";
 import type { ToolDef } from "../ports/llm";
@@ -277,7 +277,8 @@ function givenSymbol(given: string, assertion: Pick<Assertion, "code" | "imports
 	if (!indexFile(parsed.path, files[parsed.path] ?? "").some((symbol) => symbol.id === given)) {
 		throw new ToolError(`There is no exported symbol ${given} in the repo.`);
 	}
-	const mentioned = new RegExp(`(^|[^A-Za-z0-9_$])${parsed.name.replace(/[$]/g, "\\$")}([^A-Za-z0-9_$]|$)`).test(assertion.code);
+	// In the code itself: a name that only appears in a comment, or as a property of something else, is not a use of it.
+	const mentioned = new RegExp(`(^|[^A-Za-z0-9_$.])${parsed.name.replace(/[$]/g, "\\$")}([^A-Za-z0-9_$]|$)`).test(withoutComments(assertion.code));
 	if (!assertion.imports.includes(parsed.path) || !mentioned) {
 		throw new ToolError(`This check does not use ${given}: list ${parsed.path} in imports and call ${parsed.name} in the code, or leave symbol out.`);
 	}

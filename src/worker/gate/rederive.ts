@@ -160,12 +160,12 @@ export type RaceStart =
  * What an Intent about to be re-derived was stopped over: the premises it had asserted that broke, and
  * the work it had pushed by then. With no such break this time, what was remembered before stands.
  */
-export function stoppedOver(before: Pick<Intent, "repo" | "headCommit" | "stopped">, broke: readonly Premise[]): Intent["stopped"] {
+export function stoppedOver(before: Pick<Intent, "repo" | "baseCommit" | "headCommit" | "stopped">, broke: readonly Premise[]): Intent["stopped"] {
 	const over = broke.filter((premise) => premise.source === "asserted");
 	if (over.length === 0) {
 		return before.stopped;
 	}
-	return { work: before.headCommit === null ? (before.stopped?.work ?? null) : { repo: before.repo, commit: before.headCommit }, over };
+	return { work: before.headCommit === null ? (before.stopped?.work ?? null) : { repo: before.repo, commit: before.headCommit, base: before.baseCommit }, over };
 }
 
 /** The fork a re-derive attempt works in. */
@@ -209,10 +209,22 @@ export async function startRace(env: LandEnv, entry: StaleEntry, deps: RaceDeps)
 	// The rebase. Skipped when there is nothing pushed to rebase, or when the gate has just
 	// rejected exactly this rebase onto exactly this trunk.
 	let reason = entry.reason ?? undefined;
-	// A redo the gate turned back as the stopped work over again gets no second way in as a rebase.
-	const repeated = rebaseIsPointless || before.headCommit === null ? null : await redoneTheSame(deps.gate, before, before.headCommit).catch(() => null);
+	// A redo the gate turned back as the stopped work over again gets no second way in as a rebase. If the
+	// stopped work cannot be read, that cannot be ruled out, so the rebase is not tried either: the work is redone.
+	let repeated: string[] | null = null;
+	let unsure = false;
+	if (!rebaseIsPointless && before.headCommit !== null) {
+		try {
+			repeated = await redoneTheSame(deps.gate, before, before.headCommit);
+		} catch (error) {
+			unsure = true;
+			console.error(`gate: could not compare ${id}'s work with the work that was stopped`, error instanceof Error ? error.message : String(error));
+		}
+	}
 	if (repeated !== null) {
 		reason = reason ?? describeFailure(unchangedReport(id, "rebase", repeated));
+	} else if (unsure) {
+		reason = reason ?? "Its work could not be compared with the work that was stopped, so it is redone";
 	} else if (!rebaseIsPointless) {
 		const outcome = await landWork(env, before, "rebase", deps);
 		if (outcome.kind === "landed") {

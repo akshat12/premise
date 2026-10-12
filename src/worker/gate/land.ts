@@ -11,7 +11,7 @@ import type { QueuePath } from "./client";
 import { mapLimit } from "../ports/git-tree";
 import { describeFailure, gateBatch, type GateDeps, gateOne, sameAsStopped } from "./gate";
 import { type Invalidate, invalidate } from "./invalidate";
-import { type PersistOptions, persistOr } from "./persist";
+import { persist, type PersistOptions, persistOr } from "./persist";
 import { type StandingFailure, standingOf, type StandingStore } from "./standing";
 import { referenceChecks } from "./suite";
 
@@ -192,8 +192,11 @@ export async function redoneTheSame(gate: Pick<GateDeps, "snapshot">, intent: In
 	if (intent.kind !== "agent" || stopped === null || (stopped.repo === intent.repo && stopped.commit === headCommit)) {
 		return null;
 	}
-	const [base, head, previous] = await Promise.all([gate.snapshot(intent.repo, intent.baseCommit), gate.snapshot(intent.repo, headCommit), gate.snapshot(stopped.repo, stopped.commit)]);
-	return sameAsStopped(base, head, previous);
+	// Each read is tried again if it fails. If one keeps failing this throws: "could not tell" must never be
+	// taken for "different work", or a failed read would let the stopped work through.
+	const read = (repo: string, commit: CommitSha) => persist(() => gate.snapshot(repo, commit));
+	const [base, head, previous, previousBase] = await Promise.all([read(intent.repo, intent.baseCommit), read(intent.repo, headCommit), read(stopped.repo, stopped.commit), stopped.base === undefined ? undefined : read(stopped.repo, stopped.base)]);
+	return sameAsStopped(base, head, previous, previousBase);
 }
 
 /** The report of a re-derive that was turned back without being run because it repeats the stopped work. */
@@ -222,7 +225,8 @@ export async function landIntent(env: LandEnv, intentId: IntentId, path: QueuePa
 
 	// A re-derive that is the stopped work over again is turned back before anything is run (see `sameAsStopped`).
 	if (path === "rederive" && !plain(deps) && intent.headCommit !== null) {
-		const unchanged = await redoneTheSame(deps.gate, intent, intent.headCommit).catch(() => null);
+		// No catch here: if the stopped work cannot be read, this Intent is not gated on this pass (the caller tries again).
+		const unchanged = await redoneTheSame(deps.gate, intent, intent.headCommit);
 		if (unchanged !== null) {
 			const report = unchangedReport(intentId, path, unchanged);
 			// Trunk is read before anything is published, so a failed read cannot lead to the result being published twice.
@@ -296,21 +300,27 @@ export async function landBatch(env: LandEnv, intentIds: readonly IntentId[], de
 	if (deps.cache !== undefined) {
 		rememberSnapshot(deps.cache, commit, newTrunkFiles);
 	}
+	// As in `landWork`: the batch is on trunk, so no step below may stop the rest. Each is tried again, and
+	// logged if it still fails.
+	const after = <T>(what: string, step: () => Promise<T>, fallback: T, options?: PersistOptions): Promise<T> =>
+		persistOr(step, fallback, (error) => console.error(`gate: a batch is on trunk at ${commit}, but could not ${what}`, error instanceof Error ? error.message : String(error)), options);
 	await mapLimit(reports, STATUS_WRITES_AT_ONCE, async (report) => {
-		await publish(env, { t: "gate.result", report });
-		await settle(intentStub(env, report.intentId), { a: "land", commit });
+		await after(`publish the result of ${report.intentId}`, () => publish(env, { t: "gate.result", report }), undefined);
+		await after(`mark ${report.intentId} landed`, () => settle(intentStub(env, report.intentId), { a: "land", commit }), false);
 		if (retried.has(report.intentId)) {
-			await publish(env, { t: "rederive.race", id: report.intentId, rebase: "pass", rederive: "pending", winner: "rebase" });
+			await after(`close the race of ${report.intentId}`, () => publish(env, { t: "rederive.race", id: report.intentId, rebase: "pass", rederive: "pending", winner: "rebase" }), undefined);
 		}
 	});
 	let stale: IntentId[] = [];
 	if (commit !== trunkBefore) {
 		// The event names one Intent; for a batch that is the first member that changed a type surface, or simply the first.
 		const byIntent = Object.values(changedBy)[0] ?? (members[0] as IntentId);
-		await publish(env, { t: "artifacts", type: "pushed", repo: deps.gate.trunk ?? "trunk", detail: { commit, intent: byIntent, intents: members, batch: members.length } });
-		await publish(env, { t: "trunk.advanced", commit, byIntent, changedSymbols });
-		stale = plain(deps) ? [] : (await (deps.invalidate ?? invalidate)(env, { commit, byIntent, changedSymbols, newTrunkFiles, changedBy })).stale.filter((id) => !members.includes(id));
+		await after("report the push", () => publish(env, { t: "artifacts", type: "pushed", repo: deps.gate.trunk ?? "trunk", detail: { commit, intent: byIntent, intents: members, batch: members.length } }), undefined);
+		await after("announce it", () => publish(env, { t: "trunk.advanced", commit, byIntent, changedSymbols }), undefined);
+		if (!plain(deps)) {
+			stale = ((await after("tell the Intents that relied on what changed", () => (deps.invalidate ?? invalidate)(env, { commit, byIntent, changedSymbols, newTrunkFiles, changedBy }), null, { tries: 1 }))?.stale ?? []).filter((id) => !members.includes(id));
+		}
 	}
-	await publishMetrics(env);
+	await publishMetrics(env).catch(() => undefined);
 	return { landed: members, commit, stale, singly: outcome.conflicted, deferred: outcome.deferred };
 }

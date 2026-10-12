@@ -15,6 +15,12 @@ export async function handOff(env: HandOffEnv, intent: Intent, _commit: CommitSh
 		await deps.enqueue?.(intent, "rebase");
 		return;
 	}
+	if (intent.status === "quarantined") {
+		// An earlier try quarantined it and was cut short before asking the ledger or leaving a way to be woken.
+		// Asking the ledger again is what waking it would do: it is queued if the symbols are free, and waits if not.
+		await settleQuarantine(env, intent.id, "retry", deps);
+		return;
+	}
 	if (intent.status !== "submitted" && intent.status !== "checking" && intent.status !== "rederiving") {
 		return; // the Intent moved on while the agent was pushing
 	}

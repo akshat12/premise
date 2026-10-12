@@ -14,7 +14,7 @@ import type { Reader } from "../ledger/ledger-shard";
 import { mapLimit } from "../ports/git-tree";
 import type { FileMap } from "../ports/repo-store";
 import { type RunRequest, type RunResult, runInIsolate } from "../runner";
-import { persist, persistOr } from "./persist";
+import { persistOr } from "./persist";
 
 export interface Landed {
 	/** The new trunk commit. */
@@ -145,20 +145,32 @@ export async function invalidateWith(deps: InvalidateDeps, landed: Landed): Prom
 	}
 	// Taken once, before anything is broken: an Intent that goes stale on a surface change in this
 	// call still has its assertions checked, so it is told everything that broke.
-	const eligible = new Set((await persist(() => deps.registry())).filter((row) => !SETTLED.includes(row.status) && row.id !== landed.byIntent).map((row) => row.id));
+	const eligible = new Set((await persistOr(() => deps.registry(), [], (error) => console.error(`invalidate: could not read the registry after ${landed.commit}`, error instanceof Error ? error.message : String(error)))).filter((row) => !SETTLED.includes(row.status) && row.id !== landed.byIntent).map((row) => row.id));
 	const by = (item: Break): BrokenBy => ({ intentId: (item.by === undefined ? landed.byIntent : item.by) ?? OUTSIDE_PUSH, commit: landed.commit, reason: item.reason });
 	const broken: Break[] = [];
 	const stale = new Set<IntentId>();
-	// The commit is claimed, so nobody will do this again: a read that fails once is tried again, and one
-	// Intent that cannot be reached does not stop the others from being told.
+	// The commit is claimed, so nobody will do this again. Nothing below may throw, or what was already found
+	// would be lost: a read that fails is tried again, and then given up on with a log line; one Intent that
+	// cannot be reached does not stop the others from being told.
+	const report = (what: string) => (error: unknown) => console.error(`invalidate: could not ${what} after ${landed.commit}`, error instanceof Error ? error.message : String(error));
 	const apply = async (breaks: readonly Break[]) => {
 		for (const item of breaks) {
+			// A call can do its work and lose its answer. The try after it then says "nothing new broke", although
+			// the Intent is stale because of this landing. So after a failed try, an Intent that is stale counts.
+			let failedOnce = false;
 			const result = await persistOr(
-				() => deps.breakPremise(item.intentId, item.symbol, by(item), item.scope),
+				async () => {
+					try {
+						return await deps.breakPremise(item.intentId, item.symbol, by(item), item.scope);
+					} catch (error) {
+						failedOnce = true;
+						throw error;
+					}
+				},
 				{ broken: false },
-				(error) => console.error(`invalidate: could not tell ${item.intentId} that ${item.symbol} changed`, error instanceof Error ? error.message : String(error)),
+				report(`tell ${item.intentId} that ${item.symbol} changed`),
 			);
-			if (result.broken) {
+			if (result.broken || (failedOnce && result.stale === true)) {
 				broken.push(item);
 				if (result.stale) {
 					stale.add(item.intentId);
@@ -168,16 +180,18 @@ export async function invalidateWith(deps: InvalidateDeps, landed: Landed): Prom
 	};
 
 	if (landed.changedSymbols.length > 0) {
-		await apply(surfaceBreaks(await persist(() => deps.readersOf(landed.changedSymbols)), eligible, landed.byIntent, landed.changedBy));
+		await apply(surfaceBreaks(await persistOr(() => deps.readersOf(landed.changedSymbols), [], report("read who relies on what changed")), eligible, landed.byIntent, landed.changedBy));
 	}
 
-	const asserting = (await persist(() => deps.asserters())).filter((id) => eligible.has(id));
-	const intents = (await mapLimit(asserting, INTENT_FETCH_CONCURRENCY, (id) => deps.getIntent(id))).filter((intent) => intent !== null);
+	const asserting = (await persistOr(() => deps.asserters(), [], report("read who has asserted a premise"))).filter((id) => eligible.has(id));
+	const intents = (await mapLimit(asserting, INTENT_FETCH_CONCURRENCY, (id) => deps.getIntent(id).catch(() => null))).filter((intent) => intent !== null);
 	const checks = assertionChecks(intents);
 	if (checks.length > 0) {
 		// One isolate for all of them: they all run against the same files.
-		const run = await persist(() => deps.run({ files: landed.newTrunkFiles, tests: [], assertions: checks.map((check) => ({ ...check.assertion, id: check.runId })) }));
-		await apply(assertionBreaks(checks, run, landed.byIntent));
+		const run = await persistOr<RunResult | null>(() => deps.run({ files: landed.newTrunkFiles, tests: [], assertions: checks.map((check) => ({ ...check.assertion, id: check.runId })) }), null, report("run the premise assertions"));
+		if (run !== null) {
+			await apply(assertionBreaks(checks, run, landed.byIntent));
+		}
 	}
 
 	await deps.publishMetrics().catch(() => undefined);

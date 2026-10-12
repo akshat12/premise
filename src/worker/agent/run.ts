@@ -99,7 +99,7 @@ class Stopped extends Error {}
  * The statuses a first attempt passes through between its push being recorded and the gate having it:
  * a step that is retried in any of them carries on from there instead of giving up.
  */
-const HANDED_ON: readonly Intent["status"][] = ["submitted", "checking", "queued"];
+const HANDED_ON: readonly Intent["status"][] = ["submitted", "checking", "quarantined", "queued"];
 
 /** One model turn: ask the model, then run the tools it called, in order. */
 /** Why this run should stop working on the Intent, or undefined if the Intent is still its to work on. */
@@ -369,17 +369,18 @@ export async function runAgent(deps: AgentDeps, params: AgentParams, steps: Step
 		}
 		const commit = pushed.sha;
 		const recorded = await steps.do("record-push", async (): Promise<{ stopped?: string }> => {
-			const stopped = takenOver(await api.get(), params);
+			const current = await api.get();
+			// A retry of this step after the submit was already saved: there is nothing left to record. (Looked at
+			// first: `takenOver` would read a first attempt that is already `submitted` as someone else's.)
+			if (fresh && current.headCommit === commit && HANDED_ON.includes(current.status)) {
+				return {};
+			}
+			const stopped = takenOver(current, params);
 			if (stopped !== undefined) {
 				return { stopped };
 			}
 			if (!fresh) {
 				await api.setHead(commit);
-				return {};
-			}
-			// A retry of this step after the submit was already saved: there is nothing left to record.
-			const current = await api.get();
-			if (current.headCommit === commit && HANDED_ON.includes(current.status)) {
 				return {};
 			}
 			try {

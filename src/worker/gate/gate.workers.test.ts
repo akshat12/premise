@@ -283,13 +283,13 @@ describe("a re-derive that repeats the stopped work", () => {
 	it("stoppedOver: only a premise the Intent had asserted counts, and what was remembered is kept through a plain retry", () => {
 		const asserted = { symbol: "src/a.ts#f", source: "asserted" as const, surfaceHash: null, assertion: { id: "a1", description: "f throws", code: "", imports: [] }, state: "broken" as const };
 		const observed = { symbol: "src/a.ts#g", source: "observed" as const, surfaceHash: "h", state: "broken" as const };
-		expect(stoppedOver({ repo: "i1", headCommit: "c1", stopped: undefined }, [observed])).toBeUndefined();
-		expect(stoppedOver({ repo: "i1", headCommit: "c1", stopped: undefined }, [observed, asserted])).toEqual({ work: { repo: "i1", commit: "c1" }, over: [asserted] });
+		expect(stoppedOver({ repo: "i1", baseCommit: "b0", headCommit: "c1", stopped: undefined }, [observed])).toBeUndefined();
+		expect(stoppedOver({ repo: "i1", baseCommit: "b0", headCommit: "c1", stopped: undefined }, [observed, asserted])).toEqual({ work: { repo: "i1", commit: "c1", base: "b0" }, over: [asserted] });
 		// Stopped while still working: nothing was pushed, so there is no work to compare a redo with.
-		expect(stoppedOver({ repo: "i1", headCommit: null, stopped: undefined }, [asserted])).toEqual({ work: null, over: [asserted] });
-		const remembered = { work: { repo: "i1", commit: "c1" }, over: [asserted] };
-		expect(stoppedOver({ repo: "i1-r1", headCommit: "c2", stopped: remembered }, [])).toBe(remembered);
-		expect(stoppedOver({ repo: "i1-r1", headCommit: null, stopped: remembered }, [asserted])).toEqual(remembered);
+		expect(stoppedOver({ repo: "i1", baseCommit: "b0", headCommit: null, stopped: undefined }, [asserted])).toEqual({ work: null, over: [asserted] });
+		const remembered = { work: { repo: "i1", commit: "c1", base: "b0" }, over: [asserted] };
+		expect(stoppedOver({ repo: "i1-r1", baseCommit: "b1", headCommit: "c2", stopped: remembered }, [])).toBe(remembered);
+		expect(stoppedOver({ repo: "i1-r1", baseCommit: "b1", headCommit: null, stopped: remembered }, [asserted])).toEqual(remembered);
 	});
 
 	it("lands when the redo is different work", async () => {

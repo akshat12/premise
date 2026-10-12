@@ -226,18 +226,32 @@ export const isSourcePath = (path: string) => !path.startsWith("tests/") && !pat
  * then makes exactly the same change to the source, that change still rests on whatever broke;
  * it could only pass now because the premise that failed is no longer attached to it, or its
  * tests were rewritten. So it is not run.
- *   base      the redo's fork as it was forked (the new trunk)
- *   head      the redo's fork with the redone work
- *   previous  the stopped attempt's fork, as it was left
- * Returns the source paths the redo changed when every one of them is byte for byte what the
- * stopped attempt had; null when the redo changed no source, or differs anywhere. Pure.
+ *   base          the redo's fork as it was forked (the new trunk)
+ *   head          the redo's fork with the redone work
+ *   previous      the stopped attempt's fork, as it was left
+ *   previousBase  the trunk the stopped attempt started from, when it is known
+ * "The same" means the same as the stopped work carried onto the new trunk the way a plain rebase
+ * carries it: the same source files changed, each to the content that rebase would give. So the
+ * identical edit is recognised even where the landing in between touched the same file, and a redo
+ * that drops or adds a file is different work. Where a file cannot be carried (the two changed the
+ * same lines), or `previousBase` is not known, the file is compared whole.
+ * Returns the source paths the redo changed when it is the stopped work over again; null when the
+ * redo changed no source, or differs anywhere. Pure.
  */
-export function sameAsStopped(base: FileMap, head: FileMap, previous: FileMap): string[] | null {
-	const changed = [...new Set([...Object.keys(base), ...Object.keys(head)])].filter((path) => isSourcePath(path) && base[path] !== head[path]).sort();
+export function sameAsStopped(base: FileMap, head: FileMap, previous: FileMap, previousBase?: FileMap): string[] | null {
+	const sources = (...maps: FileMap[]) => [...new Set(maps.flatMap((map) => Object.keys(map)))].filter(isSourcePath).sort();
+	const changed = sources(base, head).filter((path) => base[path] !== head[path]);
 	if (changed.length === 0) {
 		return null;
 	}
-	return changed.every((path) => previous[path] === head[path]) ? changed : null;
+	if (previousBase === undefined) {
+		return changed.every((path) => previous[path] === head[path]) ? changed : null;
+	}
+	const carried = threeWayRebase(previousBase, previous, base);
+	const wanted = (path: string) => (carried.conflicts.includes(path) ? previous[path] : carried.files[path]);
+	// Every source file the stopped work would change on this trunk, and nothing else.
+	const expected = sources(base, previous, previousBase).filter((path) => wanted(path) !== base[path]);
+	return changed.length === expected.length && changed.every((path) => head[path] === wanted(path)) ? changed : null;
 }
 
 /** One line saying why an Intent did not get through the gate. Shown as the note on its status change. */
