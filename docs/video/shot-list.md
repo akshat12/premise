@@ -36,7 +36,7 @@ The front page is now the story: a sentence at the top with **Back**, **Next** a
 | 2 | 0:35 What it is | Click the first dot, speak, then press `→` once. | "Step 01 / 07", then "Step 02 / 07": every row shows a pencil line and an eye line. |
 | 3 | 1:05 The break | Press `→`, wait for the tape to stop, press `→` again. | The orange flag reads "AGENT 1 LANDED · VERIFYSESSION CHANGED". |
 | 4 | 1:30 Re-derive | Press `→`. | "Step 05 / 07". Agent 2's row has a blue "re-derived" bar and a green tick. |
-| 5 | 2:05 Agent 4 | Press `→`. Then click Agent 4's row and point at the **Changes** column; drag the panel's top edge up if the diff is cramped. | "Step 06 / 07". The callout under Agent 4's row has three ticks and one cross. |
+| 5 | 2:05 Agent 4 | Press `→`. Then click Agent 4's row and point at the **Changes** column; drag the panel's top edge up if the diff is cramped. | "Step 06 / 07". The readout under Agent 4's row has three readings that passed and "Its premise: Failed". |
 | 6 | 2:55 The end | Press `Esc`, then `→`. | "Step 07 / 07": "Everything landed. Nothing broken reached trunk." |
 | 7 | 3:10 At scale | Click **At scale**. | The green-edged note at the top says these numbers are from a larger run. The figures read 309, 315, 61.4. |
 | 8 | 3:45 Architecture | Second browser tab: `docs/architecture.svg`. | The whole diagram fits without scrolling. |
