@@ -22,7 +22,8 @@ import { useViewState } from "./lib/useViewState";
 import { explain, loadToken, resetDemo, saveToken } from "./lib/api";
 import { openCards, sharedSymbols } from "./lib/chips";
 import { captionAt, nextStop } from "./lib/demo";
-import { buildTape, positionAt } from "./lib/tape";
+import { replayOffsets, timeAtClock } from "./lib/stream";
+import { advanceTape, buildTape, positionAt } from "./lib/tape";
 import { callsign, lanesOf, layoutFor, ledgerRows, OUTSIDE } from "./lib/view";
 
 const LIVE_URL = "/api/events/ws";
@@ -146,7 +147,26 @@ export function App() {
 	const rows = useMemo(() => ledgerRows(state), [state]);
 	const shared = useMemo(() => sharedSymbols(state), [state]);
 	// Worked out only while the tape is on screen.
-	const tape = useMemo(() => (view === "tape" ? buildTape(events, state.intents) : null), [view, events, state.intents]);
+	// In a replay the whole run's length is known, so the tape's axis is fixed from the start and never changes scale.
+	const recordingLength = playing.length > 0 ? (playing[playing.length - 1] as PremiseEvent).ts - (playing[0] as PremiseEvent).ts : 0;
+	const builtTape = useMemo(() => (view === "tape" ? buildTape(events, state.intents, mode === "replay" && still === null ? recordingLength : undefined) : null), [view, events, state.intents, mode, still, recordingLength]);
+	// Between events the replay's clock still runs. The tape follows it frame by frame, so time glides instead of jumping.
+	const replayTimes = useMemo(() => ({ offsets: replayOffsets(playing), times: playing.map((event) => event.ts - (playing[0]?.ts ?? 0)) }), [playing]);
+	const [glide, setGlide] = useState(0);
+	const gliding = view === "tape" && mode === "replay" && still === null && playing.length > 0;
+	useEffect(() => {
+		if (!gliding) {
+			return;
+		}
+		let frame = 0;
+		const step = () => {
+			setGlide(timeAtClock(replayTimes.offsets, replayTimes.times, stream.position, stream.clock()));
+			frame = requestAnimationFrame(step);
+		};
+		frame = requestAnimationFrame(step);
+		return () => cancelAnimationFrame(frame);
+	}, [gliding, replayTimes, stream.position, stream.clock]);
+	const tape = useMemo(() => (builtTape === null ? null : gliding ? advanceTape(builtTape, glide) : builtTape), [builtTape, gliding, glide]);
 
 	// A marker for time cut out of the recording shows for three seconds, then goes.
 	const markerCount = state.markers.length;
@@ -344,7 +364,6 @@ export function App() {
 	// "Nothing in flight" is only true once every Intent has landed or stopped, not while they are still planning.
 	const settled = useMemo(() => !empty && !loading && Object.values(state.intents).every((intent) => intent.status === "landed" || intent.status === "failed" || intent.status === "escalated"), [empty, loading, state.intents]);
 	// A replay's length, and a way to move it to a moment: the tape's time axis is a slider.
-	const recordingLength = playing.length > 0 ? (playing[playing.length - 1] as PremiseEvent).ts - (playing[0] as PremiseEvent).ts : 0;
 	const seekToTime = (ms: number, nudge?: -1 | 1) => {
 		const target = positionAt(playing, ms);
 		// A step must move even when no event falls inside it (the recording has quiet stretches of several seconds).

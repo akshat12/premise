@@ -60,3 +60,29 @@ export function dueBy(offsets: readonly number[], from: number, clock: number): 
 	}
 	return index;
 }
+
+/**
+ * The replay's clock runs on `replayOffsets`, which skips the pause before a marker; a view that
+ * draws time uses the events' own timestamps. This turns a clock reading into that scale, by
+ * sliding between the last event shown and the next one due. Pure.
+ *   offsets   `replayOffsets(events)`
+ *   times     each event's time on the view's scale (ms after the first event)
+ *   position  how many events are shown
+ */
+export function timeAtClock(offsets: readonly number[], times: readonly number[], position: number, clock: number): number {
+	if (times.length === 0) {
+		return 0;
+	}
+	if (position <= 0) {
+		return times[0] ?? 0;
+	}
+	const shown = Math.min(position, times.length) - 1;
+	const next = shown + 1;
+	const from = times[shown] ?? 0;
+	if (next >= times.length) {
+		return from;
+	}
+	const gap = (offsets[next] ?? 0) - (offsets[shown] ?? 0);
+	const share = gap <= 0 ? 0 : Math.min(1, Math.max(0, (clock - (offsets[shown] ?? 0)) / gap));
+	return from + share * ((times[next] ?? from) - from);
+}

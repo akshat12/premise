@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { PremiseEvent } from "../../shared/events";
-import { appendEvents, backoffMs, dueBy, liveUrl, replayDelays, replayOffsets } from "./stream";
+import { appendEvents, backoffMs, dueBy, liveUrl, replayDelays, replayOffsets, timeAtClock } from "./stream";
 
 const marker = (seq: number, ts: number, label = "m"): PremiseEvent => ({ t: "demo.marker", label, seq, ts });
 const status = (seq: number, ts: number): PremiseEvent => ({ t: "intent.status", id: "i00000001", status: "working", seq, ts });
@@ -83,5 +83,29 @@ describe("replayOffsets and dueBy", () => {
 
 	it("never goes back, even if the clock is behind what is shown", () => {
 		expect(dueBy(replayOffsets(events), 4, 0)).toBe(4);
+	});
+});
+
+describe("timeAtClock", () => {
+	// Three events. The replay skips part of the pause before the last one, so its clock and the events' own times differ.
+	const offsets = [0, 1000, 1500];
+	const times = [0, 1000, 5000];
+
+	it("slides between the last event shown and the next one due", () => {
+		expect(timeAtClock(offsets, times, 1, 0)).toBe(0);
+		expect(timeAtClock(offsets, times, 1, 500)).toBe(500);
+		expect(timeAtClock(offsets, times, 2, 1000)).toBe(1000);
+		expect(timeAtClock(offsets, times, 2, 1250)).toBe(3000);
+	});
+
+	it("never runs past the next event or back before the last one", () => {
+		expect(timeAtClock(offsets, times, 2, 9999)).toBe(5000);
+		expect(timeAtClock(offsets, times, 2, 0)).toBe(1000);
+	});
+
+	it("stays at the end once everything is shown, and at the start before anything is", () => {
+		expect(timeAtClock(offsets, times, 3, 99999)).toBe(5000);
+		expect(timeAtClock(offsets, times, 0, 700)).toBe(0);
+		expect(timeAtClock([], [], 0, 10)).toBe(0);
 	});
 });

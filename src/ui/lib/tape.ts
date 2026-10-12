@@ -168,11 +168,15 @@ interface Building {
 	asks: { at: number; options: string[]; answer?: string; answeredAt?: number }[];
 }
 
-export function buildTape(events: readonly PremiseEvent[], intents: Readonly<Record<IntentId, IntentView>>): Tape {
+/**
+ * `total`, when the whole run's length is known (a replay), fixes the axis from the start, so it
+ * never changes scale while the run plays.
+ */
+export function buildTape(events: readonly PremiseEvent[], intents: Readonly<Record<IntentId, IntentView>>, total?: number): Tape {
 	const start = events[0]?.ts ?? 0;
 	const at = (event: PremiseEvent) => event.ts - start;
 	const now = events.length > 0 ? at(events[events.length - 1] as PremiseEvent) : 0;
-	const span = spanFor(now);
+	const span = spanFor(Math.max(now, total ?? 0));
 	const named = (id: IntentId) => {
 		const intent = intents[id];
 		return intent ? callsign(intent) : id;
@@ -470,4 +474,21 @@ export function positionAt(events: readonly PremiseEvent[], ms: number): number 
 		}
 	}
 	return Math.max(1, low);
+}
+
+/**
+ * The same tape a moment later, with no new event: "now" moves on and every bar that is still
+ * open grows with it. This is what makes a replay glide instead of jumping from event to event.
+ * It never moves time backwards, and it changes nothing once every bar is closed. Pure.
+ */
+export function advanceTape(tape: Tape, now: number): Tape {
+	if (now <= tape.now) {
+		return tape;
+	}
+	const until = Math.min(now, tape.span);
+	return {
+		...tape,
+		now: until,
+		rows: tape.rows.map((row) => (row.segments.some((segment) => segment.open) ? { ...row, segments: row.segments.map((segment) => (segment.open ? { ...segment, to: Math.max(segment.to, until) } : segment)) } : row)),
+	};
 }

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { PremiseEvent, PremiseEventBody } from "../../shared/events";
 import recording from "../fixtures/run-2026-10-09.json";
 import { reduceAll } from "./reduce";
-import { buildTape, clock, positionAt, spanFor, ticksFor } from "./tape";
+import { buildTape, clock, positionAt, spanFor, ticksFor, advanceTape } from "./tape";
 
 const run = recording as PremiseEvent[];
 const tapeAt = (count: number) => {
@@ -278,5 +278,37 @@ describe("positionAt", () => {
 		expect((run[at]?.ts ?? 0) - (run[0]?.ts ?? 0)).toBeGreaterThan(26_000);
 		expect(positionAt(run, 10_000_000)).toBe(run.length);
 		expect(positionAt([], 5000)).toBe(1);
+	});
+});
+
+describe("advanceTape", () => {
+	const run = recording as PremiseEvent[];
+	const upTo = (count: number) => run.slice(0, count);
+	const tapeAt = (count: number) => buildTape(upTo(count), reduceAll(upTo(count)).intents, 300_000);
+
+	it("moves now on and grows only the bars that are still open", () => {
+		const tape = tapeAt(900);
+		const later = advanceTape(tape, tape.now + 2000);
+		expect(later.now).toBe(tape.now + 2000);
+		const open = tape.rows.flatMap((row) => row.segments).filter((segment) => segment.open);
+		expect(open.length).toBeGreaterThan(0);
+		for (const [index, row] of tape.rows.entries()) {
+			for (const [at, segment] of row.segments.entries()) {
+				const after = later.rows[index]?.segments[at];
+				expect(after?.from).toBe(segment.from);
+				expect(after?.to).toBe(segment.open ? tape.now + 2000 : segment.to);
+			}
+		}
+	});
+
+	it("never moves time backwards and never runs off the axis", () => {
+		const tape = tapeAt(900);
+		expect(advanceTape(tape, tape.now - 500)).toBe(tape);
+		expect(advanceTape(tape, 10 * tape.span).now).toBe(tape.span);
+	});
+
+	it("keeps one axis for the whole run when the run's length is given", () => {
+		expect(tapeAt(50).span).toBe(tapeAt(900).span);
+		expect(tapeAt(50).span).toBe(tapeAt(run.length).span);
 	});
 });
