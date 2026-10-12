@@ -240,5 +240,5 @@ export function captionAt(events: readonly PremiseEvent[], position: number, ope
 		}
 	}
 	const what = opening ?? `A recorded run on real Artifacts: ${agents} ${agents === 1 ? "agent" : "agents"}${workload.size > 0 ? ` and ${workload.size} scripted workload Intents` : ""}, each on its own fork.`;
-	return `${what} Step through the key moments with "Next moment" or the → key.`;
+	return `${what} Press Next, or the → key, to step through it.`;
 }

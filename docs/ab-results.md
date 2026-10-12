@@ -32,7 +32,7 @@ Read the table knowing how the run is set up. None of this is hidden in the code
 | Stale Intents a plain rebase settled | 0 | 0 | 14 to 22 |
 | False positives: agents | n/a | n/a | 0% (0 of 3) to 25% (1 of 4) |
 | False positives: scripted workload | n/a | n/a | 100% (14 of 14) to 100% (21 of 21) |
-| Turned away at the gate | 9 text, 0 type, 0 checks to 11 text, 0 type, 0 checks | 10 text, 0 type, 2 checks to 11 text, 0 type, 2 checks | 0 text, 0 type, 0 checks to 0 text, 0 type, 2 checks |
+| Turned away at the gate | 9 text, 0 type, 0 checks to 11 text, 0 type, 0 checks | 10 text, 0 type, 2 checks to 11 text, 0 type, 2 checks | 0 text, 0 type, 0 checks to 0 text, 0 type, 3 checks |
 | Gave up waiting for a claim | 0 | 0 | 12 to 14 |
 | Landings per minute | 56.2 to 70.3 | 64.6 to 71.4 | 41.5 to 54.1 |
 | Wall time | 84.5 s to 89.8 s | 79.0 s to 91.1 s | 103.2 s to 144.5 s |

@@ -14,3 +14,6 @@ spikes/node_modules/
 
 # Draft renders of the demo video
 video-out/
+
+# A/B results from a local run (the committed ones are from real Artifacts)
+docs/ab-results.local.*

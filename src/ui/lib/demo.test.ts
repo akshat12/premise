@@ -155,7 +155,7 @@ describe("captionAt, on the Oct 9 run of twelve agents and a workload", () => {
 	}
 
 	it("says what the recording is and how to step through it, before anything has happened", () => {
-		expect(captionAt(run, 0)).toBe('A recorded run on real Artifacts: 12 agents and 285 scripted workload Intents, each on its own fork. Step through the key moments with "Next moment" or the → key.');
+		expect(captionAt(run, 0)).toBe('A recorded run on real Artifacts: 12 agents and 285 scripted workload Intents, each on its own fork. Press Next, or the → key, to step through it.');
 		expect(captionAt(run, 200)).toBe(captionAt(run, 0));
 	});
 
@@ -185,7 +185,7 @@ describe("the front-page demo recording: four agents, one break", () => {
 	});
 
 	it("tells the whole story in five sentences", () => {
-		expect(captionAt(run, 0)).toBe('A recorded run on real Artifacts: 4 agents, each on its own fork. Step through the key moments with "Next moment" or the → key.');
+		expect(captionAt(run, 0)).toBe('A recorded run on real Artifacts: 4 agents, each on its own fork. Press Next, or the → key, to step through it.');
 		expect(captionAt(run, stops[0] ?? 0)).toBe(
 			"T01 NULL landed and changed verifySession. T02 AUDIT and T11 EXPIRED had recorded that they rely on it. Both are stopped until their work is redone. T04 SESSION read it too, but relies only on its type, which did not change.",
 		);
@@ -207,7 +207,7 @@ describe("the live-model demo recording", () => {
 	const run = readRecording(live).events;
 
 	it("opens with what is different about it, when told", () => {
-		expect(captionAt(run, 0, "Four agents, a live model.")).toBe('Four agents, a live model. Step through the key moments with "Next moment" or the → key.');
+		expect(captionAt(run, 0, "Four agents, a live model.")).toBe('Four agents, a live model. Press Next, or the → key, to step through it.');
 	});
 
 	it("says an Intent was stopped before it had pushed, where that is what happened, and that T11's tests all passed", () => {

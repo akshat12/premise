@@ -89,7 +89,7 @@
 			"metric": "Turned away at the gate",
 			"baseline": "9 text, 0 type, 0 checks to 11 text, 0 type, 0 checks",
 			"queue": "10 text, 0 type, 2 checks to 11 text, 0 type, 2 checks",
-			"premise": "0 text, 0 type, 0 checks to 0 text, 0 type, 2 checks",
+			"premise": "0 text, 0 type, 0 checks to 0 text, 0 type, 3 checks",
 			"note": "Text conflicts, type errors after rebase, and failed tests or assertions (the first rule runs neither)."
 		},
 		{

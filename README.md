@@ -11,7 +11,7 @@ When many agents change one codebase at once, the changes that hurt are not the 
 ## The idea in 20 seconds
 
 - **Intent.** Each agent works on an Intent in its own Artifacts fork. An Intent has a goal, acceptance checks, the symbols it **changes**, and the symbols it **relies on**. The second list is its premises.
-- **Invalidation.** When anything lands on trunk, every Intent still in flight whose premises no longer hold goes red, with one line saying what changed and who changed it.
+- **Invalidation.** When anything lands on trunk, every Intent still in flight whose premises no longer hold is stopped at once, with one line saying what changed and who changed it.
 - **Re-derive.** A stale Intent first tries a plain rebase, which takes about a second. If that does not pass the **gate**, its agent redoes the work on a fresh fork of the new trunk, told what broke.
 - **The gate.** Nothing reaches trunk without a clean rebase, a typecheck, the Intent's own tests, the task's reference checks (kept on trunk where no agent can write them), every test already on trunk, and the Intent's premise assertions.
 
@@ -36,12 +36,12 @@ The same 12 tasks and 100 scripted workload Intents, landed under three rules, o
 
 Read it knowing how the run is set up:
 
-- **The breaking change is planted, and it lands first** in every run. This shows a mechanism working. It is not a measurement of how often real teams hit this.
+- **The breaking change is planted, and it lands before any other task** in every run. (In these runs a scripted workload landing could still come first; the gate has since been changed to hold those too.) This shows a mechanism working. It is not a measurement of how often real teams hit this.
 - **A queue that runs tests catches two of the three.** Their own tests fail after the rebase. There the difference is only what happens next: the queue turns the work away and stops, and Premise re-derives it and lands it.
 - **The third is the case tests miss, and it is built to be.** Its tests check the rate limiter with a stand-in for the session check, the way unit tests often do. The stand-in still throws, so every test passes after the rebase while the real path is broken. Only its premise, an executable assertion about the real `verifySession`, is red. A premise is the assumption a stand-in encodes, checked against the real thing.
-- **Premise is slower and lands fewer workload Intents.** Scripted Intents that want a symbol another Intent holds give up after three tries. In the two queues the same collisions are text conflicts for a person.
+- **Premise is slower and lands fewer workload Intents.** Scripted Intents that want a symbol another Intent holds give up after three more tries. In the two queues the same collisions are text conflicts for a person.
 - **Most broken premises change nothing.** Nearly all are type-surface changes, and every one of the 14 to 21 workload Intents they turned stale passed the whole gate on a plain rebase a second later. Of the agents' stale Intents, 0 or 1 in each run did.
-- **The agents are scripted,** and Artifacts refused some forks under load: each run asks for 112 Intents, and between 93 and 112 of them got a fork, so the totals differ between runs. The outcome for the twelve tasks was the same on every seed and under every rule.
+- **The agents are scripted,** and Artifacts refused some forks under load: each run asks for 112 Intents, and between 93 and 112 of them got a fork, so the totals differ between runs. For each rule, the outcome for the twelve tasks was the same on every seed.
 
 Every row, what it means, and the per-seed results are in [docs/ab-results.md](docs/ab-results.md).
 
@@ -73,13 +73,13 @@ Premises are the early warning; the gate is the guarantee. When an Intent lands,
 
 ## What a model does on its own
 
-The front-page demo recording and the A/B use scripted agents. Two things have been run with a live model, with no hint in any task about what to assert.
+The front-page demo recording and the A/B use scripted agents. Two things have been run with a live model, with no hint in any task about what to assert. (T11's hint does tell the agent to test `guardRequest` with a stand-in for the session check. That is how the scenario is built: it is what makes its tests blind to the change.)
 
 **The four front-page tasks on the deployed Worker and real Artifacts** (Gemini 3.5 Flash-Lite as all four agents, 2026-10-11; replay it at [`/?demo=live`](https://premise.akshatdivekar.workers.dev/?demo=live)). All four landed in seven minutes with nobody involved, most of that waiting on the model's rate limit. **One of them landed wrong:** the run ended with one behavioural regression on trunk.
 
 - Every agent adopted the assertion "`verifySession` throws on expired tokens" from the repo's assertion library.
 - T01, which changes that function, had its own assertion withdrawn when it declared the change, and landed.
-- T11's first attempt went the way the scripted run does: the model wrote its tests with a stand-in, so after the rebase all its tests, the reference checks and trunk's suite passed, and only its premise failed. It was stopped.
+- T11's first attempt went the way the scripted run does: the model wrote its tests with a stand-in, as its task hint says to, so after the rebase all its tests, the reference checks and trunk's suite passed, and only its premise failed. It was stopped.
 - **T11's redo was the same change again, and it landed.** The model did not adapt to the new behaviour; it made the identical edit and asserted something weaker. Every test passed, as before, and this time no premise failed. The end-to-end probe is red on trunk: a client replaying an expired session is not rate-limited. So the premise caught the problem once, and the re-derive let it back in. Since this run, a redo that is the same change as the stopped work is turned back at the gate without being run.
 - T02 was stopped while still working, redone, and landed.
 - T04, the control, also adopted the assertion, although its code does not depend on it. So it was stopped and redone for nothing. That is a false positive caused by a model asserting more than it needs.
@@ -90,7 +90,7 @@ The front-page demo recording and the A/B use scripted agents. Two things have b
 - On the redo the model read the new `verifySession`, tried to adopt the same "throws on expired tokens" assertion again (the briefing still offered it, although it was no longer true), was refused, said its plan relied on no behaviour, and wrote the old catch-block code with a stand-in test that throws. Every check at the gate passed.
 - T04 again adopted the assertion for nothing, was stopped, and its first redo ran out of turns before the second landed.
 
-Two changes came out of that, both in what a re-deriving agent is told, and neither has been run on Cloudflare with a live model yet. An assertion from the library is only offered if it holds on the agent's fork. And a redo that was stopped over an asserted premise cannot declare its plan until it has asserted something that holds today about the same symbol; "I rely on nothing" is not accepted for it. Locally (in-memory repo, T11 as a redo, three runs) the model then always asserted something about `verifySession`, the right thing once. One run's work passed the end-to-end probe; two still wrote the old code, and one of those would have passed every gate check. So this narrows the hole and does not close it: when a task's tests and its reference checks both use a stand-in, a wrong redo with a true premise still lands.
+Two changes came out of that, both in what a re-deriving agent is told, and neither has been run on Cloudflare with a live model yet. An assertion from the library is only offered if it holds on the agent's fork. And a redo that was stopped over an asserted premise cannot declare its plan until it has asserted something that holds today about the same symbol; "I rely on nothing" is not accepted for it. Locally (in-memory repo, T11 as a redo, three runs) the model then always asserted something about `verifySession`, the right thing once. One run's work passed the end-to-end probe but failed a reference check, so the gate would have turned it back. One failed both. One passed every gate check and failed the probe, so it would have landed wrong. None of the three would have landed right. So this narrows the hole and does not close it: when a task's tests and its reference checks both use a stand-in, a wrong redo with a true premise still lands.
 
 **Whether a model asserts unprompted** (Gemini 3.1 Flash-Lite, the tasks that depend on `verifySession`, on the in-memory repo):
 
@@ -100,7 +100,7 @@ Two changes came out of that, both in what a re-deriving agent is told, and neit
 | No library, and the plan is not asked the question | 0 of 3 runs |
 | No library, and the plan is asked the question | 2 of 6 runs (wrote its own) |
 
-In every one of those runs the work itself passed the task's reference checks. So a small model reliably takes an assertion it is offered, sometimes when it should not, writes a good one of its own about a third of the time, and may redo stopped work without fixing it. Without an assertion, a task whose tests cover the behaviour is still stopped at the gate; one whose tests use a stand-in would land broken. Twelve live agents at once has not been run.
+In all six runs of the last row the work itself passed the task's reference checks. So a small model reliably takes an assertion it is offered, sometimes when it should not, writes a good one of its own about a third of the time, and may redo stopped work without fixing it. Without an assertion, a task whose tests cover the behaviour is still stopped at the gate; one whose tests use a stand-in would land broken. Twelve live agents at once has not been run.
 
 ## Where this comes from
 
@@ -141,16 +141,14 @@ In a second terminal:
 npm run demo                       # resets, dispatches 12 tasks and 40 workload Intents, opens the live board
 ```
 
-<http://localhost:5173/> plays the demo recording, which needs no backend at all. `npm test` runs the 833 tests and `npm run typecheck` the type checks. `npx tsx scripts/ab.ts --url http://localhost:5173 --seeds 7,11,23` reruns the comparison above against the local Worker (the three headline rows come out the same; it takes about ten seconds a run instead of ninety).
+<http://localhost:5173/> plays the demo recording, which needs no backend at all. `npm test` runs the tests (about 880, in under two minutes) and `npm run typecheck` the type checks. `npx tsx scripts/ab.ts --url http://localhost:5173 --seeds 7,11,23` reruns the comparison above against the local Worker (the three headline rows come out the same; it takes about ten seconds a run instead of ninety). It resets the local demo first and writes its report to `docs/ab-results.local.md`, leaving the committed results alone.
 
 In this mode repos are held in memory and agents replay scripted turns, but everything else is the real code: the ledger, the gate, the TypeScript compiler, the isolate runner, invalidation and re-derive.
 
 <details>
 <summary><strong>Deployed, on real Artifacts</strong> (needs the Workers Paid plan)</summary>
 
-A model key is optional: without one the agents replay scripted turns.
-
-Needs the Workers Paid plan (Artifacts requires it) and Node 22 or later. A model key is optional: without one the agents replay recorded turns.
+Needs the Workers Paid plan (Artifacts requires it) and Node 22 or later. A model key is optional: without one the agents replay scripted turns.
 
 1. Install and log in.
    ```bash
@@ -169,7 +167,7 @@ Needs the Workers Paid plan (Artifacts requires it) and Node 22 or later. A mode
 5. Set the secrets. Choose any long random string as the admin token.
    ```bash
    npx wrangler secret put ADMIN_TOKEN
-   npx wrangler secret put ANTHROPIC_API_KEY    # optional; see "Using a real model"
+   npx wrangler secret put GEMINI_API_KEY       # optional; see "Using a real model"
    ```
    Put the same admin token in a git-ignored file so the scripts can use it: `echo "ADMIN_TOKEN=<your token>" > .env.deployed`
 6. Import trunk. This imports the demo repo ([akshat12/acme-accounts](https://github.com/akshat12/acme-accounts), a copy of `demo-repo/`) into Artifacts.
@@ -181,6 +179,7 @@ Needs the Workers Paid plan (Artifacts requires it) and Node 22 or later. A mode
    npx wrangler queues subscription create premise-events --source artifacts --events repo.created,repo.forked,repo.imported,repo.deleted --name premise-account
    npx wrangler queues subscription create premise-events --source artifacts.repo --events pushed --source-namespace premise --source-repo-name trunk --name premise-trunk-push
    ```
+   The second one covers the repo named `trunk`. A demo reset moves trunk to a fresh repo (`trunk-<time>`), which this subscription does not cover, so after a reset a push from outside the gate is not seen until a subscription is made for the new repo.
 8. Run the demo.
    ```bash
    npm run demo -- --url <your worker>
@@ -190,9 +189,9 @@ Other commands:
 
 | Command | What it does |
 |---|---|
-| `npm run smoke` | Runs the repo-store contract against real Artifacts on the deployed Worker |
-| `npx tsx scripts/ab.ts --url <your worker>` | Runs the A/B comparison and rewrites `docs/ab-results.md` |
-| `npm run demo:record -- --url <your worker> --out demo/runs/mine.json` | Records a run; play it at `/?demo=mine` |
+| `PREMISE_URL=<your worker> npm run smoke` | Runs the repo-store contract against real Artifacts on the deployed Worker |
+| `npx tsx scripts/ab.ts --url <your worker> --seeds 7,11,23` | Runs the A/B comparison (one seed, 7, if `--seeds` is left out) and rewrites `docs/ab-results.md` and `.json` |
+| `npm run demo:record -- --url <your worker> --out demo/runs/mine.json` | Records a run. Recordings are bundled at build time, so play it at `/?demo=mine` locally, or after the next deploy |
 | `npm run demo:compress -- demo/runs/mine.json` | Cuts idle time out of a recording and marks each cut |
 | `npm run demo:offline` | Builds, then serves the UI as plain files with no backend: the recorded run at `http://localhost:4173/?demo=main` |
 
@@ -228,10 +227,11 @@ curl -X POST <your worker>/api/admin/llm -H "x-admin-token: <your token>" -H "co
 - **Behaviour is tracked only if someone asserts it.** See "What a model does on its own". Observed and derived premises cover types, which the gate's typecheck also covers.
 - **The agent writes its own acceptance tests.** Only their names are fixed. What it cannot touch are the task's reference checks, which the gate runs from trunk's copy. A task with no reference checks would be gated on the agent's own tests and trunk's suite.
 - **False positives.** Most broken premises are type-surface changes that turn out not to matter. For an Intent that has already pushed, the cost is one rebase at the gate. For one still working, the agent is stopped and starts again.
-- **Wait and Depend both pause the Intent** until the other lands. Depend also records the dependency. Neither re-forks the waiter, so if the holder's landing changed what the waiter read, the waiter goes stale then and is re-derived.
+- **Wait and Depend both pause the Intent** until the other lands. The dependency is recorded on the Intent only when a person chooses Depend; the ledger's own Depend answer behaves as Wait. Neither re-forks the waiter, so if the holder's landing changed what the waiter read, the waiter goes stale then and is re-derived.
 - **Scale with real models is unknown.** One Durable Object per trunk runs the gate. The 61 landings a minute in the larger demo recording are batches of ten scripted edits; agents' Intents are gated one at a time, at two to five seconds each. In that run 6 of 300 workload forks failed after retries, and 40 of 294 workload Intents did not land: 33 gave up waiting for a claim, and 7 were wrongly failed by the scripted runner when a premise broke just as they were being queued (fixed since).
 - **Enforcement happens after the push.** Artifacts has no pre-receive hook, so an agent can push an edit to a symbol it did not claim. The push checker catches it afterwards and quarantines the Intent, and the gate is what stops it reaching trunk.
-- **Nothing is cleaned up.** Durable Objects and Workflow instances of finished Intents stay until the demo is reset.
+- **A scripted re-derive can undo a workload edit.** It writes whole files from its script, so if a workload Intent landed an edit to the same file in the meantime, that edit is silently dropped. A real agent reads the current file. This bears on the "Intents landed" counts in the A/B and the larger recording.
+- **Little is cleaned up.** A demo reset removes the forks and clears the log, the ledger and the gate. The Durable Objects and Workflow instances of finished Intents are never deleted.
 
 ## Repository layout
 

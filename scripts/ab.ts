@@ -1,6 +1,6 @@
 // Runs the A/B comparison against a deployed (or local) Worker and writes the report.
 //
-//   npx tsx scripts/ab.ts --url https://premise.<account>.workers.dev [--n 100] [--seeds 7,11,23]
+//   npx tsx scripts/ab.ts --url https://premise.<account>.workers.dev [--n 100] [--seeds 7,11,23] [--out docs/ab-results]
 //
 // Three landing rules (typecheck only, a queue that also runs the tests, Premise) are each run on
 // every seed, one after another. The admin token comes from the ADMIN_TOKEN environment variable,
@@ -45,6 +45,10 @@ async function runMode(mode: AbMode, seed: number): Promise<ModeResult> {
 	}
 }
 
+// The committed results are from real Artifacts, and the Compared view shows them. A run against a local
+// Worker is written beside them (git-ignored), so trying the script does not replace those numbers.
+const local = /\/\/(localhost|127\.0\.0\.1|\[::1\])(:|\/|$)/.test(url);
+const out = arg("out") ?? (local ? "docs/ab-results.local" : "docs/ab-results");
 const trials: Trial[] = [];
 for (const seed of seeds) {
 	const results = {} as Record<AbMode, ModeResult>;
@@ -55,8 +59,8 @@ for (const seed of seeds) {
 	// Written after every seed, so a long run that is cut short still leaves a report of what finished.
 	const report = buildReport(trials);
 	const date = new Date().toISOString().slice(0, 10);
-	writeFileSync("docs/ab-results.json", `${JSON.stringify({ date, url, n, seeds: trials.map((trial) => trial.seed), headline: report.headline, table: report.table, trials }, null, "\t")}\n`);
-	writeFileSync("docs/ab-results.md", renderMarkdown(trials, { date, source: url }));
+	writeFileSync(`${out}.json`, `${JSON.stringify({ date, url, n, seeds: trials.map((trial) => trial.seed), headline: report.headline, table: report.table, trials }, null, "\t")}\n`);
+	writeFileSync(`${out}.md`, renderMarkdown(trials, { date, source: url }));
 	console.log(`\nseed ${seed} done. ${report.headline}\n`);
 }
-console.log("Wrote docs/ab-results.json and docs/ab-results.md");
+console.log(`Wrote ${out}.json and ${out}.md`);

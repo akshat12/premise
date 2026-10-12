@@ -86,9 +86,9 @@ interface ProviderPreset {
 }
 
 /**
- * The value of the `LLM` variable selects a row. Only "anthropic" and "scripted" have been
- * exercised; the others are the same two adapters pointed at a different URL and are untested
- * until someone supplies a key.
+ * The value of the `LLM` variable selects a row. Only "google" and "scripted" have been run end
+ * to end. The rest are the same two adapters pointed at a different URL, and none of them,
+ * "anthropic" included, has been run with a key.
  */
 export const PROVIDERS: Record<string, ProviderPreset> = {
 	anthropic: { wire: "anthropic", baseUrl: () => "https://api.anthropic.com", keys: ["LLM_API_KEY", "ANTHROPIC_API_KEY"], defaultModel: "claude-sonnet-5-5" },

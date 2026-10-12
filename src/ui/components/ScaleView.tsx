@@ -110,7 +110,7 @@ export function ScaleView({ events, metrics, intents, otherRun }: ScaleViewProps
 				</dd>
 				<dt className="label" style={{ paddingTop: 3 }}>Ledger contention</dt>
 				<dd style={{ margin: 0 }}>
-					{whole.format(stats.contention)} {stats.contention === 1 ? "claim" : "claims"} met another Intent on the same symbol and got Wait, Split or Depend
+					{whole.format(stats.contended)} {stats.contended === 1 ? "Intent" : "Intents"} wanted a symbol another Intent held; the ledger answered Wait, Split or Depend {whole.format(stats.contention)} {stats.contention === 1 ? "time" : "times"}
 				</dd>
 				<dt className="label" style={{ paddingTop: 3 }}>Premises</dt>
 				<dd style={{ margin: 0 }}>

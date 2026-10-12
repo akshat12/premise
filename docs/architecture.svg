@@ -23,7 +23,7 @@
   <!-- Browser -->
   <rect class="box" x="40" y="24" width="980" height="56" rx="3"/>
   <text class="name" x="56" y="48">Browser: Kumo UI (React)</text>
-  <text class="note" x="56" y="66">Strip board, ledger rail, premise drawer, human cards, scale view. Live over a WebSocket, or a replay of a recorded run.</text>
+  <text class="note" x="56" y="66">The story on a tape, an Intent details panel, human cards, At scale, Compared. Live over a WebSocket, or a replay of a recorded run.</text>
 
   <!-- Artifacts -->
   <rect class="group" x="40" y="130" width="230" height="252" rx="3"/>
@@ -92,10 +92,10 @@
 
   <rect class="gate" x="786" y="410" width="218" height="98" rx="3"/>
   <text class="name" x="800" y="432">Landing: the gate</text>
-  <text class="note" x="800" y="449">Rebase, typecheck, tests, premise</text>
-  <text class="note" x="800" y="464">assertions, checks of landed work.</text>
-  <text class="note" x="800" y="479">Runs the re-derive race for stale</text>
-  <text class="note" x="800" y="494">Intents; calls a person after two.</text>
+  <text class="note" x="800" y="449">Rebase, typecheck, tests (its own,</text>
+  <text class="note" x="800" y="464">reference, trunk's), assertions.</text>
+  <text class="note" x="800" y="479">Stale Intent: rebase first, then a</text>
+  <text class="note" x="800" y="494">re-derive; a person after two.</text>
 
   <!-- Flows -->
   <!-- UI to router -->

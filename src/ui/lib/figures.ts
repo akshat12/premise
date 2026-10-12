@@ -10,7 +10,7 @@ export interface RunFigureValues {
 	premisesBroken: number;
 	/** Stopped work that was redone and landed, by a plain rebase or by its agent. */
 	rederived: number;
-	/** Times a person was asked to settle something. */
+	/** Times a person was asked because re-derives had failed. (Two Intents wanting one symbol is a different question, and is not counted here.) */
 	asked: number;
 	landed: number;
 	/** Behavioural regressions and broken builds on trunk. Measured on the server, so this one comes from the log's last metrics. */
@@ -32,7 +32,7 @@ export function figuresFor(events: readonly PremiseEvent[], intents: Readonly<Re
 			premisesBroken++;
 		} else if (event.t === "rederive.race" && event.winner !== undefined) {
 			rederived++;
-		} else if (event.t === "human.needed") {
+		} else if (event.t === "human.needed" && event.kind === "fallback") {
 			asked++;
 		}
 	}

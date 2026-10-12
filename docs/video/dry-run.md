@@ -7,18 +7,17 @@ The deployed Worker is `https://premise.akshatdivekar.workers.dev`. Commands tha
 ## The system
 
 - [ ] **A fresh reset works.** `curl -s -X POST https://premise.akshatdivekar.workers.dev/api/admin/reset-demo -H "x-admin-token: $(grep '^ADMIN_TOKEN=' .env.deployed | cut -d= -f2-)"` answers `{"ok":true,"trunk":"trunk-…"}`.
-- [ ] **A live run succeeds.** `npm run demo -- --url https://premise.akshatdivekar.workers.dev --workload 40`. On the page that opens: T01 lands first; T02, T03 and T11 go red and come back green with an R1 stamp; all twelve agent strips end "landed"; "Broken builds on trunk" and "Human merges" are both 0. It takes about two minutes. *If it does not finish: the video uses the recorded run for every shot anyway. Note what happened and carry on.*
+- [ ] **A live run succeeds.** `npm run demo -- --url https://premise.akshatdivekar.workers.dev --workload 40`. On the page that opens: T01 lands first; T02, T03 and T11 are stopped (an orange line through their rows) and come back landed with an R1 stamp; all twelve agent rows end "landed"; "Broken builds on trunk" and "Human merges" are both 0. It takes about two minutes. *If it does not finish: the video uses the recorded run for every shot anyway. Note what happened and carry on.*
 - [ ] **The gate is idle afterwards.** `curl -s https://premise.akshatdivekar.workers.dev/api/gate` shows `"queue":[]` and `"busy":false`.
-- [ ] **The demo recording plays.** Open `https://premise.akshatdivekar.workers.dev/?demo=main` in a private window. It opens on "Step 01 / 07". Press `→` until "Step 04 / 07": Agents 2 and 4 are orange, Agent 3 is not. Press `→` three more times: "Everything landed. Nothing broken reached trunk." Then open `/?demo=scale` and check the larger demo recording plays too.
-- [ ] **Scale and A/B show what the script says.** A/B: the first row reads 3, 1 and 0, the second 0, 2 and 0 of 12. Scale: the script reads these numbers off the screen, so check only that the tab has reached the end of the run. *If the A/B rows differ, the comparison was re-run with a different scenario: stop and find out why.*
+- [ ] **The demo recording plays.** Open `https://premise.akshatdivekar.workers.dev/?demo=main` in a private window. It opens on "Step 01 / 07". Press `→` until "Step 04 / 07": Agents 2 and 4 are orange, Agent 3 is not. Press `→` three more times: "Everything landed. Nothing broken reached trunk." Then open `/?demo=scale` and check the larger demo recording plays too, and `/?demo=live`: its top bar says "Replay · live model · real Artifacts" and its last step reads "The run is over. One problem reached trunk."
+- [ ] **At scale and Compared show what the script says.** Compared: the first row reads 3, 1 and 0, the second 0, 2 and 0 of 12. At scale: 309 forks, 315 pushes, 61.4 landings a minute, and the ledger line reads "36 Intents … 136 times". *If the Compared rows differ, the comparison was re-run with a different scenario: stop and find out why.*
 - [ ] **The offline copy plays.** `npm run demo:offline`, then `http://localhost:4173/?demo=main` with Wi-Fi off. Same keys, same result.
 
 ## The picture
 
 - [ ] The page area is exactly 1440×900, zoom 100%, bookmarks bar hidden, no other tabs in the window.
-- [ ] Twelve agent strips and the workload strip fit without a scrollbar. The top bar is not clipped.
+- [ ] At step 6, the tallest step, the four rows, the counter strip, the readout under Agent 4 and the key all fit without a scrollbar. The top bar is not clipped.
 - [ ] Notifications are off (Do Not Disturb), the Dock is hidden, the pointer is visible.
-- [ ] The editor for shot 8 is in a light theme at 16 px or larger, with the two files already open at the right lines.
 - [ ] `docs/video/end-frame.html?repo=…` shows the real repo address.
 
 ## The sound
@@ -29,12 +28,12 @@ The deployed Worker is `https://premise.akshatdivekar.workers.dev`. Commands tha
 
 ## The read
 
-- [ ] Read `script.md` aloud once against `/?demo=main`, with a stopwatch, doing the keys from `shot-list.md`. **It must land between 7:30 and 9:00.** Write the time here: ______
+- [ ] Read `script.md` aloud once against `/?demo=main`, with a stopwatch, doing the keys from `shot-list.md`. **It must land between 5:45 and 6:45, and never under 5:00.** Write the time here: ______
 - [ ] Nothing in the read says "merge queue", "pull request", "PR" or "branch".
-- [ ] "Premises are the early warning; the gate is the guarantee" is said exactly once.
+- [ ] "Premises are the early warning. The gate is the guarantee." is said exactly once, in the live-model row.
 
 ## After recording
 
 - [ ] The finished video is between 5 and 10 minutes long. Write the length here: ______
-- [ ] Watch it once from start to finish at normal speed, on a laptop screen, with sound. Chip text is readable.
+- [ ] Watch it once from start to finish at normal speed, on a laptop screen, with sound. The small uppercase labels are readable.
 - [ ] The admin token is not visible anywhere in it (the dispatch panel masks it; check the terminal was never on screen).

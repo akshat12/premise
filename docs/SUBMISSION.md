@@ -15,24 +15,24 @@ Four reviewer passes on Oct 11 led to changes in the gate, the comparison and th
 | [x] | Publish the updated `demo-repo/` to its public GitHub repo. Done Oct 11. | Claude | `scripts/publish-demo-repo.sh akshat12/acme-accounts` |
 | [x] | Deploy the Worker. Done Oct 11. | Claude | `npm run deploy` |
 | [x] | Run the three-rule comparison on real Artifacts. Done Oct 11 (`docs/ab-results.*`). | Claude | `npx tsx scripts/ab.ts --url https://premise.akshatdivekar.workers.dev --n 100 --seeds 7,11,23` |
-| [x] | Make the demo recordings again. Done Oct 11: `demo/runs/main.json` is four agents (the front page), `demo/runs/scale.json` is twelve agents and 294 workload Intents (the Scale tab, and `/?demo=scale`). | Claude | `npm run demo:record -- --url <worker> --out demo/runs/main.json --tasks t01,t02,t04,t11 --workload 0`, then `npm run demo:compress -- demo/runs/main.json` |
-| [x] | One demo recording with a live model, published as `/?demo=live`. Done Oct 11 (four tasks, Gemini 3.5 Flash-Lite, all four landed; the README says what happened, including the control task being stopped for nothing). | Claude | `npm run demo:record` after `POST /api/admin/llm` |
+| [x] | Make the demo recordings again. Done Oct 11: `demo/runs/main.json` is four agents (the front page), `demo/runs/scale.json` is twelve agents and 294 workload Intents (the At scale tab, and `/?demo=scale`). | Claude | `npm run demo:record -- --url <worker> --out demo/runs/main.json --tasks t01,t02,t04,t11 --workload 0`, then `npm run demo:compress -- demo/runs/main.json` |
+| [x] | One demo recording with a live model, published as `/?demo=live`. Done Oct 11 (four tasks, Gemini 3.5 Flash-Lite; all four landed and one regression reached trunk. The README says what happened, including a second run on Oct 12 that ended the same way). | Claude | `npm run demo:record` after `POST /api/admin/llm` |
 
 ## Before recording
 
 | | Item | Owner | When | Link or command |
 |---|---|---|---|---|
-| [ ] | **Publish this repo publicly on GitHub.** It has no remote yet. Decide the name (suggested: `premise`). A scan on Oct 10 found no secrets in the tracked files or in the history (only the local test token, which is meant to be there). | Akshat decides; Claude can do this | Sat Oct 10 | `gh repo create premise --public --source . --push` |
-| [ ] | Put the repo address in the README's clone line, in `docs/video/shot-list.md` (shot 10) and in the end-frame address. | Akshat; Claude can do this | Sat Oct 10 | `README.md`, `docs/video/end-frame.html?repo=…` |
-| [ ] | Create the two event subscriptions on the deployed Worker's queue (the demo does not depend on them; the "pushes from outside the gate" path does). | Akshat | Sat Oct 10 | The two `wrangler queues subscription create` commands in `README.md`, step 7 |
-| [ ] | Dry run: every box in `docs/video/dry-run.md` down to "The read". | Akshat | Sun Oct 11 | [dry-run.md](video/dry-run.md) |
-| [ ] | Read the script aloud once against `/?demo=main`; it comes to about 6:00, and must not be under 5:00. | Akshat | Sun Oct 11 | [script.md](video/script.md), [shot-list.md](video/shot-list.md) |
+| [ ] | **Publish this repo publicly on GitHub.** It has no remote yet. Decide the name (suggested: `premise`). Scans on Oct 10 and Oct 12 found no secrets in the tracked files or in the history (only the local test token, which is meant to be there; the Cloudflare account id in the `wrangler*.jsonc` files is an identifier, not a secret). | Akshat decides; Claude can do this | Mon Oct 12 | `gh repo create premise --public --source . --push` |
+| [ ] | Put the repo address in the README's clone line, in `docs/video/shot-list.md` (shot 11) and in the end-frame address. | Akshat; Claude can do this | Mon Oct 12 | `README.md`, `docs/video/end-frame.html?repo=…` |
+| [ ] | Create the two event subscriptions on the deployed Worker's queue (the demo does not depend on them; the "pushes from outside the gate" path does). Optional. | Akshat | Tue Oct 13 | The two `wrangler queues subscription create` commands in `README.md`, step 7 |
+| [ ] | Dry run: every box in `docs/video/dry-run.md` down to "The read". | Akshat | Mon Oct 12 | [dry-run.md](video/dry-run.md) |
+| [ ] | Read the script aloud once against `/?demo=main`; it comes to about 6:20, and must not be under 5:00. | Akshat | Mon Oct 12 | [script.md](video/script.md), [shot-list.md](video/shot-list.md) |
 
 ## The video
 
 | | Item | Owner | When | Link or command |
 |---|---|---|---|---|
-| [ ] | Record the shots in `shot-list.md`. | Akshat | Mon Oct 12 | [shot-list.md](video/shot-list.md) |
+| [ ] | Record the shots in `shot-list.md`. | Akshat | Mon Oct 12 or Tue Oct 13 | [shot-list.md](video/shot-list.md) |
 | [ ] | Edit. Check the "After recording" boxes in `dry-run.md`. | Akshat | Tue Oct 13, morning | [dry-run.md](video/dry-run.md) |
 | [ ] | **Video exported as a file: MP4, WebM or MOV, at most 2 GiB. Length is between 5 and 10 minutes.** The form takes a file upload, not a link. An unlisted upload elsewhere is still useful for the README. | Akshat | Tue Oct 13, 6 PM PDT | File: ______ Link for the README: ______ |
 | [ ] | Put the video link in the README ("See it in 2 minutes") and push. | Akshat; Claude can do this | Tue Oct 13 | `README.md` |
@@ -42,9 +42,9 @@ Four reviewer passes on Oct 11 led to changes in the gate, the comparison and th
 | | Item | Owner | When | Link or command |
 |---|---|---|---|---|
 | [ ] | **The public GitHub repo has a LICENSE (MIT), the README and run instructions.** Open it logged out to check. | Akshat | Tue Oct 13 | Repo link: ______ |
-| [ ] | **The deployed URL works in a private window.** `/` works without auth: it opens on "Step 1 of 7", and at step 4 Agents 2 and 4 are red with Agent 3 untouched. | Akshat | Tue Oct 13, and again Wed Oct 14 before submitting | <https://premise.akshatdivekar.workers.dev/?demo=main> |
+| [ ] | **The deployed URL works in a private window.** `/` works without auth: it opens on "Step 01 / 07", and at step 4 Agents 2 and 4 are marked in orange as stopped, with Agent 3 untouched. | Akshat | Tue Oct 13, and again Wed Oct 14 before submitting | <https://premise.akshatdivekar.workers.dev/?demo=main> |
 | [ ] | The deployed build is the published code: `git status` is clean, then `npm run deploy`. | Akshat; Claude can do this | Tue Oct 13 | `npm run deploy` |
-| [ ] | A stranger's path works: on another machine or a fresh clone, the README's "Local only" steps run. (Done once on Oct 10 from a clean clone with no Cloudflare login; repeat from the public repo.) | Akshat | Tue Oct 13 | `README.md`, "Run it yourself" |
+| [ ] | A stranger's path works: on another machine or a fresh clone, the README's "Run it yourself" steps run. (Done on Oct 10 and again on Oct 12 from a clean local clone with no Cloudflare login; repeat from the public repo.) | Akshat | Tue Oct 13 | `README.md`, "Run it yourself" |
 
 ## Eligibility and submitting
 
@@ -94,6 +94,6 @@ Four reviewer passes on Oct 11 led to changes in the gate, the comparison and th
 | | Item | Owner | When | Link or command |
 |---|---|---|---|---|
 | [ ] | Do not reset or redeploy the Worker while judging may be under way, except to fix something broken. The recorded run does not depend on the Worker's state; the live board does. | Akshat | From Oct 14 | |
-| [ ] | Rotate the Gemini API key (it was pasted into a chat once) and update the Worker secret if live-model runs are still wanted. | Akshat | Thu Oct 15 | Google AI Studio, then `npx wrangler secret put GEMINI_API_KEY` |
+| [ ] | Rotate the Gemini API key used for the live-model runs, and update the Worker secret if more are wanted. | Akshat | Before the repo is public, or Thu Oct 15 at the latest | Google AI Studio, then `npx wrangler secret put GEMINI_API_KEY` |
 | [ ] | Artifacts billing starts Oct 14. List the repos and delete what is not needed: a reset deletes the previous run's forks, but check for old `trunk-…` copies and `smoke-…` repos. | Akshat | Thu Oct 15 | `npx wrangler artifacts repos list --namespace premise` |
 | [ ] | **Stage fallback for Oct 21:** the recorded run plays offline from a local build. Rehearse `docs/video/stage-10min.md` once with Wi-Fi off. | Akshat | Tue Oct 20 | `npm run demo:offline`, then <http://localhost:4173/?demo=main> |

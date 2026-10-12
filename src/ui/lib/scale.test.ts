@@ -33,6 +33,7 @@ describe("scaleStats", () => {
 		expect(stats.landingTimes).toEqual([15_000, 30_000]);
 		expect(stats.landingsPerMinute).toBe(4);
 		expect(stats.contention).toBe(1);
+		expect(stats.contended).toBe(1);
 		expect(stats.elapsedMs).toBe(40_000);
 		expect(stats.buckets).toEqual([0, 1, 0, 1]);
 	});
@@ -47,7 +48,7 @@ describe("scaleStats", () => {
 	});
 
 	it("is all zeros for an empty log", () => {
-		expect(scaleStats([])).toEqual({ landingTimes: [], buckets: [0], landingsPerMinute: 0, contention: 0, elapsedMs: 0 });
+		expect(scaleStats([])).toEqual({ landingTimes: [], buckets: [0], landingsPerMinute: 0, contention: 0, contended: 0, elapsedMs: 0 });
 	});
 });
 

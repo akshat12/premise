@@ -40,8 +40,8 @@ On screen there is one object, the **Intent**, which replaces branch, PR and com
 ## Mechanism
 1. **Dispatch.** A Worker forks the repo with the Artifacts binding, mints a scoped token, and writes `.intent/`.
 2. **Ledger.** Durable Objects sharded per module path. They hold write-premises and read-premise subscriptions. An intent that spans modules acquires them in sorted order. Expiry uses DO alarms.
-3. **Overlapping write-premises** resolve through a fixed protocol: **Wait / Split / Depend**. An LLM only proposes how to split. A stalemate goes to a one-click human card.
-4. **After a push**, the event goes to a Queue and a checker maps the diff to symbols. An edit outside the intent's write-premises quarantines the intent and requests an upgrade automatically.
+3. **Overlapping write-premises** resolve through a fixed protocol: **Wait / Split / Depend**. An LLM only proposes how to split. A stalemate goes to a one-click human card. *As built:* no model is involved in the ledger's answer; Split is decided by a fixed rule, and only between exactly two Intents.
+4. **After a push**, the event goes to a Queue and a checker maps the diff to symbols. *As built:* for an Intent's fork the Worker calls the checker directly, because our own code is the only thing that pushes there; the Queue carries Artifacts' own events for trunk. An edit outside the intent's write-premises quarantines the intent and requests an upgrade automatically.
 5. **The gate.** A landing DO serializes landings in batches: rebase, typecheck, the Intent's tests, the task's reference checks, every test already on trunk, the premise assertions, and the checks that landed Intents left behind.
 6. **Premise invalidation (core).** When something lands, each changed type surface or failed assertion turns red on every in-flight intent that relied on it, with a targeted message.
 7. **Re-derive instead of rebase (the wow).** A stale intent gets a fresh fork of the new main, and its agent re-runs from the stored intent (goal, premises, rejected alternatives). *As built:* this is not a race. The plain textual rebase is tried first because it takes about a second; the agent is started only if the rebase does not pass the gate. Re-derives running at once are capped and land in priority order to avoid livelock. After 2 failures the intent goes to a human.
@@ -55,8 +55,8 @@ On screen there is one object, the **Intent**, which replaces branch, PR and com
 This answers the skeptic's question, "doesn't tsc already catch it?" The next question is "don't the tests catch it?" *As built:* for two of the three dependent tasks they do, and a queue that runs tests stops them as well. The third task's tests use a stand-in for the function that changed, so they keep passing, and only its premise catches it. The A/B report compares all three landing rules.
 
 ## Proof of scale
-- A real open-source TypeScript repo (about 1k exported symbols), imported into Artifacts.
-- 8 to 12 agents, each shown as a lane. *As built:* twelve, and in the recorded run and the A/B they are scripted (their turns are generated from reference solutions). Live models have been run on single tasks and on three agents at once, not on all twelve. On top of that, 300 to 500 clearly labelled scripted workload agents doing real forks and pushes, shown as an aggregate counter plus ledger activity.
+- A real open-source TypeScript repo (about 1k exported symbols), imported into Artifacts. *As built:* a small repo written for the demo (`demo-repo/`, 35 source files, no dependencies, its own test format), published on GitHub and imported into Artifacts.
+- 8 to 12 agents, each shown as a lane. *As built:* twelve, and in the recorded run and the A/B they are scripted (their turns are generated from reference solutions). Live models have been run on single tasks and on four agents at once (twice, on Cloudflare), not on all twelve. On top of that, 300 to 500 clearly labelled scripted workload agents doing real forks and pushes, shown as an aggregate counter plus ledger activity.
 - **Headline A/B:** the same workload under a queue that only typechecks, a queue that also runs the tests, and Premise, measuring:
   - human merge resolutions;
   - broken builds that reached main;
@@ -66,6 +66,8 @@ This answers the skeptic's question, "doesn't tsc already catch it?" The next qu
 - A live counter of forks created, with their cost.
 
 ## UI (Cloudflare Kumo, `@cloudflare/kumo`)
+*As built:* none of the layout below survived. The front page is the run told as a story over a tape (one row per agent over time), with a details panel for an Intent and two more views, At scale and Compared. Kumo's `Flow` is not used, and there is no ledger rail. `docs/UI.md` has the current brief. The event log, the three premise sources, the 3-line "why" and the human's role are as written.
+
 - **Top counters:** agents active, intents landed, broken builds on main, human merges.
 - **Center:** a horizontal `Flow` with Backlog → `Flow.Parallel` lanes. Each lane is a `Flow.List`: Intent card → Check → Gate → main.
   - Collisions show through node state, `disabled`, and shared chips, because Flow has no edges between lanes.
@@ -88,6 +90,8 @@ This answers the skeptic's question, "doesn't tsc already catch it?" The next qu
 - Jurisdiction (one line in the video).
 
 ## Video, about 8 minutes (premise break first)
+*As built:* about six minutes, and a different order: `docs/video/script.md` is the script. No dispatch, no code shot, three columns in the comparison, and a closing row on what a live model did.
+
 - **0:00 Hook.** A/B split screen with the numbers.
 - **0:30** Dispatch 12 tasks plus 300 workload agents.
 - **0:45** Premise break: `verifySession` now returns null. Three intents in flight go red. tsc is green, with no text conflict.

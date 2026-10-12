@@ -21,8 +21,10 @@ export interface ScaleStats {
 	buckets: number[];
 	/** Landings divided by the minutes from the first event to the last landing. */
 	landingsPerMinute: number;
-	/** Claims the ledger did not grant at once: the answer was Wait, Split or Depend. */
+	/** Times the ledger answered Wait, Split or Depend instead of granting a claim. An Intent that asks again is counted again. */
 	contention: number;
+	/** How many different Intents got such an answer. */
+	contended: number;
 	/** How long the run has been going, in ms of real time. */
 	elapsedMs: number;
 }
@@ -42,11 +44,13 @@ export function scaleStats(events: readonly PremiseEvent[]): ScaleStats {
 	const times = realTimes(events);
 	const landingTimes: number[] = [];
 	let contention = 0;
+	const contended = new Set<string>();
 	for (const [index, event] of events.entries()) {
 		if (event.t === "intent.status" && event.status === "landed") {
 			landingTimes.push(times[index] ?? 0);
 		} else if (event.t === "claim.decision" && event.decision.kind !== "granted") {
 			contention++;
+			contended.add(event.id);
 		}
 	}
 	const elapsedMs = times.at(-1) ?? 0;
@@ -56,6 +60,7 @@ export function scaleStats(events: readonly PremiseEvent[]): ScaleStats {
 		buckets: bucketCounts(landingTimes, elapsedMs),
 		landingsPerMinute: lastLanding > 0 ? landingTimes.length / (lastLanding / 60_000) : 0,
 		contention,
+		contended: contended.size,
 		elapsedMs,
 	};
 }

@@ -84,6 +84,9 @@ export function spread(values: readonly string[], order: (value: string) => numb
 	return `${sorted[0]} to ${sorted.at(-1)}`;
 }
 
+/** Orders a cell that holds several counts ("0 text, 0 type, 3 checks") by their total. `parseFloat` would read only the first. */
+export const sumOfNumbers = (value: string): number => (value.match(/\d+/g) ?? []).reduce((sum, digits) => sum + Number(digits), 0);
+
 /** Tasks dispatched that are not on trunk at the end: someone has to pick each one up. */
 export const tasksSentBack = (result: ModeResult): number => result.tasksDispatched - result.tasksLanded;
 /** Scripted workload Intents that are not on trunk at the end. */
@@ -139,7 +142,7 @@ export function buildReport(trials: readonly Trial[]): { table: Row[]; headline:
 			...each((r) => share(workloadRaces(r))),
 			note: "The same for the scripted workload. These Intents have no tests or assertions of their own, so a stale one whose rebase is clean and passes trunk's suite always counts here. Read it as the cost of treating every type-surface change as a broken premise.",
 		},
-		{ metric: "Turned away at the gate", ...each((r) => `${r.rejected.textConflicts} text, ${r.rejected.typecheck} type, ${r.rejected.checks} checks`), note: "Text conflicts, type errors after rebase, and failed tests or assertions (the first rule runs neither)." },
+		{ metric: "Turned away at the gate", ...each((r) => `${r.rejected.textConflicts} text, ${r.rejected.typecheck} type, ${r.rejected.checks} checks`, sumOfNumbers), note: "Text conflicts, type errors after rebase, and failed tests or assertions (the first rule runs neither)." },
 		{ metric: "Gave up waiting for a claim", ...each((r) => String(r.claimsLost)), note: "Premise only: the two queues have no ledger." },
 		{ metric: "Landings per minute", ...each((r) => r.landingsPerMinute.toFixed(1)) },
 		{ metric: "Wall time", ...each((r) => seconds(r.wallTimeMs)) },

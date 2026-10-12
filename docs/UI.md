@@ -14,7 +14,8 @@ The user sent a reference (a dark dashboard with mono uppercase micro-labels, la
 - **The counter strip** sits under the story in a replay: Agents, Premises broken, Re-derived, Landed, Problems on trunk. It reads the same log as the tape, so the numbers move as the story is stepped through. It shrinks on a short window and is not shown on a phone.
 - **The gate readout** on a row whose tests all passed is four readings (Its tests 3 / 3, Reference checks 3 / 3, Existing tests 91 / 91, Its premise Failed) and the premise it had stated.
 - **The story bar** says "Step 06 / 07" over square progress segments; the sentence is 34px, weight 500.
-- **The top bar in a replay** says "Replay of a recorded run", so nobody takes the page for agents running now.
+- **The top bar in a replay** says what kind of run it is: "Replay · scripted agents · real Artifacts" for the front page and the larger run, "Replay · live model · real Artifacts" for the live-model one. Nobody should take the page for agents running now, or scripted agents for a model.
+- **Buttons and tabs.** Kumo's brand colour is set to ink for the whole app, so every primary button is black. Tabs, and buttons that are only a label (`.label-button`), are set as labels.
 
 ## The front page is the story on the tape (2026-10-11, supersedes the strip board)
 

@@ -77,17 +77,14 @@ export function Palette({ open, onOpenChange, actions, jumps }: PaletteProps) {
 }
 
 const SHORTCUTS: [string[], string][] = [
-	[["j"], "Select the next strip"],
-	[["k"], "Select the previous strip"],
-	[["Enter"], "Open the selected strip's drawer"],
-	[["Esc"], "Close the drawer or panel"],
-	[["⌘", "K"], "Open the command palette"],
+	[["→"], "Replay: the next step of the story"],
+	[["←"], "Replay: the step before"],
+	[["Space"], "Replay: play it through, or pause"],
+	[["j"], "Open the next agent's Intent"],
+	[["k"], "Open the one before"],
+	[["Esc"], "Close the details panel"],
+	[["⌘", "K"], "Everything else: the live board, dispatching, the other views"],
 	[["?"], "Show these shortcuts"],
-	[["Space"], "Replay: pause or resume"],
-	[["→"], "Replay: jump to the next key moment"],
-	[["1"], "Replay: normal speed"],
-	[["2"], "Replay: twice as fast"],
-	[["4"], "Replay: four times as fast"],
 ];
 
 /** The `?` sheet. */
