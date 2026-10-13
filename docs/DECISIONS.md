@@ -1133,3 +1133,9 @@ Asked for by the user: slides that match what is built, approachable, organised 
 - **Not seen in the real viewer.** The published deck needs the owner's sign-in, so the build steps and the embeds' motion have been checked against the format's documentation and in the local preview only. If an embed does not run, the slide loses nothing but the motion.
 - **Still a placeholder in spirit:** the closing slide says "The repository link is in the submission." until the repo is public and has an address.
 
+
+### Dynamic Workers are billed by the number created, so the public cap came down (Oct 13)
+
+- **Reported by the user:** a charge for Dynamic Workers. The runner makes one with `env.LOADER.load(...)` for every batch of tests and premise checks, and Cloudflare bills each unique Dynamic Worker created in a day ($0.002 beyond 1,000 a month; `load()` with no ID counts as a new one every call).
+- **Done now:** the public Start button allows ten runs in any 24 hours, not forty (`PUBLIC_RUN.dailyCap`). That is the bound on this part of the bill.
+- **Not done yet:** giving identical runs a stable ID (`LOADER.get` with a hash of the code), and running fewer isolates. See the next note once measured.

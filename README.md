@@ -193,7 +193,7 @@ Needs the Workers Paid plan (Artifacts requires it) and Node 22.12 or later. A m
    npm run demo -- --url <your worker>
    ```
 
-**The Start button on your own deployment.** `POST /api/live/start` takes no token and no parameters, so anyone who finds your Worker can start a run. What a run can cost is bounded in `src/worker/live/public-run.ts`: one at a time, three minutes between starts, forty in any 24 hours, scripted agents only (it is refused while `LLM` is a model), about 45 forks each. To switch it off or on without a deploy:
+**The Start button on your own deployment.** `POST /api/live/start` takes no token and no parameters, so anyone who finds your Worker can start a run. What a run can cost is bounded in `src/worker/live/public-run.ts`: one at a time, three minutes between starts, ten in any 24 hours, scripted agents only (it is refused while `LLM` is a model), about 45 forks each. Every batch of tests a run makes is one Dynamic Worker, which Cloudflare bills by the number created in a day, so the daily cap is also what bounds that part of the bill. To switch it off or on without a deploy:
 
 ```bash
 curl -X POST <your worker>/api/admin/public-runs -H "x-admin-token: <your token>" -H "content-type: application/json" -d '{"enabled":false}'
