@@ -264,6 +264,239 @@ kbd {
 	margin: 24px 0 0;
 	font-size: 13px;
 }
+/* What a plane says first: a small label, one sentence, a line or two under it. */
+.plane-kicker {
+	margin: 0;
+}
+.plane-title {
+	max-width: 760px;
+	margin: 6px 0 0;
+	font-size: 26px;
+	font-weight: 500;
+	letter-spacing: -0.015em;
+	line-height: 1.2;
+}
+.plane-lede {
+	max-width: 720px;
+	margin: 8px 0 0;
+	color: var(--ink-soft);
+	font-size: 15px;
+	line-height: 1.5;
+}
+.plane-link {
+	color: var(--bluestamp);
+	font-weight: 600;
+	white-space: nowrap;
+}
+/* The counter strip's cells, inside a plane. (Two classes, so the strip's own rules further down do not win.) */
+.figures.plane-figures {
+	display: grid;
+	grid-template-columns: repeat(4, minmax(0, 1fr));
+	margin: 22px 0 0;
+	background: #fff;
+}
+.plane-figures .figures-sub {
+	display: inline;
+}
+/* In a plane the words under a number may wrap: on a phone a cell is half the screen wide. */
+.plane-figures .figures-cell > .label {
+	overflow: visible;
+	white-space: normal;
+}
+.plane-note {
+	max-width: 720px;
+	margin: 20px 0 0;
+	padding-left: 12px;
+	border-left: 3px solid var(--amber);
+	font-size: 14px;
+	line-height: 1.5;
+}
+.plane-small {
+	max-width: 720px;
+	margin: 12px 0 0;
+	color: var(--ink-soft);
+	font-size: 13px;
+	line-height: 1.5;
+}
+/* What is kept one click away: the full table, the smaller numbers. */
+.more {
+	margin-top: 24px;
+	border-top: 1px solid var(--rule);
+}
+.more > summary {
+	padding: 12px 0;
+	color: var(--ink);
+	cursor: pointer;
+}
+.more > summary:focus-visible {
+	outline: 2px solid var(--bluestamp);
+	outline-offset: 2px;
+}
+.more .facts {
+	margin-top: 4px;
+}
+.facts dd {
+	margin: 0;
+}
+.facts dt {
+	padding-top: 3px;
+}
+
+/* ---- Compared: three rules side by side ---- */
+.rules {
+	display: grid;
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+	gap: 12px;
+	margin-top: 22px;
+}
+.rule {
+	display: flex;
+	flex-direction: column;
+	padding: 14px 16px 12px;
+	border: 1px solid var(--rule);
+	border-radius: 6px;
+	background: #fff;
+}
+/* Ours is the one drawn in ink. */
+.rule[data-ours="true"] {
+	border-color: var(--ink);
+	box-shadow: inset 0 0 0 1px var(--ink);
+}
+.rule-name {
+	margin: 0;
+	color: var(--ink);
+	font-weight: 600;
+}
+.rule-does {
+	flex: 1;
+	margin: 6px 0 14px;
+	color: var(--ink-soft);
+	font-size: 13px;
+	line-height: 1.45;
+}
+.rule-reading {
+	display: flex;
+	flex-direction: column;
+	margin: 0 0 10px;
+}
+.rule-reading > .figure {
+	font-size: 44px;
+	line-height: 46px;
+}
+.rule-reading[data-size="small"] > .figure {
+	font-size: 24px;
+	line-height: 28px;
+}
+.rule-reading[data-tone="accent"] > .figure {
+	color: var(--redpen);
+}
+.rule-reading[data-tone="good"] > .figure {
+	color: var(--holds);
+}
+.rule-time {
+	margin: 2px 0 0;
+	padding-top: 8px;
+	border-top: 1px solid var(--tape-line, #eceeea);
+}
+.points {
+	display: grid;
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+	gap: 4px 24px;
+	margin: 24px 0 0;
+	font-size: 13px;
+	line-height: 1.5;
+}
+.points dt {
+	grid-row: 1;
+	font-weight: 600;
+}
+.points dd {
+	grid-row: 2;
+	margin: 0;
+	color: var(--ink-soft);
+}
+@media (max-width: 899px) {
+	.rules {
+		grid-template-columns: 1fr;
+	}
+	.points {
+		display: block;
+	}
+	.points dt:not(:first-child) {
+		margin-top: 12px;
+	}
+	.figures.plane-figures {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+	}
+	.plane-figures .figures-cell:nth-child(3) {
+		border-left: 0;
+	}
+	.plane-figures .figures-cell:nth-child(n + 3) {
+		border-top: 1px solid var(--rule);
+	}
+	.plane-title {
+		font-size: 22px;
+	}
+}
+
+/* ---- "More" on a touch screen: the actions as buttons ---- */
+.more-sheet {
+	padding: 8px 8px 12px;
+}
+.more-head {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 8px 10px 4px;
+}
+.more-close {
+	padding: 8px 4px;
+	border: 0;
+	background: none;
+	color: var(--ink);
+	cursor: pointer;
+}
+.more-group {
+	margin: 10px 0 0;
+	padding: 8px 10px 0;
+	border-top: 1px solid var(--rule);
+}
+.more-list {
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+.more-item {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	width: 100%;
+	min-height: 48px;
+	justify-content: center;
+	padding: 8px 10px;
+	border: 0;
+	border-radius: 6px;
+	background: none;
+	color: var(--ink);
+	font: inherit;
+	font-size: 16px;
+	text-align: left;
+	cursor: pointer;
+}
+.more-item:hover,
+.more-item:active {
+	background: var(--board);
+}
+.more-item:focus-visible,
+.more-close:focus-visible {
+	outline: 2px solid var(--bluestamp);
+	outline-offset: -2px;
+}
+.more-hint {
+	color: var(--ink-soft);
+	font-size: 13px;
+}
+
 .ab-value {
 	width: 216px;
 }

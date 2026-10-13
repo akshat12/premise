@@ -12,7 +12,7 @@ import { DispatchPanel } from "./components/DispatchPanel";
 import { Drawer } from "./components/Drawer";
 import { HumanCards } from "./components/HumanCards";
 import { BuiltOn } from "./components/BuiltOn";
-import { type Command, Palette, Shortcuts } from "./components/Palette";
+import { type Command, MoreSheet, Palette, Shortcuts } from "./components/Palette";
 import { ScaleView } from "./components/ScaleView";
 import { type RunKind, SimpleBar } from "./components/SimpleBar";
 import { RunFigures } from "./components/RunFigures";
@@ -67,6 +67,8 @@ const OPENING_NOTES: Record<string, string> = {
 	live: "In this run the four agents are a live model (Gemini 3.5 Flash-Lite), not scripts. About five and a half minutes of waiting for the model are cut out.",
 };
 const DEMO = query.get("demo") ?? DEFAULT_RUN;
+/** A touch screen (a phone, a tablet): "More" is a list of buttons there, not the keyboard's palette. */
+const COARSE_POINTER = typeof window.matchMedia === "function" && window.matchMedia("(pointer: coarse)").matches;
 /** A lookup by a name that came from the address bar: only the table's own entries count ("constructor" is not a run). */
 const own = <T,>(table: Record<string, T>, key: string): T | undefined => (Object.hasOwn(table, key) ? table[key] : undefined);
 /**
@@ -371,11 +373,14 @@ export function App() {
 	const figures = useMemo(() => figuresFor(events, state.intents, state.metrics), [events, state.intents, state.metrics]);
 	const actions = useMemo<Command[]>(
 		() => [
-			{ id: "dispatch", title: "Dispatch tasks", run: () => setDispatching(true) },
-			{ id: "workload", title: "Run workload", run: () => setDispatching(true) },
+			{ id: "live", title: "Watch the live board", hint: "what the deployed Worker is doing now", run: () => setMode("live") },
+			{ id: "replay", title: "Play the demo recording", hint: "the recorded run, told as a story", run: () => setMode("replay") },
+			{ id: "dispatch", title: "Dispatch tasks", hint: "starts a run; needs the admin token", run: () => setDispatching(true) },
+			{ id: "workload", title: "Run workload", hint: "scripted Intents; needs the admin token", run: () => setDispatching(true) },
 			{
 				id: "reset",
 				title: "Reset demo",
+				hint: "clears the live board; needs the admin token",
 				run: () => {
 					if (token === "") {
 						setDispatching(true);
@@ -387,15 +392,17 @@ export function App() {
 					);
 				},
 			},
-			{ id: "live", title: "Watch live", run: () => setMode("live") },
-			{ id: "replay", title: "Play the demo recording", run: () => setMode("replay") },
-			{ id: "tape", title: "Show the agents over time", run: () => setView("tape") },
-			{ id: "scale", title: "Show the larger run's numbers", run: () => setView("scale") },
-			{ id: "ab", title: "Show the comparison", run: () => setView("ab") },
-			{ id: "shortcuts", title: "Show keyboard shortcuts", run: () => setShortcutsOpen(true) },
+			// The three views have tabs, which a touch screen always shows; these are for the keyboard.
+			{ id: "tape", title: "Show the agents over time", keyboardOnly: true, run: () => setView("tape") },
+			{ id: "scale", title: "Show the larger run's numbers", keyboardOnly: true, run: () => setView("scale") },
+			{ id: "ab", title: "Show the comparison", keyboardOnly: true, run: () => setView("ab") },
+			{ id: "shortcuts", title: "Show keyboard shortcuts", keyboardOnly: true, run: () => setShortcutsOpen(true) },
 		],
 		[token],
 	);
+	// Whichever of "watch live" and "play the recording" is already on screen is not offered.
+	const menuActions = useMemo(() => actions.filter((command) => command.id !== (mode === "live" ? "live" : "replay")), [actions, mode]);
+	const plainMenu = layout !== "wide" || COARSE_POINTER;
 	const jumpTo = useCallback((id: IntentId) => {
 		setView("tape");
 		setSelected(id);
@@ -503,7 +510,8 @@ export function App() {
 					}}
 				/>
 			) : null}
-			<Palette open={paletteOpen} onOpenChange={setPaletteOpen} actions={actions} jumps={jumps} />
+			{/* A keyboard gets the palette (⌘K). A touch screen, or a narrow window, gets the same actions as buttons. */}
+			{plainMenu ? <MoreSheet open={paletteOpen} onOpenChange={setPaletteOpen} actions={menuActions} jumps={jumps} /> : <Palette open={paletteOpen} onOpenChange={setPaletteOpen} actions={actions} jumps={jumps} />}
 			<Shortcuts open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
 			{selectedIntent && view === "tape" ? <Drawer intent={selectedIntent} events={events} callsignOf={callsignOf} named={named} diff={diff} replay={mode === "replay"} onSelect={setSelected} onClose={() => setSelected(null)} /> : null}
 		</div>

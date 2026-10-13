@@ -5,6 +5,10 @@ export interface Command {
 	id: string;
 	title: string;
 	run: () => void;
+	/** A few words under the title where it is shown as a button: what it needs, or what it does. */
+	hint?: string;
+	/** Only of use with a keyboard, so it is left out of the list a touch screen gets. */
+	keyboardOnly?: boolean;
 }
 
 interface CommandGroup {
@@ -20,7 +24,47 @@ interface PaletteProps {
 	jumps: Command[];
 }
 
-/** ⌘K: every action on the screen, and a jump to any strip, from the keyboard. */
+/**
+ * "More" on a touch screen: the same actions as plain buttons. The palette below is made for a
+ * keyboard: it opens the on-screen keyboard over half the page, and on some phones a tap on one
+ * of its items does not arrive as a click at all. A list of buttons has neither problem.
+ */
+export function MoreSheet({ open, onOpenChange, actions, jumps }: PaletteProps) {
+	const choose = (command: Command) => {
+		onOpenChange(false);
+		command.run();
+	};
+	const row = (command: Command) => (
+		<li key={command.id}>
+			<button type="button" className="more-item" onClick={() => choose(command)}>
+				<span>{command.title}</span>
+				{command.hint ? <span className="more-hint">{command.hint}</span> : null}
+			</button>
+		</li>
+	);
+	const shown = actions.filter((command) => !command.keyboardOnly);
+	return (
+		<Dialog.Root open={open} onOpenChange={onOpenChange}>
+			<Dialog className="more-sheet outline-none" size="sm">
+				<div className="more-head">
+					<Dialog.Title className="label">More</Dialog.Title>
+					<button type="button" className="more-close label" onClick={() => onOpenChange(false)}>
+						Close
+					</button>
+				</div>
+				<ul className="more-list">{shown.map(row)}</ul>
+				{jumps.length > 0 ? (
+					<>
+						<h3 className="label more-group">Open an agent's Intent</h3>
+						<ul className="more-list">{jumps.map(row)}</ul>
+					</>
+				) : null}
+			</Dialog>
+		</Dialog.Root>
+	);
+}
+
+/** ⌘K: every action on the screen, and a jump to any agent's Intent, from the keyboard. */
 export function Palette({ open, onOpenChange, actions, jumps }: PaletteProps) {
 	const [search, setSearch] = useState("");
 	const groups = useMemo<CommandGroup[]>(() => {

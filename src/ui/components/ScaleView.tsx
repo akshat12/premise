@@ -7,19 +7,6 @@ import { artifactsOperations, BUCKET_MS, INCLUDED_OPERATIONS_PER_MONTH, operatio
 const whole = new Intl.NumberFormat("en-US");
 const clock = (ms: number) => `${Math.floor(ms / 60_000)}:${String(Math.floor((ms % 60_000) / 1000)).padStart(2, "0")}`;
 
-function Figure({ label, value }: { label: string; value: string }) {
-	return (
-		<div className="flex flex-col leading-none" style={{ minWidth: 140 }}>
-			<span className="figure" style={{ fontSize: 36, lineHeight: 1 }}>
-				{value}
-			</span>
-			<span className="label" style={{ marginTop: 6 }}>
-				{label}
-			</span>
-		</div>
-	);
-}
-
 /**
  * Landings in each 10 s of the run, as bars. The tallest bar is labelled; the axis runs in real
  * time. Positions are percentages, not a scaled viewBox, so the label stays 12px at any width.
@@ -64,64 +51,115 @@ interface ScaleViewProps {
 	otherRun?: { name: string; href: string };
 }
 
-/** The run as numbers: how much was asked of Artifacts and the gate, and how fast work landed. */
+function Reading({ label, value, sub, tone }: { label: string; value: string; sub: string; tone?: "accent" | "good" }) {
+	return (
+		<div className="figures-cell" data-tone={tone}>
+			<span className="label">{label}</span>
+			<span className="figure">{value}</span>
+			<span className="label figures-sub">{sub}</span>
+		</div>
+	);
+}
+
+/**
+ * One larger run in a headline, four numbers and a chart: how many Intents, how many landed, how
+ * fast, and whether anything broken got through. Everything else is under "More numbers".
+ */
 export function ScaleView({ events, metrics, intents, otherRun }: ScaleViewProps) {
 	const stats = useMemo(() => scaleStats(events), [events]);
 	const tally = useMemo(() => {
 		const all = Object.values(intents);
 		const landed = all.filter((intent) => intent.status === "landed").length;
-		const stopped = all.filter((intent) => intent.status === "failed").length;
-		return { all: all.length, workload: all.filter((intent) => intent.kind === "workload").length, landed, stopped, flying: all.length - landed - stopped };
+		const failed = all.filter((intent) => intent.status === "failed").length;
+		const workload = all.filter((intent) => intent.kind === "workload").length;
+		return { all: all.length, agents: all.length - workload, workload, landed, failed, flying: all.length - landed - failed };
 	}, [intents]);
+	// Why the ones that did not land did not: the log says, in the note on each one's last status.
+	const reasons = useMemo(() => {
+		let waited = 0;
+		let runner = 0;
+		for (const event of events) {
+			if (event.t === "intent.status" && event.status === "failed") {
+				if (/still holds/.test(event.note ?? "")) {
+					waited++;
+				} else if (/illegal transition/.test(event.note ?? "")) {
+					runner++;
+				}
+			}
+		}
+		return { waited, runner };
+	}, [events]);
 	const operations = artifactsOperations(metrics);
 	const cost = operationsCost(operations);
+	const problems = metrics.behaviouralRegressionsOnTrunk + metrics.brokenBuildsOnTrunk;
+	const over = tally.all > 0 && tally.flying === 0;
+	const count = (n: number, one: string, many = `${one}s`) => `${whole.format(n)} ${n === 1 ? one : many}`;
 
+	if (tally.all === 0) {
+		return (
+			<section aria-label="At scale" className="plane bracketed">
+				<h2 className="label plane-kicker">At scale</h2>
+				<p className="plane-title">Nothing has been dispatched yet.</p>
+				<p className="plane-lede">Once a run starts, this page shows how many Intents it has, how many have landed and how fast.</p>
+			</section>
+		);
+	}
 	return (
-		<section aria-label="Scale" className="plane bracketed">
-			<h2 className="label" style={{ margin: 0 }}>
-				At scale
-			</h2>
-			{otherRun ? (
-				<p style={{ margin: "8px 0 0", fontSize: 13, maxWidth: 720, borderLeft: "4px solid var(--holds)", paddingLeft: 12 }}>
-					The story is told with four agents, to keep it easy to follow. These numbers are from a larger run of the same system on real Artifacts, shown as it ended.{" "}
-					<a href={otherRun.href} style={{ color: "var(--bluestamp)", fontWeight: 600 }}>
-						Play that run
-					</a>
-				</p>
-			) : null}
-			<p style={{ margin: "4px 0 0", fontSize: 13, color: "var(--ink-soft)" }}>
-				{tally.all === 0
-					? "Nothing has been dispatched yet."
-					: `${whole.format(tally.all)} Intents, each on its own Artifacts fork: ${whole.format(tally.all - tally.workload)} from agents and ${whole.format(tally.workload)} scripted workload Intents (real forks and pushes, no model).`}
+		<section aria-label="At scale" className="plane bracketed">
+			<h2 className="label plane-kicker">At scale</h2>
+			<p className="plane-title">
+				{count(tally.agents, "agent")}
+				{tally.workload > 0 ? ` and ${count(tally.workload, "scripted Intent")}` : ""}, through one gate.
 			</p>
-			<div className="flex flex-wrap" style={{ gap: "24px 32px", marginTop: 24 }}>
-				<Figure label="Forks created" value={whole.format(metrics.forksCreated)} />
-				<Figure label="Pushes" value={whole.format(metrics.pushes)} />
-				<Figure label="Landings a minute" value={stats.landingsPerMinute.toFixed(1)} />
-				<Figure label="Intents landed" value={whole.format(tally.landed)} />
+			<p className="plane-lede">
+				Each worked on its own fork on Cloudflare Artifacts. {whole.format(tally.landed)} {over ? "landed" : "have landed"} in {clock(stats.elapsedMs)}
+				{problems === 0 ? `, and nothing broken ${over ? "reached" : "has reached"} trunk.` : `, and ${count(problems, "problem")} reached trunk.`}
+				{otherRun ? (
+					<>
+						{" "}
+						This is a larger run of the same system that tells the story.{" "}
+						<a href={otherRun.href} className="plane-link">
+							Play this run
+						</a>
+					</>
+				) : null}
+			</p>
+			<div className="figures plane-figures" aria-label="The run in numbers">
+				<Reading label="Intents" value={whole.format(tally.all)} sub="each on its own fork" />
+				<Reading label="Landed" value={whole.format(tally.landed)} sub={`of ${whole.format(tally.all)}`} tone="good" />
+				<Reading label="Landings a minute" value={stats.landingsPerMinute.toFixed(0)} sub="through one gate" />
+				<Reading label="Problems on trunk" value={whole.format(problems)} sub={problems > 0 ? "reached trunk broken" : over ? "nothing got through" : "none so far"} {...(problems > 0 ? { tone: "accent" as const } : {})} />
 			</div>
-			<div style={{ marginTop: 32 }}>
+			<div style={{ marginTop: 28 }}>
 				<Sparkline buckets={stats.buckets} elapsedMs={stats.elapsedMs} />
 			</div>
-			<dl className="facts">
-				<dt className="label" style={{ paddingTop: 3 }}>Intents</dt>
-				<dd style={{ margin: 0 }}>
-					{whole.format(tally.landed)} landed, {whole.format(tally.flying)} in flight, {whole.format(tally.stopped)} did not land
-				</dd>
-				<dt className="label" style={{ paddingTop: 3 }}>Ledger contention</dt>
-				<dd style={{ margin: 0 }}>
-					{whole.format(stats.contended)} {stats.contended === 1 ? "Intent" : "Intents"} wanted a symbol another Intent held; the ledger answered Wait, Split or Depend {whole.format(stats.contention)} {stats.contention === 1 ? "time" : "times"}
-				</dd>
-				<dt className="label" style={{ paddingTop: 3 }}>Premises</dt>
-				<dd style={{ margin: 0 }}>
-					{whole.format(metrics.premisesBroken)} broken; {whole.format(metrics.rederives.succeeded)} stopped Intents went on to land without a person
-				</dd>
-				<dt className="label" style={{ paddingTop: 3 }}>Artifacts</dt>
-				<dd style={{ margin: 0 }}>
-					Operations ≈ {whole.format(operations)} (a fork for each Intent, then a clone and a push for each commit); est. cost ≈ ${cost.toFixed(2)} at ${USD_PER_1000_OPERATIONS.toFixed(2)} per 1,000. The first{" "}
-					{whole.format(INCLUDED_OPERATIONS_PER_MONTH)} a month are included.
-				</dd>
-			</dl>
+			{tally.failed > 0 ? (
+				<p className="plane-note">
+					<strong>{count(tally.failed, "Intent")} did not land.</strong>{" "}
+					{reasons.waited > 0 ? `${whole.format(reasons.waited)} gave up waiting for a symbol that another Intent was changing. ` : ""}
+					{reasons.runner > 0 ? `${whole.format(reasons.runner)} were failed by a fault in the scripted runner${otherRun ? ", fixed since this run was recorded" : ""}. ` : ""}
+					Their work is not on trunk.
+				</p>
+			) : null}
+			{tally.workload > 0 ? <p className="plane-small">The scripted Intents are generated edits with real forks, pushes and landings. No model writes them, and they are labelled as scripted wherever they appear.</p> : null}
+			<details className="more">
+				<summary className="label">More numbers</summary>
+				<dl className="facts">
+					<dt className="label">Artifacts</dt>
+					<dd>
+						{whole.format(metrics.forksCreated)} forks and {whole.format(metrics.pushes)} pushes. About {whole.format(operations)} operations (a fork for each Intent, then a clone and a push for each commit): about ${cost.toFixed(2)} at $
+						{USD_PER_1000_OPERATIONS.toFixed(2)} per 1,000, with the first {whole.format(INCLUDED_OPERATIONS_PER_MONTH)} a month included.
+					</dd>
+					<dt className="label">Two wanting one symbol</dt>
+					<dd>
+						{count(stats.contended, "Intent")} wanted a symbol another Intent held. The ledger answered Wait, Split or Depend {count(stats.contention, "time")}.
+					</dd>
+					<dt className="label">Premises</dt>
+					<dd>
+						{whole.format(metrics.premisesBroken)} broke. {count(metrics.rederives.succeeded, "stopped Intent")} went on to land without a person.
+					</dd>
+				</dl>
+			</details>
 		</section>
 	);
 }
