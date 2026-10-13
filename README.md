@@ -210,6 +210,8 @@ Other commands:
 | `PREMISE_URL=<your worker> npm run smoke` | Runs the repo-store contract against real Artifacts on the deployed Worker |
 | `npx tsx scripts/ab.ts --url <your worker> --seeds 7,11,23` | Runs the A/B comparison (one seed, 7, if `--seeds` is left out) and rewrites `docs/ab-results.md` and `.json` |
 | `npm run demo:record -- --url <your worker> --out demo/runs/mine.json` | Records a run. Recordings are bundled at build time, so play it at `/?demo=mine` locally, or after the next deploy |
+| `npm run deploy:staging` | Deploys the same code as a second Worker, `premise-staging`, with its own Artifacts namespace and Workflow (`wrangler.staging.jsonc`), to try a change on real Artifacts before production gets it. It has no admin token unless you set one (`npx wrangler secret put ADMIN_TOKEN --name premise-staging`) |
+| `bash scripts/staging-teardown.sh` | Lists and, once you type `yes`, deletes everything the staging Worker made: the repos in its namespace, its Workflow, and the Worker itself |
 | `npm run demo:compress -- demo/runs/mine.json` | Cuts idle time out of a recording and marks each cut |
 | `npm run demo:offline` | Builds, then serves the UI as plain files with no backend: the recorded run at `http://localhost:4173/?demo=main` |
 
