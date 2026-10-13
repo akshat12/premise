@@ -1,0 +1,47 @@
+{
+	// A second, separate Worker for trying a change on real Artifacts before production gets it
+	// (`npm run deploy:staging`). It is wrangler.jsonc with its own name, its own Artifacts namespace
+	// and its own Workflow, so nothing it does (a reset deletes every Intent fork in the namespace)
+	// can touch the live site. Its Durable Objects are its own because the Worker is. Its admin token
+	// is its own secret: `npx wrangler secret put ADMIN_TOKEN --name premise-staging`.
+	// Keep the rest in step with wrangler.jsonc.
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "premise-staging",
+	"main": "src/worker/index.ts",
+	"compatibility_date": "2026-10-01",
+	"compatibility_flags": ["nodejs_compat"],
+	"assets": {
+		"not_found_handling": "single-page-application",
+		// Without this, a browser navigating to /api/* gets index.html instead of the Worker.
+		"run_worker_first": ["/api/*"]
+	},
+	"limits": { "cpu_ms": 300000 },
+	"observability": { "enabled": true },
+
+	"artifacts": [{ "binding": "ARTIFACTS", "namespace": "premise-staging", "remote": true }],
+	"worker_loaders": [{ "binding": "LOADER" }],
+	"durable_objects": {
+		"bindings": [
+			{ "name": "HUB", "class_name": "EventHub" },
+			{ "name": "INTENT", "class_name": "IntentDO" },
+			{ "name": "LEDGER", "class_name": "LedgerShard" },
+			{ "name": "LANDING", "class_name": "Landing" }
+		]
+	},
+	"migrations": [{ "tag": "v1", "new_sqlite_classes": ["EventHub", "IntentDO", "LedgerShard", "Landing"] }],
+	"workflows": [{ "name": "premise-agent-staging", "binding": "AGENT_WORKFLOW", "class_name": "AgentWorkflow" }],
+	// No queue consumer: a queue has one consumer, and it is the production Worker. Staging announces its own pushes.
+
+	// Deployed defaults. `.dev.vars` overrides these locally (see local.vars.example).
+	"vars": {
+		"TRUNK_REPO": "trunk",
+		"ARTIFACTS_NAMESPACE": "premise-staging",
+		"REPO_STORE": "artifacts",
+		"LLM": "scripted",
+		"LLM_MODEL": "claude-sonnet-5-5",
+		"MAX_CONCURRENT_REDERIVES": "3",
+		"CLOUDFLARE_ACCOUNT_ID": "53f519d000e2e5cbdae65ca50fe09a23",
+		// The public copy of demo-repo/ that Artifacts imports as trunk (POST /api/admin/import-trunk).
+		"DEMO_REPO_URL": "https://github.com/akshat12/acme-accounts.git"
+	}
+}

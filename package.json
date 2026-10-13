@@ -11,6 +11,7 @@
     "dev:local": "vite --mode offline",
     "build": "vite build",
     "deploy": "npm run build && wrangler deploy",
+    "deploy:staging": "vite build --mode staging && wrangler deploy",
     "typecheck": "tsc -b",
     "types": "wrangler types --strict-vars false",
     "smoke": "tsx scripts/smoke.ts",
