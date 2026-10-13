@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { RunSummary } from "../../shared/runs";
-import { isClean, runRows, runsHeadline, took, when } from "./runs";
+import { allScripted, isClean, runRows, runsHeadline, took, when } from "./runs";
 
 const NOW = 1_800_000_000_000;
 const run = (over: Partial<RunSummary> = {}): RunSummary => ({
@@ -86,5 +86,17 @@ describe("runsHeadline", () => {
 
 	it("leaves out a run that is still going, and one that was cleared half way", () => {
 		expect(runsHeadline({ current: run({ id: 0, complete: false }), past: [run(), run({ complete: false })] })).toBe("The last live run landed every agent, with nothing broken on trunk.");
+	});
+});
+
+describe("a run whose agents were a model", () => {
+	it("says so on its row, and the page stops calling every run scripted", () => {
+		const model = run({ scripted: false });
+		expect(runRows({ current: null, past: [model] }, NOW)[0]).toMatchObject({ note: "live model", scripted: false });
+		expect(runRows({ current: null, past: [run({ scripted: false, complete: false })] }, NOW)[0]?.note).toBe("cleared before it finished · live model");
+		expect(allScripted({ current: null, past: [run(), run()] })).toBe(true);
+		expect(allScripted({ current: null, past: [] })).toBe(true);
+		expect(allScripted({ current: null, past: [run(), model] })).toBe(false);
+		expect(allScripted({ current: model, past: [run()] })).toBe(false);
 	});
 });

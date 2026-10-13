@@ -193,7 +193,7 @@ export function startOffer(status: LiveStatus | null, now: number, state: { aski
 		case "cooldown":
 			return { ready: false, label: `Next run in ${countdown(wait)}`, note: `${failed}There is a short wait between runs.` };
 		case "cap":
-			return { ready: false, label: "Start a run", note: `Today's ${status.dailyCap} runs have been used. The next can start in ${wait >= 3_600_000 ? `about ${Math.round(wait / 3_600_000)} ${Math.round(wait / 3_600_000) === 1 ? "hour" : "hours"}` : `${Math.max(1, Math.ceil(wait / 60_000))} minutes`}.` };
+			return { ready: false, label: "Start a run", note: `Today's ${status.dailyCap} runs have been used. The next can start in ${wait >= 3_600_000 ? `about ${Math.round(wait / 3_600_000)} ${Math.round(wait / 3_600_000) === 1 ? "hour" : "hours"}` : `${Math.max(1, Math.ceil(wait / 60_000))} ${Math.ceil(wait / 60_000) <= 1 ? "minute" : "minutes"}`}.` };
 		default:
 			// A reason this build of the page does not know (the Worker is newer). The button stays off and says so plainly.
 			return { ready: false, label: "Start a run", note: "A run cannot be started at the moment." };

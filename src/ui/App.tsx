@@ -334,7 +334,9 @@ export function App() {
 			return;
 		}
 		let current = true;
-		void RUNS[`../../demo/runs/${SCALE_RUN}.json`]?.().then((data) => current && setOtherRun(readRecording(data).events));
+		void RUNS[`../../demo/runs/${SCALE_RUN}.json`]?.()
+			.then((data) => current && setOtherRun(readRecording(data).events))
+			.catch(() => current && setNotice("The larger run could not be loaded. Reload the page to try again."));
 		return () => {
 			current = false;
 		};
@@ -362,6 +364,10 @@ export function App() {
 			}
 			// The player's keys. They belong to a replay, and stay out of the way of a dialog.
 			if (tab === "demo" && FRAME === null && !event.metaKey && !event.ctrlKey && !event.altKey && target?.closest("[role=dialog]") == null) {
+				// Space on a control reached with the keyboard presses that control, as it does anywhere else.
+				if (event.key === " " && target?.matches("button:focus-visible, a:focus-visible, summary:focus-visible, [role=tab]:focus-visible")) {
+					return;
+				}
 				if (event.key === " ") {
 					event.preventDefault();
 					if (paused && chase === null) {
@@ -402,6 +408,8 @@ export function App() {
 	const show = useCallback((next: Tab) => {
 		setSelected(null);
 		setChase(null);
+		// A replay left playing would go on playing behind the tab that covers it.
+		setPaused(true);
 		setTab(next);
 	}, []);
 	const tabs = (

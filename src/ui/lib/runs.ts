@@ -44,7 +44,12 @@ export interface RunRow {
 	note: string | null;
 	/** Every agent landed and nothing broken reached trunk. Only said of a run that finished. */
 	clean: boolean;
+	/** Its agents were scripted, not a model. */
+	scripted: boolean;
 }
+
+/** True when every listed run's agents were scripted, which is when the page may say so of them all. */
+export const allScripted = (runs: RecentRuns): boolean => [runs.current, ...runs.past].every((run) => run === null || run.scripted);
 
 const of = (part: number, whole: number) => (whole === 0 ? "none" : `${part} of ${whole}`);
 
@@ -63,8 +68,9 @@ function row(run: RunSummary, current: boolean, now: number): RunRow {
 		premisesBroken: run.premisesBroken,
 		rederived: of(run.rederives.succeeded, run.rederives.started),
 		problems: run.problems,
-		note: current ? (run.complete ? "on the board now" : "running now") : run.complete ? null : "cleared before it finished",
+		note: [current ? (run.complete ? "on the board now" : "running now") : run.complete ? null : "cleared before it finished", run.scripted ? null : "live model"].filter((part) => part !== null).join(" · ") || null,
 		clean: isClean(run),
+		scripted: run.scripted,
 	};
 }
 

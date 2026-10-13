@@ -119,7 +119,7 @@ const SHORTCUTS: [string[], string][] = [
 	[["j"], "Open the next agent's Intent"],
 	[["k"], "Open the one before"],
 	[["Esc"], "Close the details panel"],
-	[["⌘", "K"], "Everything else: the live board, dispatching, the other views"],
+	[["⌘", "K"], "More: every action on the page, by name"],
 	[["?"], "Show these shortcuts"],
 ];
 
