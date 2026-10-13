@@ -47,15 +47,18 @@ Every row, what it means, and the per-seed results are in [docs/ab-results.md](d
 
 ## See it in 2 minutes
 
-- **The story:** <https://premise.akshatdivekar.workers.dev/>. A real run of the deployed system on Artifacts, told in seven steps: the four agents above, each on its own fork, drawn as four rows over time. **Next** and **Back** (or `→` and `←`) move between the steps, **Play** runs it through at normal speed, and clicking a row opens that agent's Intent: why it did what it did, what it relies on, its story, and its changes.
-- **At scale:** the numbers from a larger run of the same system, twelve agents and 294 scripted workload Intents (309 forks, 266 Intents landed in about four minutes). <https://premise.akshatdivekar.workers.dev/?demo=scale> walks through it.
-- **Compared:** the three-rule comparison above.
+The site has two tabs.
+
+- **Demo:** <https://premise.akshatdivekar.workers.dev/>. A real run of the deployed system on Artifacts, told in seven steps: the four agents above, each on its own fork, drawn as four rows over time. **Next** and **Back** (or `→` and `←`) move between the steps, **Play** runs it through at normal speed, and clicking a row opens that agent's Intent: why it did what it did, what it relies on, its story, and its changes. Under the four rows, on the same page, are the three-rule comparison above and the numbers from a larger run of the same system: twelve agents and 294 scripted workload Intents (309 forks, 266 Intents landed in about four minutes). <https://premise.akshatdivekar.workers.dev/?demo=scale> walks through that larger run.
+- **Live:** <https://premise.akshatdivekar.workers.dev/?live>. The deployed Worker's own board, and a **Start a run** button that needs no account and no token. It starts twelve scripted agents and thirty scripted workload Intents on real Artifacts, and the sentence over the board follows the run as it happens: the landing, the Intents it stops, each re-derive, and the result. A run takes three to four minutes. One runs at a time, and there is a short wait between runs; if the button says a run is in progress, it is someone else's, and you are watching it.
 - **With a live model:** <https://premise.akshatdivekar.workers.dev/?demo=live> replays the same four tasks with Gemini 3.5 Flash-Lite as every agent. See "What a model does on its own" for what happened.
 - **Video:** _link to come_.
 
-The agents in the first two demo recordings are scripted: their turns are generated from reference solutions, so a run is repeatable and needs no model key. Everything else is real: the forks, pushes, typechecks, tests, premise checks and landings happened on Cloudflare on 2026-10-11, and the replay is that run's event log. (The comparison above was run again on 2026-10-12; the two recordings were not.)
+The agents in the first two demo recordings, and in every run started from the Live tab, are scripted: their turns are generated from reference solutions, so a run is repeatable and needs no model key. Everything else is real: the forks, pushes, typechecks, tests, premise checks and landings happened on Cloudflare on 2026-10-11, and the replay is that run's event log. (The comparison above was run again on 2026-10-12; the two recordings were not.)
 
 ![Step 6: after the change, Agent 4's own tests, the reference checks and every existing test pass, and its premise fails](docs/screens/story-premise.jpg)
+
+![The Live tab during a run on Cloudflare: Agent 1 has landed, and the agents that relied on the old behaviour are stopped and being re-derived](docs/screens/live-run.jpg)
 
 ## How premises work
 
@@ -141,9 +144,11 @@ In a second terminal:
 npm run demo                       # resets, dispatches 12 tasks and 40 workload Intents, opens the live board
 ```
 
+Or do it from the page: open the **Live** tab at <http://localhost:5173/?live> and press **Start a run**.
+
 If Vite says port 5173 is in use and picks another, pass it to the demo: `npm run demo -- --url http://localhost:<port>`. The local Workers runtime occasionally restarts when it is given a run in its first seconds; the demo script waits for a just-started server and, if a restart still happens, starts the run once more.
 
-<http://localhost:5173/> plays the demo recording, which needs no backend at all. `npm test` runs the tests (about 940, in about two minutes) and `npm run typecheck` the type checks. While it runs, the Workers test pool prints a few dozen "uncaught exception" lines, from Workflow runs that tests start and then abandon; the summary at the end is what counts. `npx tsx scripts/ab.ts --url http://localhost:5173 --seeds 7,11,23` reruns the comparison above against the local Worker (the three headline rows come out the same; it takes about ten seconds a run instead of ninety). It resets the local demo first and writes its report to `docs/ab-results.local.md`, leaving the committed results alone.
+<http://localhost:5173/> plays the demo recording, which needs no backend at all. `npm test` runs the tests (about 1,010, in about two and a half minutes) and `npm run typecheck` the type checks. While it runs, the Workers test pool prints a few dozen "uncaught exception" lines, from Workflow runs that tests start and then abandon; the summary at the end is what counts. `npx tsx scripts/ab.ts --url http://localhost:5173 --seeds 7,11,23` reruns the comparison above against the local Worker (the three headline rows come out the same; it takes about ten seconds a run instead of ninety). It resets the local demo first and writes its report to `docs/ab-results.local.md`, leaving the committed results alone.
 
 In this mode repos are held in memory and agents replay scripted turns, but everything else is the real code: the ledger, the gate, the TypeScript compiler, the isolate runner, invalidation and re-derive.
 
@@ -186,6 +191,14 @@ Needs the Workers Paid plan (Artifacts requires it) and Node 22.12 or later. A m
    ```bash
    npm run demo -- --url <your worker>
    ```
+
+**The Start button on your own deployment.** `POST /api/live/start` takes no token and no parameters, so anyone who finds your Worker can start a run. What a run can cost is bounded in `src/worker/live/public-run.ts`: one at a time, three minutes between starts, forty in any 24 hours, scripted agents only (it is refused while `LLM` is a model), about 45 forks each. To switch it off or on without a deploy:
+
+```bash
+curl -X POST <your worker>/api/admin/public-runs -H "x-admin-token: <your token>" -H "content-type: application/json" -d '{"enabled":false}'
+```
+
+Switch it off before you show a run to a room, record one, or switch the agents to a model: a visitor cannot interrupt a run in progress, but may start the next one the moment yours has ended. `scripts/ab.ts` does this by itself. `{"enabled":true,"clear":true}` also gives the day's runs back.
 
 Other commands:
 

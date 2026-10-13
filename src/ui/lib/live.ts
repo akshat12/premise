@@ -108,7 +108,11 @@ export function liveCaption(events: readonly PremiseEvent[], story: Story, momen
 					: caught.length === 1
 						? ` ${caught[0]}'s tests all passed on the new code. Only its premise caught the problem.`
 						: ` ${countWord(caught.length)} agents' tests all passed on the new code. Only their premises caught the problem.`;
-			return { id: "end", title: end.title, body: `${end.body}${point}`, step: end };
+			// "Did not land" reads like a fault. When every one of them gave up waiting for a claim, say that it was that.
+			const gaveUp = events.flatMap((event) => (event.t === "intent.status" && event.status === "failed" ? [event.note ?? ""] : []));
+			const waited = gaveUp.length > 0 && gaveUp.every((note) => /still holds/.test(note));
+			const why = waited ? ` ${gaveUp.length === 1 ? "It" : "Each"} wanted a function another Intent was changing, and gave up waiting.` : "";
+			return { id: "end", title: end.title, body: `${end.body}${why}${point}`, step: end };
 		}
 		const latest = story.steps.filter((step) => step.id !== "end").at(-1);
 		if (latest !== undefined) {
@@ -167,7 +171,7 @@ export function startOffer(status: LiveStatus | null, now: number, state: { aski
 	const failed = status.failed ? "The last run could not start. " : "";
 	// Readiness is the Worker's word and nothing else. The reason only chooses what to say when it is no.
 	if (status.canStart) {
-		return { ready: true, label: status.lastStartAt === null ? "Start a run" : "Start a new run", note: failed ? `${failed}Try again.` : "Anyone can start one. It takes about two minutes." };
+		return { ready: true, label: status.lastStartAt === null ? "Start a run" : "Start a new run", note: failed ? `${failed}Try again.` : "Anyone can start one. It takes three to four minutes." };
 	}
 	switch (status.reason) {
 		case "off":

@@ -987,3 +987,54 @@ Every failure from the first pass was confirmed fixed. Two things came back.
 - **What moved.** Wall time is longer in every mode (115 to 126 s, 130 to 153 s, 156 to 188 s; it was 85 to 90, 79 to 91, 103 to 145), most likely because every landing now waits for the planted change. Workload Intents that did not land: 11 / 11 / 11 to 15. No agent Intent landed on a plain rebase this time (it was 0 or 1), so the measurement gap did not arise. Forks per run: 107 to 112.
 - **A second slip of the same kind in the table:** the false-positive rows are shares ("100% (19 of 19)"), and three runs at 100% were left in the order they were made, so the range read "14 of 14 to 19 of 19" when one run had 25. `shareCount` orders them by the count. Re-rendered from the stored trials.
 - The Oct 11 results are not kept in the repo; `git show 35ef6d6:docs/ab-results.json` has them.
+
+## 2026-10-12, evening: two tabs, and a run anyone can start
+
+Asked for by the user after trying the site on a phone: the "At scale" and "Compared" tabs were confusing next to the Replay/Live switch, and the idea was one Demo tab and one Live tab "which naturally runs in real time". This reverses the Oct 11 decision above ("A public, rate-limited live run for judges. Not done"): the objection then was the cost to anyone who found the address, and the answer now is that a public run is scripted only and its limits are few and tested.
+
+### The page
+
+- **Two tabs: Demo and Live.** Demo is the recorded run as a story, as before. The comparison and the larger run are no longer tabs: they are two panels under the tape, in the same scrolling area, Compared first. The story's last step says they are there and that the Live tab runs it for real. `TopBar.tsx` (the live board's own bar, with its counters and trunk commit) is gone; both tabs use `SimpleBar`, and the counter strip under the sentence does the counting in both.
+- **Live has the story bar's shape with one button where Back and Next are.** `src/ui/lib/live.ts` (pure) chooses the sentence: the latest step `storyFor` can make from the live log, and the story's last step only once the run is over. Agents are "Agent 1" to "Agent 12" here too.
+- **Found by the tests, and fixed before anyone saw it:** for about a second after the last Intent lands, the log has its "landed" status but not yet the events that say how it got there, and a summary written then says "Agent 4 did not land". The run is summed up only when every Intent is at rest and the log has been silent for 1.5 s (`runSettled`). In a live run the sentence about work that passed every test and was still wrong can be on screen only briefly, so the summary says it once more.
+- **A card that asks a person** is one amber line on the Live tab unless the admin token has been typed in: a visitor has nothing to answer it with.
+
+### The run anyone can start
+
+- **`POST /api/live/start`: no token, no parameters, the body is not read.** It does what `npm run demo` does: a reset, the demo repo's twelve tasks with the planted change held to land first, and a scripted workload of 30. It runs as an instance of the existing `AgentWorkflow` class (a third kind of params, `mode: "public-run"`), so it outlives the request and needs no new binding or migration. `GET /api/live` says whether one may start.
+- **The limits are in `src/worker/live/public-run.ts`, pure, and applied in one turn of the EventHub** (`claimPublicRun`), so of any number of simultaneous requests exactly one is accepted. One run at a time; three minutes between starts; forty starts in any 24 hours; refused while the agents' provider is not `scripted`; a switch, `POST /api/admin/public-runs { enabled, clear? }`, that needs no deploy and survives a reset. `clear` gives the day's starts back.
+- **"A run is in progress" is read from the board, not from who started it:** Intents not at rest (landed, failed, escalated, quarantined), or the gate busy. A run with no event for three minutes, or still unfinished fifteen minutes after its reset, is taken to be stuck and no longer blocks a start.
+- **A reset says it has begun before it clears anything** (`EventHub.resetBegun`, called first in `resetDemo`). Until the hub's own reset, the board shows the run before at rest, which is exactly when a public start would be allowed; without this a visitor's start could land on an owner's `npm run demo`. After a reset there are fifteen seconds of grace for the dispatch that follows. A reset nobody asked for (`recoverMemoryStore`, the local runtime reloading) does not count, or a fresh `npm run dev:local` would say "Starting a run" for a minute.
+- **A claimed start is asked again when it is about to reset the board** (`refusePublicRun`): still the latest start, switch still on, provider still scripted, nobody else having reset or begun a run since, and not more than two minutes old. A start that is told no is recorded as failed. None of its three steps is retried: none is safe to do twice.
+- **`POST /api/admin/llm` refuses a model while a run is going** (409): each agent reads the choice when it starts, and a re-derive is a new start, so the rest of a visitor's run would have called the model.
+- **`scripts/ab.ts` switches public runs off while it measures,** waits for a run in progress to end first, and puts the switch back, on Ctrl-C too. Between two modes the board is at rest, which is when a start is allowed.
+- **`resetDemo` tidies after itself when it fails:** the half-made trunk copy is removed. That path is now reachable by anyone, up to forty times a day.
+- **`src/worker/dispatch.ts` imports `workflowInstanceId` from `agent/instance`,** not `agent/workflow`, which would now be a cycle.
+
+### An independent check before deploying
+
+A reviewer agent, told to break nine claims about the endpoint and not to edit anything, found no blocker and said ready. What it found and what was done:
+
+- Fixed: a failed start disabled the guard after someone else's reset until the next successful start (the failure now records when it was found out); an owner's reset was invisible until it finished (`resetBegun`); a claimed start was not checked again (`refusePublicRun`); the public status carried the raw error text of a failed start (it is a boolean now, and the text goes to the Worker's log); the Live tab said "Nothing is running" for a moment after every start, because a reset logs its numbers before any Intent exists; a stale answer from the two-second status memo could step the countdown back; a start with no answer left "Starting…" for ever (20 s timeout); a refusal reason this build does not know made the button throw.
+- **Known and left.** The limits are global, so one visitor can use the day's forty starts in two hours (the owner can give them back with `clear`). Any web page can fire the POST from its visitors' browsers; the limits are the answer to that too. An Intent waiting on a person counts as at rest, so a visitor can start a new run over a board whose owner was about to answer a card. A waiting agent publishes every 30 seconds, so a run stuck behind one blocks Start until the fifteen-minute rule, not the three-minute one. An owner who switches the provider from a model back to scripted while a model run is going exposes that run to the three-minute stall rule. The advice in the README covers the last three: switch public runs off around any run you care about.
+
+### Three runs on Cloudflare (Worker version `ba28d849`)
+
+Started without a token: two with a bare POST, the third with the button on the deployed page.
+
+| Run | Seed | First Intents after | Over after | Agents landed | Workload landed | Problems on trunk | Premises broken | Re-derives | Forks |
+|---|---|---|---|---|---|---|---|---|---|
+| 1 | 7 | 47 s | 3:28 | 12 of 12 | 26 of 30 | 0 | 5 | 5 of 5 | 45 |
+| 2 | 11 | 31 s | 3:12 | 12 of 12 | 26 of 30 | 0 | 3 | 3 of 3 | 45 |
+| 3 | 23 | about 30 s | about 3:10 | 12 of 12 | 26 of 30 | 0 | 5 | 5 of 5 | 45 |
+
+- A second POST sent at once, and three more during run 3, were refused (429, "running"). A body asking for a thousand Intents and a model was refused the same way, unread. The switch without a token: 401.
+- Run 1's reset took about 40 seconds because it deleted the 113 forks the afternoon's comparison had left; later ones delete 45. A run is three to four minutes, longer than the wait between starts, so in practice the next start is allowed as soon as a run ends. The page said "about two minutes" before this and says "three to four" now.
+- The four workload Intents that do not land are the same kind each time: the generator aims some edits at a function an earlier edit already touches, and the later one gives up waiting for the claim. That is the ledger working. It is not a failure of the run, though "4 scripted workload Intents did not land" does not say so.
+- Checked on screen during the runs, at 1440×900 and at 375 wide: "Starting a run." while the old board is cleared; then the story's own sentences as they became true ("Three agents relied on how it used to behave. They are stopped at once."; "Agent 11's tests all still pass. Only its premise caught the problem."); then the summary and "Start a new run".
+
+### Documents
+
+- README: "See it in 2 minutes" is about the two tabs; a paragraph on the Start button for someone who deploys their own; a new section, **How this would scale**, written after re-reading the official rules. The rules ask for a prototype and say nothing about the size of the codebase; the competition page's headline is "hundreds of thousands of agents". The section says what is shaped for that (forks, the sharded ledger, invalidation by type), what is not (one gate; a whole-repo typecheck in the Worker; every test and every in-flight assertion run after every landing; one language), and that none of it has been built or measured.
+- `docs/video/script.md` and `shot-list.md`: the comparison now comes before the larger run, because that is the order on the page; both are reached by scrolling, not by tabs. `stage-10min.md`: switch public runs off before going on, and why. `docs/UI.md`: the two tabs.
+- `npm test`: 1,010 passed, 4 skipped. `scripts/check-scenario.ts`: 43 of 43.

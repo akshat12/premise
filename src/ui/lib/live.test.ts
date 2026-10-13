@@ -75,6 +75,24 @@ describe("liveCaption, following a run as it happens", () => {
 		expect(runSettled(main, reduceAll(main).intents, last.ts + SETTLE_MS)).toBe(true);
 	});
 
+	it("says why Intents did not land, when every one of them gave up waiting for a claim", () => {
+		const created = main.find((event) => event.t === "intent.created");
+		if (created === undefined || created.t !== "intent.created") {
+			throw new Error("the recording has no Intent");
+		}
+		const last = main.at(-1) as PremiseEvent;
+		const extra = (id: string, note: string): PremiseEvent[] => [
+			{ ...created, intent: { ...created.intent, id, kind: "workload", taskId: "workload" }, seq: last.seq + 1, ts: last.ts },
+			{ t: "intent.status", id, status: "failed", note, seq: last.seq + 2, ts: last.ts } as PremiseEvent,
+		];
+		const waited = [...main, ...extra("iwaited01", "gave up: i0000000a still holds src/auth/session.ts#createSession")];
+		const body = liveCaption(waited, storyFor(waited), { ...MOMENT, over: true }).body;
+		expect(body).toMatch(/1 scripted workload Intent did not land\. It wanted a function another Intent was changing, and gave up waiting\./);
+		// One that failed for another reason: nothing is claimed about why.
+		const mixed = [...waited, ...extra("iother001", "illegal transition")];
+		expect(liveCaption(mixed, storyFor(mixed), { ...MOMENT, over: true }).body).not.toMatch(/gave up waiting/);
+	});
+
 	it("says nothing about premises catching anything in a run where none did", () => {
 		const plain = main.filter((event) => !(event.t === "gate.result" && event.report.path === "rebase" && !event.report.ok && event.report.tests.failed.length === 0));
 		expect(liveCaption(plain, storyFor(plain), { ...MOMENT, over: true }).body).not.toMatch(/premise caught/);
