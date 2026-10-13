@@ -1190,3 +1190,9 @@ Asked for by the user: slides that match what is built, approachable, organised 
 - **Fewer agents.** `npm run demo -- --agents 5` dispatches five of the twelve tasks (the four the premise break is about first, then the rest in order); `--tasks a,b,c` names them. Nothing in the Worker changed: `/api/dispatch` always took a list. Such runs are the owner's, so they do not count against the public cap. A public run is still all twelve.
 - **A run about something else:** `--tasks t05-tax-rounding,t06-discount-stacking,t09-currency-format`. `t05` and `t06` both want `computeTotal`, so this one shows the ledger (a card that settles by itself when the other lands), not the `verifySession` premise break.
 - **Tried locally:** 5 of 5, 7 of 7 and 3 of 3 landed, nothing broken on trunk; the 5-agent run opened in the side panel ("All five agents' work landed"). Delete: refused without the token, removed a run with no trunk on record and one with its own copy (the copy went), 404 the second time.
+
+### A slide on where Premise would sit (Oct 13, night; the user asked for it, towards the end)
+
+- `fits` is slide 19, after "Scaling up": tasks, any agents, Premise (ledger, premises, gate), trunk, then CI and deploy, with the stop-and-re-derive loop back to the agents. It says "would": connecting an existing Git host is not built, and the notes say trunk lives on Artifacts today.
+- "The honest part" is now slide 20 and "Try it" 21. The script grew by about 80 words, to about 1,310: about 9:35 at 150 words a minute, which is close to the ten-minute limit. The script says which slides to press through if the take runs long.
+- The first-visit card no longer names a number of slides.

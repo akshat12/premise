@@ -1,6 +1,6 @@
 # Script for the screen recording: slides, then the live site
 
-Read this one when you record with the slide deck. (`script.md` is the older cut that uses the site alone.) It is about 1,230 spoken words: about 9:00 at 150 words a minute and about 9:40 at 140, with the presses and the two visits to the site. The rules allow five to ten minutes, so rehearse once with a clock in view. If you are past 8:00 when you reach slide 18, press through it without speaking and go on to slide 19.
+Read this one when you record with the slide deck. (`script.md` is the older cut that uses the site alone.) It is about 1,310 spoken words: about 9:35 at 150 words a minute, and past ten minutes at 140, with the presses and the two visits to the site. The rules allow five to ten minutes, so rehearse once with a clock in view. That leaves almost no room, so keep to 150 words a minute. If you are past 8:00 when you reach slide 18, press through it without speaking and go on to slide 19; if you are past 8:45 at slide 19, press through that one too.
 
 **How to read it**
 
@@ -15,10 +15,10 @@ Read this one when you record with the slide deck. (`script.md` is the older cut
 - Window 1: the deck, in Present mode, on slide 1.
 - Window 2: Chrome at `https://premise.akshatdivekar.workers.dev/`, page area 1440×900, on the **Demo** tab at "Step 01 / 07". (`shot-list.md` has the browser set-up, with one change: capture the whole screen, not the page area, because this take shows two windows. Put Chrome in full screen instead of using the DevTools device toolbar.) Switch between the two windows with `⌘Tab`.
 - Open `https://premise.akshatdivekar.workers.dev/?results` once beforehand. Check that the headline still says the last live runs each landed every agent, with nothing broken on trunk (slide 16 says "the recent live runs", so the number does not matter), and that a row under the top one that says "12 of 12" opens a panel when it is clicked (the top row, the run on the board now, goes to the Live tab instead; some rows are runs of 5 or 7 agents).
-- In Present mode, check that slide 15 is "At scale" and slide 19 is "The honest part".
+- In Present mode, check that slide 15 is "At scale" and slide 19 is "In a bigger system" and slide 20 is "The honest part".
 - Do not press **Start a run** during the take: a run takes three to four minutes.
 
-**Words to keep to.** Intent, changes, relies on, premise, re-derive, gate, trunk; Wait, Split, Depend. Say "Agent 1" to "Agent 4". "Premises are the early warning. The gate is the guarantee." is said once, on slide 19. Never say "race".
+**Words to keep to.** Intent, changes, relies on, premise, re-derive, gate, trunk; Wait, Split, Depend. Say "Agent 1" to "Agent 4". "Premises are the early warning. The gate is the guarantee." is said once, on slide 20. Never say "race".
 
 ---
 
@@ -252,7 +252,7 @@ You can run it yourself. On the site's Live tab, anyone can start a run: twelve 
 
 **[BACK TO THE SLIDES, THEN NEXT SLIDE]**
 
-## Part four: how it is built, and its limits (slides 17 to 20)
+## Part four: how it is built, and its limits (slides 17 to 21)
 
 ### Slide 17 · How it is built
 
@@ -286,7 +286,21 @@ It is a prototype. Already shaped for many agents: a fork for every Intent,
 
 **[NEXT SLIDE]**
 
-### Slide 19 · The honest part
+### Slide 19 · In a bigger system
+
+Where would this sit in a bigger system? Tasks come from people, tickets or an orchestrator. Agents of any kind do the work, each in its own fork, and it ends up on trunk.
+
+**[→]** Premise goes between the agents and trunk: the ledger, the premises, the gate.
+
+**[→]** Work whose premise broke is stopped early and re-derived.
+
+**[→]** After trunk, CI and deploy run as before.
+
+**[→]** One layer is added, and the rest stays as it is. That is a design: today, trunk lives on Artifacts.
+
+**[NEXT SLIDE]**
+
+### Slide 20 · The honest part
 
 One more thing, because it is the honest part. Every agent so far was scripted. We ran the same four tasks with a live model as every agent. The premise stopped Agent 4's first attempt, as before. But the model redid the work the same way, and that passed every test and landed. The premise caught the problem once, and the redo let it back in.
 
@@ -296,7 +310,7 @@ Since then, the gate turns back a redo identical to the stopped work. The model'
 
 **[NEXT SLIDE]**
 
-### Slide 20 · Try it
+### Slide 21 · Try it
 
 Git tracks what agents wrote. Premise tracks what they assumed. It is open source, built on Cloudflare Workers and Artifacts. Open it and press Next. Or open the Live tab and press Start.
 

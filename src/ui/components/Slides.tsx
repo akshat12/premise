@@ -51,7 +51,7 @@ export function SlidesCard({ onOpen, onDismiss }: SlidesCardProps) {
 	return (
 		<aside className="slides-card" aria-label="New here?">
 			<p className="label slides-card-kicker">New here?</p>
-			<p className="slides-card-line">See how Premise works, in twenty short slides.</p>
+			<p className="slides-card-line">See how Premise works, in a short set of slides.</p>
 			<div className="slides-card-actions">
 				<button type="button" className="slides-card-open" onClick={onOpen}>
 					Open the slides
