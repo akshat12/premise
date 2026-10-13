@@ -6,9 +6,9 @@ Every UI task (T20–T23) must follow this brief. Read it fully before writing U
 
 The user sent a reference (a dark dashboard with mono uppercase micro-labels, large light numerals, hairline grids and one orange accent) and asked for the same manner in light mode, keeping the rows. Design-canvas board G is the mock; the app follows it. Layout and behaviour are unchanged. Where a section below disagrees with this one, this one wins.
 
-- **Two faces, self-hosted.** Geist Sans for sentences and numerals, Geist Mono for every label. Barlow Condensed and IBM Plex Mono are gone.
-- **Labels** (`.label`, and names with `.callsign`) are Geist Mono, uppercase, 11px, letter-spacing 0.08em: statuses, time ticks, the key, tab names, buttons, "Changes" and "Relies on". This replaces "no all-caps labels". Sentences stay in sentence case. Nothing is under 11px.
-- **Numerals** (`.figure`) are Geist Sans weight 300 with tabular figures: the counter strip, the gate readout, the Scale and Compared numbers.
+- **Two faces, self-hosted.** Atkinson Hyperlegible Next for sentences and numerals, Atkinson Hyperlegible Mono for every label (since Oct 12, late: the user chose it from six pairings mocked beside Geist, which it replaced). It is drawn so that similar letters cannot be mistaken for one another, zero included (it is slashed), which is what small labels on a recorded screen need. Barlow Condensed, IBM Plex Mono and Geist are gone.
+- **Labels** (`.label`, and names with `.callsign`) are Atkinson Hyperlegible Mono, uppercase, 11px, letter-spacing 0.08em: statuses, time ticks, the key, tab names, buttons, "Changes" and "Relies on". This replaces "no all-caps labels". Sentences stay in sentence case. Nothing is under 11px.
+- **Numerals** (`.figure`) are Atkinson Hyperlegible Next weight 300 with tabular figures: the counter strip, the gate readout, the Scale and Compared numbers.
 - **Paper and ink.** Board `#f3f4f2`, panels `#fbfbfa`, ink `#14181d`, soft ink `#5c6470`, hairlines `#dcdfdb`. Panels have a 1px hairline, a 6px radius and small black corner brackets (`.bracketed`). Bars are square-cornered.
 - **A lane takes the colour of how its Intent stands** (since Oct 12, late; asked for by the user so the story reads at a glance). The whole row, name and track: green (`--wash-landed`) once it has landed, red (`--wash-stopped`) while it is stopped, needs a person or did not land, yellow (`--wash-redo`) while its work is being redone. Everything else has no colour, waiting included: a waiting bar is the working bar's grey, hatched. The washes are pale enough that the status word in the same hue passes AA on them (green 5.3:1, red 4.6:1, amber 4.9:1), and the status word and icon always say the same thing, so colour is never the only sign. Blue no longer means re-derive: the R stamp, the re-derive bar and the timeline's re-derive lines are amber. A lane a story step is not about keeps half its colour.
 - **Lanes have air between them:** 14px when there is room, 10px at medium density, 6px when compact, with a hairline above and below each. Edge to edge, a board of coloured lanes read as one block.
@@ -128,7 +128,7 @@ A second way to look at the same Intents, as a tab beside Lanes: time runs left 
 - **The break line** is thin and behind the bars across all rows, and heavy with a dot only through the rows it stopped. A stale stretch is drawn from the landing itself (true times are in the tooltip).
 - **The axis** shows 1, 1½, 2, 3, 5 or 10 minutes, whichever first keeps "now" inside it, and steps rather than zooms. What has not happened yet is tinted. In a replay the axis is a slider.
 - **The label column** is the strip in small: status band, callsign (Barlow Condensed), R stamp, status icon and word.
-- **Type:** Geist Sans and Geist Mono, self-hosted (see "The look"). Nothing is under 11px.
+- **Type:** Atkinson Hyperlegible Next and Atkinson Hyperlegible Mono, self-hosted (see "The look"). Nothing is under 11px.
 - **Phone:** marks only, nothing scrolling sideways; breaks are numbered on the trunk line and listed in words above the rows.
 
 ## Motion: one orchestrated moment, everything else responds to the user

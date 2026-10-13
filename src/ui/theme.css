@@ -27,8 +27,8 @@
 	--rule: #dcdfdb;
 	--rule-strong: #c9cdc8;
 
-	--font-text: "Geist Sans", system-ui, sans-serif;
-	--font-label: "Geist Mono", ui-monospace, monospace;
+	--font-text: "Atkinson Hyperlegible Next", system-ui, sans-serif;
+	--font-label: "Atkinson Hyperlegible Mono", ui-monospace, monospace;
 	--font-callsign: var(--font-label);
 	--font-symbol: var(--font-label);
 

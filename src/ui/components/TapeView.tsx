@@ -58,7 +58,7 @@ function useWidth<T extends HTMLElement>(): [React.RefObject<T | null>, number] 
 const FRESH_MS = 1500;
 
 /** Roughly how wide an uppercase mono label is, with its padding. Close enough to decide whether to draw it. */
-const wide = (label: string, icon = false) => label.length * 7.4 + 18 + (icon ? 18 : 0);
+const wide = (label: string, icon = false) => label.length * 7.7 + 18 + (icon ? 18 : 0);
 
 /** One reading in the gate's readout: a label over what was found. */
 function Reading({ label, value, ok }: { label: string; value: string; ok: boolean }) {
