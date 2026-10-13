@@ -1134,6 +1134,14 @@ Asked for by the user: slides that match what is built, approachable, organised 
 - **Still a placeholder in spirit:** the closing slide says "The repository link is in the submission." until the repo is public and has an address.
 
 
+### A closer view of a long run (Oct 13)
+
+- **Asked by the user:** a session that runs for hours should stay readable, with the agent column fixed and the lanes scrollable. Today the axis stretches to hold the whole run, so after two hours a one-second rebase is thinner than a pixel.
+- **Built instead of scrolling: three choices where the word "Time" stands, All / 10 min / 2 min,** offered once a run passes ten minutes. A closer view shows only the last stretch, with its left edge moving in steps so nothing slides (`zoomTape`, pure, in `src/ui/lib/tape.ts`). There is no scroll position to keep in step with the live stream, and the tape's one animation is untouched. The cost: on the closer views you cannot look back past the window; "All" is still there for that.
+- The clock says hours from an hour on ("2:05:00", not "125:00").
+- **Tried** on a copy of the front-page recording with its times stretched a hundredfold (1 h 49 min): the control appears, "10 min" shows 22:30 to 32:30 with the bars at a readable size, and seeking still lands where it is clicked. No real multi-hour run has been made.
+- **Agents that start late already work:** a row appears when its Intent is created, and its bar starts at that moment. Two rough edges are left: rows and "Agent N" numbers follow task order, so a late agent with an earlier task is inserted above others and renumbers them.
+
 ### Dynamic Workers are billed by the number created, so the public cap came down (Oct 13)
 
 - **Reported by the user:** a charge for Dynamic Workers. The runner makes one with `env.LOADER.load(...)` for every batch of tests and premise checks, and Cloudflare bills each unique Dynamic Worker created in a day ($0.002 beyond 1,000 a month; `load()` with no ID counts as a new one every call).

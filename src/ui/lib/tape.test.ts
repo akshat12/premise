@@ -4,7 +4,7 @@ import liveRun from "../../../demo/runs/live.json";
 import recording from "../fixtures/run-2026-10-09.json";
 import { readRecording } from "./recording";
 import { reduceAll } from "./reduce";
-import { buildTape, clock, positionAt, reliesOn, spanFor, ticksFor, advanceTape } from "./tape";
+import { buildTape, clock, positionAt, reliesOn, spanFor, ticksFor, advanceTape, type Tape, zoomTape } from "./tape";
 
 const run = recording as PremiseEvent[];
 const tapeAt = (count: number) => {
@@ -356,3 +356,59 @@ describe("reliesOn: what a row says its Intent relies on", () => {
 		}
 	});
 });
+
+describe("a long run, looked at closer", () => {
+	const HOUR = 3_600_000;
+	const row = (id: string, segments: [number, number, boolean][], end?: number) =>
+		({ id, callsign: id, title: "", changes: [], relies: null, status: end === undefined ? "working" : "landed", races: 0, segments: segments.map(([from, to, open]) => ({ kind: "work", from, to, open, label: "", tip: "", rebased: false })), hits: [], asks: [], summary: "", ...(end === undefined ? {} : { end: { at: end, kind: "landed", sha: null } }) }) as unknown as Tape["rows"][number];
+	const long: Tape = {
+		rows: [row("early", [[0, 60_000, false]], 60_000), row("crossing", [[0, 2 * HOUR, true]]), { ...row("late", [[2 * HOUR - 60_000, 2 * HOUR - 30_000, false]], 2 * HOUR - 30_000), hits: [1000, 2 * HOUR - 45_000] }],
+		landings: [{ at: 60_000, id: "early", agent: true, tip: "" }, { at: 2 * HOUR - 30_000, id: "late", agent: true, tip: "" }],
+		breaks: [{ n: 1, at: 1000, flag: "", sentence: "", rows: ["late"] }, { n: 2, at: 2 * HOUR - 45_000, flag: "", sentence: "", rows: ["late"] }],
+		cuts: [],
+		workload: { bucketMs: 10_000, landed: Array.from({ length: 780 }, (_, index) => (index === 715 ? 3 : index === 2 ? 9 : 0)), stale: Array.from({ length: 780 }, () => false), peak: 9 },
+		now: 2 * HOUR,
+		span: spanFor(2 * HOUR),
+		ticks: [],
+	};
+
+	it("says hours once there are any", () => {
+		expect([59 * 60_000 + 59_000, HOUR, 2 * HOUR + 5 * 60_000 + 7000].map(clock)).toEqual(["59:59", "1:00:00", "2:05:07"]);
+	});
+
+	it("leaves a tape alone when the whole run is asked for, or it already fits", () => {
+		expect(zoomTape(long, null)).toBe(long);
+		const short = { ...long, now: 500_000 };
+		expect(zoomTape(short, 600_000)).toBe(short);
+	});
+
+	it("shows the last ten minutes, with now between 70% and 95% of the way along", () => {
+		const near = zoomTape(long, 600_000);
+		expect(near.span).toBe(600_000);
+		expect(near.offset).toBe(2 * HOUR - 450_000);
+		expect(near.now / near.span).toBeGreaterThanOrEqual(0.7);
+		expect(near.now / near.span).toBeLessThanOrEqual(0.95);
+		expect((near.offset ?? 0) + near.now).toBe(long.now);
+		// What ended before the left edge is gone; a bar that crosses it is cut there; the rest moves with the edge.
+		const [early, crossing, late] = near.rows;
+		expect(early?.segments).toEqual([]);
+		expect(early?.end).toBeUndefined();
+		expect(early?.status).toBe("landed");
+		expect(crossing?.segments[0]).toMatchObject({ from: 0, to: near.now, open: true });
+		expect(late?.segments[0]).toMatchObject({ from: 450_000 - 60_000, to: 450_000 - 30_000 });
+		expect(late?.end?.at).toBe(450_000 - 30_000);
+		expect(late?.hits).toEqual([450_000 - 45_000]);
+		expect(near.landings.map((landing) => landing.id)).toEqual(["late"]);
+		expect(near.breaks.map((line) => line.n)).toEqual([2]);
+		// The workload strip is the same stretch of time, and its tallest bar is the tallest one in view.
+		expect(near.workload?.landed).toHaveLength(60);
+		expect(near.workload?.peak).toBe(3);
+	});
+
+	it("moves its left edge in steps, not with every second", () => {
+		const edges = [0, 30_000, 60_000, 149_000, 151_000].map((later) => zoomTape({ ...long, now: long.now + later }, 600_000).offset);
+		expect(new Set(edges).size).toBe(2);
+		expect((edges[4] ?? 0) - (edges[0] ?? 0)).toBe(150_000);
+	});
+});
+
