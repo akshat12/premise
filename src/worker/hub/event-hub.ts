@@ -6,7 +6,7 @@ import { parseSince, PING, PONG } from "../../shared/wire";
 import { computeMetrics, countEvent, type Counters, emptyCounters, type RegistryRow } from "../metrics";
 import { AT_REST, type BoardFacts, claimPublicRun, clearPublicRuns, failPublicRun, isScripted, newPublicRunState, type PublicRunState, type PublicRunStatus, publicRunStatus, refusePublicRun } from "../live/public-run";
 import type { RecentRuns, RunSummary } from "../../shared/runs";
-import { RUNS_KEPT, summariseRun } from "../live/runs";
+import { RUN_EVENTS_KEPT, RUNS_KEPT, summariseRun } from "../live/runs";
 import { atCapacity, capacityMessage, RETRY_AFTER_S } from "./limits";
 
 const BACKLOG_PAGE = 2000;
@@ -43,6 +43,8 @@ export class EventHub extends DurableObject<Env> {
 			sql.exec("CREATE TABLE IF NOT EXISTS asserters(id TEXT PRIMARY KEY)");
 			// Past runs, one line each (shared/runs.ts): written when the board is cleared, and kept across resets.
 			sql.exec("CREATE TABLE IF NOT EXISTS runs(id INTEGER PRIMARY KEY AUTOINCREMENT, summary TEXT)");
+			// The events of each kept run, so that it can be played again as the Demo tab plays a recording.
+			sql.exec("CREATE TABLE IF NOT EXISTS run_events(run_id INTEGER, seq INTEGER, ts INTEGER, body TEXT, PRIMARY KEY (run_id, seq))");
 			// What a real model answered, turn by turn, so a live run can be saved and replayed as a script.
 			sql.exec("CREATE TABLE IF NOT EXISTS llm_turns(script TEXT, idx INTEGER, turn TEXT, PRIMARY KEY (script, idx))");
 		});
@@ -157,8 +159,15 @@ export class EventHub extends DurableObject<Env> {
 		const leaving = this.getMeta<string>("mode", "premise") === "premise" ? this.runOnBoard(0) : null;
 		if (leaving !== null) {
 			const kept = sql.exec<{ id: number }>("INSERT INTO runs (summary) VALUES (?) RETURNING id", JSON.stringify(leaving)).one();
-			sql.exec("UPDATE runs SET summary = ? WHERE id = ?", JSON.stringify({ ...leaving, id: kept.id }), kept.id);
+			// Its log goes with it, copied inside the database, unless it is too long to keep thirty of.
+			const count = sql.exec<{ n: number }>("SELECT COUNT(*) AS n FROM events").one().n;
+			const events = count <= RUN_EVENTS_KEPT ? count : 0;
+			if (events > 0) {
+				sql.exec("INSERT INTO run_events (run_id, seq, ts, body) SELECT ?, seq, ts, body FROM events", kept.id);
+			}
+			sql.exec("UPDATE runs SET summary = ? WHERE id = ?", JSON.stringify({ ...leaving, id: kept.id, events }), kept.id);
 			sql.exec("DELETE FROM runs WHERE id <= ?", kept.id - RUNS_KEPT);
+			sql.exec("DELETE FROM run_events WHERE run_id <= ?", kept.id - RUNS_KEPT);
 		}
 		sql.exec("DELETE FROM events");
 		sql.exec("DELETE FROM sqlite_sequence WHERE name = 'events'");
@@ -291,6 +300,14 @@ export class EventHub extends DurableObject<Env> {
 			.toArray()
 			.map((row) => JSON.parse(row.summary) as RunSummary);
 		return { current: this.getMeta<string>("mode", "premise") === "premise" ? this.runOnBoard(0) : null, past };
+	}
+
+	/** The events of a kept run, in order, after `seq`. Empty for a run that is not kept, or was kept as a line only. */
+	async runEvents(id: number, seq = 0, limit = 5000): Promise<PremiseEvent[]> {
+		return this.ctx.storage.sql
+			.exec<EventRow>("SELECT seq, ts, body FROM run_events WHERE run_id = ? AND seq > ? ORDER BY seq LIMIT ?", id, seq, limit)
+			.toArray()
+			.map(toEvent);
 	}
 
 	// ---- the run anyone can start (see live/public-run.ts for the rules) ----

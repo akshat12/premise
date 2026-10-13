@@ -55,6 +55,11 @@ describe("runRows", () => {
 		expect(runRows({ current: null, past: [run({ complete: false })] }, NOW)[0]).toMatchObject({ note: "cleared before it finished", clean: false });
 	});
 
+	it("offers a replay only of a past run whose events were kept", () => {
+		const rows = runRows({ current: run({ id: 0, events: 900 }), past: [run({ id: 8, events: 976 }), run({ id: 7, events: 0 }), run({ id: 6 })] }, NOW);
+		expect(rows.map((row) => row.replay)).toEqual([null, "/?run=8", null, null]);
+	});
+
 	it("says none where there was none of something", () => {
 		expect(runRows({ current: null, past: [run({ workload: { total: 0, landed: 0 }, rederives: { started: 0, succeeded: 0, failed: 0 } })] }, NOW)[0]).toMatchObject({ workload: "none", rederived: "none" });
 	});

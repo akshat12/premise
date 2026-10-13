@@ -75,9 +75,35 @@ const OPENINGS: Record<string, string> = {
 const OPENING_NOTES: Record<string, string> = {
 	live: "In this run the four agents are a live model (Gemini 3.5 Flash-Lite), not scripts. About five and a half minutes of waiting for the model are cut out.",
 };
+/** The same, for a past run of the live board, whatever its number. */
+const PAST_RUN_NOTE = "This is a past run of the live board, played back from the Worker's record of it.";
+const PAST_RUN_KIND: RunKind = { label: "Replay · a past live run", extra: "scripted agents", detail: "A run of the live board that the Worker kept when the board was cleared, played back from its event log. What each Intent changed was not kept." };
 /** Added to the last step of the front-page run. */
 const WHAT_NEXT = "The Results tab has the numbers. The Live tab runs it for real.";
-const DEMO = query.get("demo") ?? DEFAULT_RUN;
+/**
+ * `?run=12` plays a past run of the live board from the Worker's record of it (see the Results tab's
+ * list). It is a recording like the others, only fetched from the Worker instead of bundled.
+ */
+const PAST_RUN = /^[1-9]\d{0,8}$/.test(query.get("run") ?? "") ? Number(query.get("run")) : null;
+const DEMO = PAST_RUN !== null ? `run-${PAST_RUN}` : (query.get("demo") ?? DEFAULT_RUN);
+
+/** The whole log of a past run, asked for a page at a time. */
+async function fetchPastRun(id: number): Promise<PremiseEvent[]> {
+	const events: PremiseEvent[] = [];
+	for (let since = 0; ; ) {
+		const response = await fetch(`/api/runs/${id}/events?since=${since}`);
+		if (!response.ok) {
+			throw new Error(`run ${id}: ${response.status}`);
+		}
+		const page = (await response.json()) as PremiseEvent[];
+		events.push(...page);
+		const last = page.at(-1);
+		if (last === undefined || page.length < 5000) {
+			return events;
+		}
+		since = last.seq;
+	}
+}
 /**
  * `?admin` shows the owner's tools under "More": dispatching by hand, the workload, and reset. A
  * visitor never needs them (the Live tab's Start button is the whole of what a visitor can do) and
@@ -141,10 +167,21 @@ export function App() {
 	// The recording is a real run of the deployed system. It is loaded on demand, not bundled into the first paint.
 	useEffect(() => {
 		let current = true;
-		const chosen = RUNS[`../../demo/runs/${DEMO}.json`];
-		if (chosen === undefined && query.has("demo")) {
+		const bundled = RUNS[`../../demo/runs/${DEMO}.json`];
+		if (bundled === undefined && query.has("demo") && PAST_RUN === null) {
 			setNotice(`There is no recorded run called "${DEMO}". Playing the built-in recording.`);
 		}
+		// A past run of the live board comes from the Worker. If it is no longer kept there, the demo recording plays.
+		const chosen =
+			PAST_RUN === null
+				? bundled
+				: () =>
+						fetchPastRun(PAST_RUN).catch(() => {
+							if (current) {
+								setNotice(`Run ${PAST_RUN} is not in the Worker's record any more. Playing the demo recording.`);
+							}
+							return (RUNS[`../../demo/runs/${DEFAULT_RUN}.json`] ?? BUILT_IN)();
+						});
 		void (chosen ?? BUILT_IN)()
 			.then((data) => {
 				if (!current) {
@@ -186,7 +223,7 @@ export function App() {
 		}
 		const told = storyFor(playing, (at) => captionAt(playing, at, own(OPENINGS, DEMO)));
 		// A run that differs from the front page's in a way that matters says so on its first step.
-		const opening = own(OPENING_NOTES, DEMO);
+		const opening = PAST_RUN !== null ? PAST_RUN_NOTE : own(OPENING_NOTES, DEMO);
 		// The front-page run's last step says where to go next: the numbers are under the tape, and the same thing can be run live.
 		const closing = DEMO === DEFAULT_RUN ? WHAT_NEXT : undefined;
 		const steps = told.steps.map((step, index) => {
@@ -416,7 +453,7 @@ export function App() {
 	);
 
 	// What the bar says is on screen: the kind of run, or that this is one frame of it held still.
-	const known = own(RUN_KINDS, DEMO);
+	const known = PAST_RUN !== null ? PAST_RUN_KIND : own(RUN_KINDS, DEMO);
 	const runKind: RunKind | undefined = onResults
 		? { label: "Results · measured on Cloudflare", extra: "scripted agents", detail: "Numbers from runs of the deployed system on real Artifacts: the same work landed under three rules, and one larger recorded run. The agents in them are scripted." }
 		: mode === "live"

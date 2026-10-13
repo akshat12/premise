@@ -24,6 +24,7 @@ export interface HubApi {
 	since(seq: number, limit?: number): Promise<PremiseEvent[]>;
 	reset(asked?: boolean, origin?: RunSummary["origin"]): Promise<void>;
 	runs(): Promise<RecentRuns>;
+	runEvents(id: number, seq?: number, limit?: number): Promise<PremiseEvent[]>;
 	registry(): Promise<RegistryRow[]>;
 	knows(id: string): Promise<boolean>;
 	asserters(): Promise<string[]>;

@@ -22,6 +22,8 @@ export interface RunSummary {
 	people: number;
 	/** The agents replayed prepared edits (true), or were a model (false). */
 	scripted: boolean;
+	/** How many of its events the Worker kept, so that it can be replayed. 0 or absent when only the line was kept. */
+	events?: number;
 }
 
 export interface RecentRuns {

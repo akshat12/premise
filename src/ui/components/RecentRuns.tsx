@@ -96,6 +96,9 @@ export function RecentRuns({ onWatch }: RecentRunsProps) {
 								<th scope="col" className="label runs-num">
 									Problems on trunk
 								</th>
+								<th scope="col" className="label runs-num">
+									<span className="tape-sr">Play it again</span>
+								</th>
 							</tr>
 						</thead>
 						<tbody>
@@ -113,6 +116,13 @@ export function RecentRuns({ onWatch }: RecentRunsProps) {
 									<td className="runs-num">{row.rederived}</td>
 									<td className="runs-num runs-problems" data-tone={row.problems > 0 ? "accent" : "good"}>
 										{row.problems}
+									</td>
+									<td className="runs-num">
+										{row.replay !== null ? (
+											<a className="plane-link" href={row.replay}>
+												Replay
+											</a>
+										) : null}
 									</td>
 								</tr>
 							))}

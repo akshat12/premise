@@ -173,6 +173,23 @@ describe("the hub's record of runs", () => {
 		expect(later.past[0]?.id).toBeGreaterThan(later.past[1]?.id ?? 0);
 	});
 
+	it("keeps a past run's events, in order, so that it can be played again", async () => {
+		await created("i000000e1", "agent");
+		await status("i000000e1", "working");
+		await status("i000000e1", "landed");
+		const live = await own.since(0);
+		await own.reset();
+		const kept = (await own.runs()).past[0];
+		expect(kept?.events).toBe(live.length);
+		const events = await own.runEvents(kept?.id ?? 0);
+		expect(events).toEqual(live);
+		// A page at a time, as the page asks for it.
+		expect(await own.runEvents(kept?.id ?? 0, live[0]?.seq ?? 0, 1)).toEqual([live[1]]);
+		expect(await own.runEvents(999_999)).toEqual([]);
+		// The board itself is empty again: the kept events are a copy.
+		expect(await own.since(0)).toEqual([]);
+	});
+
 	it("does not keep a comparison run, or an empty board", async () => {
 		const before = (await own.runs()).past.length;
 		await own.reset();
@@ -193,6 +210,9 @@ describe("the hub's record of runs", () => {
 		const { past } = await own.runs();
 		expect(past).toHaveLength(30);
 		expect(past[0]?.id).toBe((past[29]?.id ?? 0) + 29);
+		// The events of a run that has dropped off the list go with it.
+		expect(await own.runEvents((past[29]?.id ?? 0) - 1)).toEqual([]);
+		expect((await own.runEvents(past[29]?.id ?? 0)).length).toBeGreaterThan(0);
 	});
 });
 
@@ -315,6 +335,18 @@ describe("GET /api/live and POST /api/live/start", () => {
 		expect(cleared.current).toBeNull();
 		expect(cleared.past).toHaveLength(Math.min(30, pastBefore + 1));
 		expect(cleared.past[0]).toMatchObject({ origin: "visitor", complete: true, agents: { total: 12, landed: 12 }, problems: 0 });
+		// And its log can be fetched again, a page at a time, by anyone; a run that was never kept is a 404.
+		const id = cleared.past[0]?.id ?? 0;
+		const page = await call(`/api/runs/${id}/events?since=0&limit=50`);
+		expect(page.status).toBe(200);
+		expect(page.headers.get("cache-control")).toMatch(/max-age=3600/);
+		const first = (await page.json()) as { seq: number; t: string }[];
+		expect(first).toHaveLength(50);
+		expect(first.map((event) => event.seq)).toEqual([...first.map((event) => event.seq)].sort((a, b) => a - b));
+		expect(cleared.past[0]?.events).toBeGreaterThan(200);
+		expect((await call("/api/runs/999999/events")).status).toBe(404);
+		expect((await call(`/api/runs/${id}/events`, { method: "POST" })).status).toBe(405);
+		expect((await call("/api/runs/0/events")).status).toBe(404);
 		void introspector;
 	}, 320_000);
 });

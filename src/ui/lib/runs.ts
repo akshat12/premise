@@ -44,6 +44,8 @@ export interface RunRow {
 	note: string | null;
 	/** Every agent landed and nothing broken reached trunk. Only said of a run that finished. */
 	clean: boolean;
+	/** Where to play it again, when the Worker kept its events. Never for the run on the board: that one is on the Live tab. */
+	replay: string | null;
 }
 
 const of = (part: number, whole: number) => (whole === 0 ? "none" : `${part} of ${whole}`);
@@ -65,6 +67,7 @@ function row(run: RunSummary, current: boolean, now: number): RunRow {
 		problems: run.problems,
 		note: current ? (run.complete ? "on the board now" : "running now") : run.complete ? null : "cleared before it finished",
 		clean: isClean(run),
+		replay: !current && (run.events ?? 0) > 0 ? `/?run=${run.id}` : null,
 	};
 }
 

@@ -6,6 +6,8 @@ import { AT_REST } from "./public-run";
 
 /** How many past runs are kept. Older ones are dropped. */
 export const RUNS_KEPT = 30;
+/** A run with more events than this is kept as a line only: its log is too big to keep thirty of. */
+export const RUN_EVENTS_KEPT = 6000;
 
 export interface RunFacts {
 	id: number;

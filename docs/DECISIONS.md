@@ -1060,3 +1060,10 @@ Started without a token: two with a bare POST, the third with the button on the 
 - **Who started it** is told to the hub at the reset that begins a run (`resetDemo(env, { origin })`): "visitor" from the public Workflow, "owner" otherwise.
 - **`src/shared/runs.ts` is a new shared file,** not a change to `types.ts`: the Worker writes the lines and the UI reads them.
 - **On the page** it is the first panel of the Results tab. Its headline is counted from the runs that finished, good or bad (`runsHeadline`), and nothing is filtered: a run that let something through, or was cleared half way, is a row like the others.
+
+### Playing a past run again (branch `past-run-replay`; a trial, not merged when this was written)
+
+- **What it adds.** When a run is kept as a line, its event log is kept with it (`run_events`, copied inside the hub's database at the reset; a run with more than 6,000 events is kept as a line only). `GET /api/runs/:id/events` serves it, a page at a time. `/?run=<id>` plays it in the Demo player exactly as a bundled recording is played: the story's steps are worked out from the log, so a past live run gets its own story with no hand-written text. The Results table links each run that has events ("Replay").
+- **What it does not have.** The Changes column: what each Intent changed is read from its fork, and the forks are deleted at the reset that keeps the run. Keeping the diffs would mean reading twelve forks during every reset, while a visitor is waiting for their run to start. Not done; the panel says the changes were not kept.
+- **Tried** on the local Worker: two runs from the Start button, then `/?run=4` played the first as an eight-step story of twelve agents, through to "Agent 11's tests all still pass. Only its premise caught the problem."
+- **Cost if merged:** about 1,000 rows written to the hub's database at each reset, and up to thirty logs kept (a few megabytes in all).

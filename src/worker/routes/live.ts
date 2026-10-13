@@ -1,6 +1,7 @@
 // The run anyone can start: GET /api/live says whether one may, POST /api/live/start starts it.
 // Neither takes a token, and the start takes no parameters, so there is nothing for a caller to
 // choose. The limits are in live/public-run.ts and are applied by the hub.
+import { parseSince } from "../../shared/wire";
 import { hub } from "../hub/publish";
 import type { PublicRunStatus } from "../live/public-run";
 import { PUBLIC_RUN } from "../live/public-run";
@@ -29,6 +30,17 @@ export async function handleLive(request: Request, env: Env, url: URL): Promise<
 	if (url.pathname === "/api/runs") {
 		// The run on the board and the ones before it, a line each. Read-only, and the same for everyone for a few seconds.
 		return request.method === "GET" ? cachedJson(await hub(env).runs()) : Response.json({ error: "method not allowed" }, { status: 405 });
+	}
+	const kept = /^\/api\/runs\/([1-9]\d{0,8})\/events$/.exec(url.pathname);
+	if (kept !== null) {
+		// The log of a past run, to play it again. It never changes, so it may be kept by whoever asks.
+		if (request.method !== "GET") {
+			return Response.json({ error: "method not allowed" }, { status: 405 });
+		}
+		const requested = Number(url.searchParams.get("limit") ?? 5000);
+		const limit = Number.isInteger(requested) && requested > 0 ? Math.min(requested, 5000) : 5000;
+		const events = await hub(env).runEvents(Number(kept[1]), parseSince(url), limit);
+		return events.length === 0 && parseSince(url) === 0 ? Response.json({ error: "no such run, or its events were not kept" }, { status: 404 }) : cachedJson(events, 3600);
 	}
 	if (url.pathname !== "/api/live/start") {
 		return null;
