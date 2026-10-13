@@ -1149,3 +1149,10 @@ Asked for by the user: slides that match what is built, approachable, organised 
 - **Found on the way:** files are compiled before they are hashed, so a change that is only a comment or a blank line is the same code.
 - `reused` is on `RunResult` only; it is not in the gate's report or the event log.
 
+
+### An agent left at "claiming" on staging, and why (Oct 13)
+
+- **Seen** in the first staging run after the isolate change: 11 of 12 agents landed; the twelfth stayed "claiming" with no answer from the ledger, and its Workflow had completed. Not caused by the isolate change.
+- **Cause:** last night's review fix made each status change a Workflow step. A step is run again when its reply is lost; the Intent had already moved, refused the same change, and the driver read that refusal as "stopped". (The risk was noted when the fix was made and not handled.)
+- **Fix:** a refusal is not a stop when the Intent is already where the change would have put it (`alreadyApplied`, pure, in `intent/machine.ts`). A test runs every status step twice and the agent still submits; without the fix that test fails.
+- This was on production from the evening of Oct 12; nine runs there and on staging had not hit it.

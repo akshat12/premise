@@ -69,6 +69,21 @@ const HUMAN_CHOICES: Record<string, IntentStatus> = {
 	Abandon: "failed",
 };
 
+/**
+ * True when an Intent that is `status` looks as it would just after `action` was applied to it.
+ * A caller whose request was applied but whose reply was lost asks again, and is refused because
+ * the Intent has already moved; this is how it tells that refusal from a real one. Pure.
+ */
+export function alreadyApplied(status: IntentStatus, action: IntentAction): boolean {
+	if (action.a === "fail") {
+		return status === "failed";
+	}
+	if (action.a === "human") {
+		return HUMAN_CHOICES[action.choice] === status;
+	}
+	return Object.values(EDGES).some((edges) => edges[action.a] === status);
+}
+
 export function transition(from: IntentStatus, action: IntentAction): IntentStatus {
 	if (action.a === "fail") {
 		// Anything that is not already finished can fail.

@@ -357,6 +357,29 @@ describe("runAgent: when things go wrong", () => {
 		await started.api.act({ a: "fail" }, "test cleanup");
 	}, 30_000);
 
+	it("carries on when a status step is run again because its reply was lost", async () => {
+		// Seen on Cloudflare on Oct 13: the change to "claiming" was applied, the step was run again, the Intent
+		// refused the same change a second time, and the run stopped there with the agent left at "claiming".
+		const store = seededStore();
+		const started = await startIntent(env, store, "t12-password-policy");
+		const steps = memorySteps();
+		const realDo = steps.do.bind(steps);
+		const twice: string[] = [];
+		steps.do = async (name, fn) => {
+			if (!name.startsWith("status-")) {
+				return realDo(name, fn);
+			}
+			twice.push(name);
+			await fn(); // the first attempt changes the status, then its result is "lost"
+			return realDo(name, fn);
+		};
+		const { outcome, intent } = await run(store, started, scriptFor("t12-password-policy"), { steps });
+		expect(twice).toEqual(["status-1-claim", "status-2-granted"]);
+		expect(outcome).toMatchObject({ result: "submitted" });
+		expect(["submitted", "checking", "queued", "gating", "landed"]).toContain(intent.status);
+		await started.api.act({ a: "fail" }, "test cleanup").catch(() => undefined);
+	}, 30_000);
+
 	it("does not push twice if the push step is retried", async () => {
 		const store = seededStore();
 		const started = await startIntent(env, store, "t12-password-policy");

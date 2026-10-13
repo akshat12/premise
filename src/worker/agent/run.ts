@@ -3,7 +3,7 @@
 import type { Assertion, Claim, CommitSha, Intent, IntentId, IntentStatus, LedgerDecision, Premise, TaskDef } from "../../shared/types";
 import { currentMode, hub, publish, waitTopic } from "../hub/publish";
 import type { IntentApi } from "../intent/client";
-import { IllegalTransition, type IntentAction } from "../intent/machine";
+import { alreadyApplied, IllegalTransition, type IntentAction } from "../intent/machine";
 import { isStalemateAcrossShards, renewEverywhere, requestClaimsAcrossShards, shardsOf } from "../ledger/client";
 import { assistantMessage, type LlmClient, type LlmMessage, toolCalls, type ToolResultBlock } from "../ports/llm";
 import type { RepoStore } from "../ports/repo-store";
@@ -200,7 +200,9 @@ export async function runAgent(deps: AgentDeps, params: AgentParams, steps: Step
 				return null;
 			} catch (error) {
 				if (error instanceof IllegalTransition) {
-					return error.from;
+					// A step is run again when its reply is lost. If the Intent is already where this change
+					// would have put it, the first try did the work, and that is not a reason to stop.
+					return alreadyApplied(error.from, action) ? null : error.from;
 				}
 				throw error;
 			}

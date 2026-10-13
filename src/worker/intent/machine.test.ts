@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { IntentStatus, Premise } from "../../shared/types";
-import { canTransition, CAN_GO_STALE, IllegalTransition, IN_FLIGHT, type IntentAction, TERMINAL, transition } from "./machine";
+import { alreadyApplied, canTransition, CAN_GO_STALE, IllegalTransition, IN_FLIGHT, type IntentAction, TERMINAL, transition } from "./machine";
 import { markBroken, premisesForRederive, upsertPremise, withdrawOwn } from "./premises";
 
 const SHA = "a".repeat(40);
@@ -209,3 +209,27 @@ describe("withdrawOwn", () => {
 		expect(withdrawOwn(premises, ["src/auth/login.ts#handleLogin"])).toEqual({ kept: premises, withdrawn: [] });
 	});
 });
+
+describe("alreadyApplied", () => {
+	it("is true exactly where an action leaves an Intent", () => {
+		expect(alreadyApplied("claiming", { a: "claim" })).toBe(true);
+		expect(alreadyApplied("working", { a: "granted" })).toBe(true);
+		expect(alreadyApplied("waiting", { a: "wait" })).toBe(true);
+		expect(alreadyApplied("claiming", { a: "resume" })).toBe(true);
+		expect(alreadyApplied("escalated", { a: "escalate" })).toBe(true);
+		expect(alreadyApplied("claiming", { a: "human", choice: "Wait" })).toBe(true);
+		expect(alreadyApplied("failed", { a: "fail" })).toBe(true);
+	});
+
+	it("is false for an Intent that has gone somewhere else, which is a real refusal", () => {
+		// The cases a run must still stop for: the Intent went stale, failed, or is waiting when asked to claim.
+		for (const status of ["waiting", "stale", "failed", "landed", "working", "planning"] as const) {
+			expect(alreadyApplied(status, { a: "claim" }), status).toBe(false);
+		}
+		expect(alreadyApplied("stale", { a: "granted" })).toBe(false);
+		expect(alreadyApplied("claiming", { a: "granted" })).toBe(false);
+		expect(alreadyApplied("rederiving", { a: "human", choice: "Wait" })).toBe(false);
+		expect(alreadyApplied("claiming", { a: "human", choice: "nonsense" })).toBe(false);
+	});
+});
+
