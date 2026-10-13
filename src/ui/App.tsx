@@ -73,6 +73,12 @@ const OPENING_NOTES: Record<string, string> = {
 /** Added to the last step of the front-page run. */
 const WHAT_NEXT = "Below: the same work landed under three different rules. The Live tab runs it for real.";
 const DEMO = query.get("demo") ?? DEFAULT_RUN;
+/**
+ * `?admin` shows the owner's tools under "More": dispatching by hand, the workload, and reset. A
+ * visitor never needs them (the Live tab's Start button is the whole of what a visitor can do) and
+ * every one of them asks for the admin token anyway, so this is tidiness, not a lock.
+ */
+const ADMIN = query.has("admin");
 /** A touch screen (a phone, a tablet): "More" is a list of buttons there, not the keyboard's palette. */
 const COARSE_POINTER = typeof window.matchMedia === "function" && window.matchMedia("(pointer: coarse)").matches;
 /** A lookup by a name that came from the address bar: only the table's own entries count ("constructor" is not a run). */
@@ -410,10 +416,11 @@ export function App() {
 		() => [
 			{ id: "live", title: "Watch the live board", hint: "what the deployed Worker is doing now", run: () => show("live") },
 			{ id: "replay", title: "Play the demo recording", hint: "the recorded run, told as a story", run: () => show("replay") },
-			{ id: "dispatch", title: "Dispatch tasks", hint: "starts a run; needs the admin token", run: () => setDispatching(true) },
-			{ id: "workload", title: "Run workload", hint: "scripted Intents; needs the admin token", run: () => setDispatching(true) },
+			{ id: "dispatch", owner: true, title: "Dispatch tasks", hint: "starts a run; needs the admin token", run: () => setDispatching(true) },
+			{ id: "workload", owner: true, title: "Run workload", hint: "scripted Intents; needs the admin token", run: () => setDispatching(true) },
 			{
 				id: "reset",
+				owner: true,
 				title: "Reset demo",
 				hint: "clears the live board; needs the admin token",
 				run: () => {
@@ -431,8 +438,11 @@ export function App() {
 		],
 		[token, show],
 	);
+	// The owner's tools are offered to the owner: with `?admin` in the address, or once the token has been typed in this session.
+	const ownerTools = ADMIN || token !== "";
+	const offered = useMemo(() => actions.filter((command) => ownerTools || !command.owner), [actions, ownerTools]);
 	// Whichever of "watch live" and "play the recording" is already on screen is not offered.
-	const menuActions = useMemo(() => actions.filter((command) => command.id !== (mode === "live" ? "live" : "replay")), [actions, mode]);
+	const menuActions = useMemo(() => offered.filter((command) => command.id !== (mode === "live" ? "live" : "replay")), [offered, mode]);
 	const plainMenu = layout !== "wide" || COARSE_POINTER;
 	const jumps = useMemo<Command[]>(() => lanes.agents.map((intent) => ({ id: `jump-${intent.id}`, title: `Open ${callsignOf(intent.id)}`, run: () => setSelected(intent.id) })), [lanes.agents, callsignOf]);
 
@@ -553,7 +563,7 @@ export function App() {
 				/>
 			) : null}
 			{/* A keyboard gets the palette (⌘K). A touch screen, or a narrow window, gets the same actions as buttons. */}
-			{plainMenu ? <MoreSheet open={paletteOpen} onOpenChange={setPaletteOpen} actions={menuActions} jumps={jumps} /> : <Palette open={paletteOpen} onOpenChange={setPaletteOpen} actions={actions} jumps={jumps} />}
+			{plainMenu ? <MoreSheet open={paletteOpen} onOpenChange={setPaletteOpen} actions={menuActions} jumps={jumps} /> : <Palette open={paletteOpen} onOpenChange={setPaletteOpen} actions={offered} jumps={jumps} />}
 			<Shortcuts open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
 			{selectedIntent ? <Drawer intent={selectedIntent} events={events} callsignOf={callsignOf} named={named} diff={diff} replay={mode === "replay"} layout={layout} onSelect={setSelected} onClose={() => setSelected(null)} /> : null}
 		</div>

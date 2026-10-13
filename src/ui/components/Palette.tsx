@@ -2,6 +2,8 @@ import { CommandPalette, Dialog } from "@cloudflare/kumo";
 import { useMemo, useState } from "react";
 
 export interface Command {
+	/** For whoever runs the deployment (it needs the admin token): not offered to a visitor. */
+	owner?: boolean;
 	id: string;
 	title: string;
 	run: () => void;

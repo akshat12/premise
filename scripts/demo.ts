@@ -37,7 +37,8 @@ async function start(api: ReturnType<typeof worker>, show: boolean): Promise<voi
 	const reset = await api.post<{ trunk: string }>("/api/admin/reset-demo");
 	console.log(`Reset. Trunk is ${reset.trunk}.`);
 	if (show) {
-		open(`${url}/?live`);
+		// With the owner's tools under "More" (dispatching by hand, reset): whoever runs this script is the owner.
+		open(`${url}/?live&admin`);
 	}
 	const tasks = await api.get<TaskDef[]>("/api/tasks");
 	await api.post("/api/dispatch", { taskIds: tasks.map((task) => task.id), landFirst: ["t01-null-expired"] });

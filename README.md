@@ -58,7 +58,7 @@ The agents in the first two demo recordings, and in every run started from the L
 
 ![Step 6: after the change, Agent 4's own tests, the reference checks and every existing test pass, and its premise fails](docs/screens/story-premise.jpg)
 
-![The Live tab during a run on Cloudflare: Agent 1 has landed, and the agents that relied on the old behaviour are stopped and being re-derived](docs/screens/live-run.jpg)
+![The Live tab after a run on Cloudflare that was started with its Start button: all twelve agents' lanes are green, and three show the yellow bar of work that was re-derived](docs/screens/live-run.jpg)
 
 ## How premises work
 
@@ -197,6 +197,8 @@ Needs the Workers Paid plan (Artifacts requires it) and Node 22.12 or later. A m
 ```bash
 curl -X POST <your worker>/api/admin/public-runs -H "x-admin-token: <your token>" -H "content-type: application/json" -d '{"enabled":false}'
 ```
+
+**The owner's tools are hidden from visitors.** "Dispatch tasks", "Run workload" and "Reset demo" appear under More only when the address has `admin` in it (`<your worker>/?live&admin`), or once the admin token has been typed in that browser session. They pick which tasks run, add a workload of any size, and clear the board; each asks for the admin token. `npm run demo` opens the page that way.
 
 Switch it off before you show a run to a room, record one, or switch the agents to a model: a visitor cannot interrupt a run in progress, but may start the next one the moment yours has ended. `scripts/ab.ts` does this by itself. `{"enabled":true,"clear":true}` also gives the day's runs back.
 

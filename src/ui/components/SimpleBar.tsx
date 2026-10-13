@@ -35,8 +35,8 @@ interface SimpleBarProps {
 
 /**
  * The top bar: the name, one line saying what Premise is, what kind of run is on screen, and the
- * two tabs. Everything a newcomer does not need (dispatching by hand, resetting, the shortcuts) is
- * one click away under "More", not in front of the story.
+ * two tabs. What a newcomer does not need is one click away under "More", not in front of the story:
+ * the shortcuts, and, for the owner only (see ADMIN in App.tsx), dispatching by hand and resetting.
  */
 export function SimpleBar({ layout, views, onMore, kind }: SimpleBarProps) {
 	return (
@@ -58,7 +58,7 @@ export function SimpleBar({ layout, views, onMore, kind }: SimpleBarProps) {
 			<div className="simplebar-views" onPointerUp={releaseFocus}>
 				{views}
 			</div>
-			<Button variant="ghost" size="sm" shape="square" aria-label="More: dispatching, resetting, keyboard shortcuts" title="More (⌘K)" onClick={onMore}>
+			<Button variant="ghost" size="sm" shape="square" aria-label="More" title="More (⌘K)" onClick={onMore}>
 				<DotsThree size={20} weight="bold" />
 			</Button>
 		</header>
