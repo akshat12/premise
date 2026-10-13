@@ -1,6 +1,6 @@
 // GET /api/intents/:id/diff: what an Intent changed, read from its fork. The diff itself is pure
 // (../diff/); this file only decides which two versions of which files to compare.
-import type { CommitSha, Intent } from "../../shared/types";
+import type { CommitSha, Intent, IntentId } from "../../shared/types";
 import { buildIntentDiff, type IntentDiff, reviewPaths, unavailableDiff } from "../diff/intent-diff";
 import { mapLimit } from "../ports/git-tree";
 import type { FileChanges, RepoStore } from "../ports/repo-store";
@@ -34,6 +34,21 @@ export async function pushedDiff(intent: DiffIntent, head: CommitSha, store: Pic
 		return { path, before, after };
 	});
 	return buildIntentDiff({ intentId: intent.id, base: intent.baseCommit, head, changes, omitted: changed.total - changed.paths.length });
+}
+
+/**
+ * What an Intent changed as it landed, read from the trunk of a run that has ended: the commit
+ * that landed it against the commit before. Its fork is gone by then, and trunk has every landing.
+ * A trunk that cannot be read (it was removed) gives an empty diff marked `unavailable`.
+ */
+export async function landedDiff(intentId: IntentId, trunk: string, landing: { commit: CommitSha; parent: CommitSha }, store: Pick<RepoStore, "changedPaths" | "readFile">, memo: Memo<IntentDiff> = pushedDiffs): Promise<IntentDiff> {
+	try {
+		const landed: DiffIntent = { id: intentId, repo: trunk, baseCommit: landing.parent, headCommit: landing.commit, status: "landed" };
+		return await memo.get(`${trunk}@${landing.parent}..${landing.commit}`, () => pushedDiff(landed, landing.commit, store));
+	} catch (error) {
+		console.error(`could not read the landing of Intent ${intentId} in ${trunk}`, error);
+		return unavailableDiff(intentId, landing.parent, landing.commit);
+	}
 }
 
 /** The fork at its base commit against the edits the agent has made but not pushed. */

@@ -3,7 +3,7 @@ import { useMemo, useRef, useState } from "react";
 import type { PremiseEvent } from "../../shared/events";
 import type { IntentId, Premise } from "../../shared/types";
 import { ago, groupPremises, SOURCE_TITLE, timelineFor, type TimelineEntry } from "../lib/chips";
-import type { DiffState } from "../lib/diff";
+import type { ChangesFrom, DiffState } from "../lib/diff";
 import type { IntentView } from "../lib/reduce";
 import { OUTSIDE, symbolFile, symbolName, clampDrawerHeight, columnEdges, dragColumns, DRAWER_COLUMN_STEP, DRAWER_COLUMNS, DRAWER_MIN_HEIGHT, DRAWER_STEP, type Layout } from "../lib/view";
 import { Changes } from "./Changes";
@@ -58,8 +58,8 @@ interface DrawerProps {
 	 * is none, or "loading". Left out, the drawer has no Changes column.
 	 */
 	diff?: DiffState;
-	/** Watching a recording: the diff is the one saved with it. */
-	replay?: boolean;
+	/** Where `diff` comes from: the Intent's fork now, the recording, or a past run's trunk. It decides how the Changes column describes it. */
+	changesFrom?: ChangesFrom;
 	/** Wide: four columns side by side. Medium: three, with Changes under them. Phone: one column, and nothing to drag. */
 	layout?: Layout;
 }
@@ -72,7 +72,7 @@ let rememberedColumns: number[] = [...DRAWER_COLUMNS];
 const COLUMN_NAMES = ["Why", "Relies on", "Timeline", "Changes"];
 
 /** The selected Intent in full: why it did what it did, what it relies on and where each premise came from, its story so far, and what it changed. */
-export function Drawer({ intent, events, callsignOf, named, onSelect, onClose, diff, replay = false, layout = "wide" }: DrawerProps) {
+export function Drawer({ intent, events, callsignOf, named, onSelect, onClose, diff, changesFrom = "live", layout = "wide" }: DrawerProps) {
 	// Reviewing: the Changes column has the whole drawer. It stays that way from one Intent to the next, until the drawer is closed.
 	const [reviewing, setReviewing] = useState(false);
 	const review = reviewing && diff !== undefined;
@@ -331,7 +331,7 @@ export function Drawer({ intent, events, callsignOf, named, onSelect, onClose, d
 				{diff === undefined ? null : (
 					<div className="drawer-column changes-column">
 						{/* Keyed by Intent, so the files a reader opened for one are not left open for the next. */}
-						<Changes key={intent.id} diff={diff} replay={replay} expanded={review} onToggleExpanded={() => setReviewing((now) => !now)} />
+						<Changes key={intent.id} diff={diff} from={changesFrom} expanded={review} onToggleExpanded={() => setReviewing((now) => !now)} />
 					</div>
 				)}
 				{/* The dividers, after the columns so the columns stay next to each other in the markup. Each sits on a boundary. */}

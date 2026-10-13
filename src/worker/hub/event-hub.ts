@@ -6,7 +6,7 @@ import { parseSince, PING, PONG } from "../../shared/wire";
 import { computeMetrics, countEvent, type Counters, emptyCounters, type RegistryRow } from "../metrics";
 import { AT_REST, type BoardFacts, claimPublicRun, clearPublicRuns, failPublicRun, isScripted, newPublicRunState, type PublicRunState, type PublicRunStatus, publicRunStatus, refusePublicRun } from "../live/public-run";
 import type { RecentRuns, RunSummary } from "../../shared/runs";
-import { RUN_EVENTS_KEPT, RUNS_KEPT, summariseRun } from "../live/runs";
+import { type Landing, landingOf, RUN_EVENTS_KEPT, RUNS_KEPT, summariseRun } from "../live/runs";
 import { atCapacity, capacityMessage, RETRY_AFTER_S } from "./limits";
 
 const BACKLOG_PAGE = 2000;
@@ -152,11 +152,13 @@ export class EventHub extends DurableObject<Env> {
 	 * Connected clients are told to drop what they have. The current trunk name is kept, and so are
 	 * the model choice and the public run's record (its switch and its starts are not part of a run).
 	 */
-	async reset(asked = true, origin: RunSummary["origin"] = "owner"): Promise<void> {
+	async reset(asked = true, origin: RunSummary["origin"] = "owner", leavingTrunk?: string): Promise<void> {
 		const sql = this.ctx.storage.sql;
 		// The run that is about to be cleared is kept as one line. (Not a comparison run: the other two
 		// rules are not Premise, and their results belong in the comparison, not in a list of its runs.)
-		const leaving = this.getMeta<string>("mode", "premise") === "premise" ? this.runOnBoard(0) : null;
+		// Its trunk is named in the line. A caller that has already pointed the hub at a fresh trunk says
+		// which repo the run was on; otherwise it is the one still in use.
+		const leaving = this.getMeta<string>("mode", "premise") === "premise" ? this.runOnBoard(0, leavingTrunk ?? this.getMeta<string | null>("trunk", null)) : null;
 		if (leaving !== null) {
 			const kept = sql.exec<{ id: number }>("INSERT INTO runs (summary) VALUES (?) RETURNING id", JSON.stringify(leaving)).one();
 			// Its log goes with it, copied inside the database, unless it is too long to keep thirty of.
@@ -271,7 +273,7 @@ export class EventHub extends DurableObject<Env> {
 	// ---- the record of runs (live/runs.ts) ----
 
 	/** The run on the board now as one line, or null if there are no agents on it. */
-	private runOnBoard(id: number): RunSummary | null {
+	private runOnBoard(id: number, trunk: string | null = null): RunSummary | null {
 		const sql = this.ctx.storage.sql;
 		const first = sql.exec<{ ts: number }>("SELECT ts FROM events ORDER BY seq LIMIT 1").toArray()[0];
 		const last = sql.exec<{ ts: number }>("SELECT ts FROM events ORDER BY seq DESC LIMIT 1").toArray()[0];
@@ -290,6 +292,7 @@ export class EventHub extends DurableObject<Env> {
 			firstTs: first.ts,
 			lastTs: last.ts,
 			scripted: isScripted(this.getMeta<{ provider: string } | null>("llm", null), this.env.LLM),
+			trunk,
 		});
 	}
 
@@ -308,6 +311,35 @@ export class EventHub extends DurableObject<Env> {
 			.exec<EventRow>("SELECT seq, ts, body FROM run_events WHERE run_id = ? AND seq > ? ORDER BY seq LIMIT ?", id, seq, limit)
 			.toArray()
 			.map(toEvent);
+	}
+
+	/** The repos that were trunk for the runs that are kept. A reset leaves these alone and removes other old copies. */
+	async keptTrunks(): Promise<string[]> {
+		const kept = this.ctx.storage.sql
+			.exec<{ summary: string }>("SELECT summary FROM runs")
+			.toArray()
+			.flatMap((row) => {
+				const trunk = (JSON.parse(row.summary) as RunSummary).trunk;
+				return trunk ? [trunk] : [];
+			});
+		return [...new Set(kept)];
+	}
+
+	/**
+	 * Where an Intent's work is in a kept run: the run's trunk repo (null if none was recorded for
+	 * it), and the Intent's landing there (null if it did not land). null for a run that is not kept.
+	 */
+	async runLanding(id: number, intentId: string): Promise<{ trunk: string | null; landing: Landing | null } | null> {
+		const sql = this.ctx.storage.sql;
+		const run = sql.exec<{ summary: string }>("SELECT summary FROM runs WHERE id = ?", id).toArray()[0];
+		if (run === undefined) {
+			return null;
+		}
+		const events = sql
+			.exec<{ body: string }>("SELECT body FROM run_events WHERE run_id = ? ORDER BY seq", id)
+			.toArray()
+			.map((row) => JSON.parse(row.body) as PremiseEventBody);
+		return { trunk: (JSON.parse(run.summary) as RunSummary).trunk ?? null, landing: landingOf(events, intentId) };
 	}
 
 	// ---- the run anyone can start (see live/public-run.ts for the rules) ----

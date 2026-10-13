@@ -77,7 +77,7 @@ const OPENING_NOTES: Record<string, string> = {
 };
 /** The same, for a past run of the live board, whatever its number. */
 const PAST_RUN_NOTE = "This is a past run of the live board, played back from the Worker's record of it.";
-const PAST_RUN_KIND: RunKind = { label: "Replay · a past live run", extra: "scripted agents", detail: "A run of the live board that the Worker kept when the board was cleared, played back from its event log. What each Intent changed was not kept." };
+const PAST_RUN_KIND: RunKind = { label: "Replay · a past live run", extra: "scripted agents", detail: "A run of the live board that the Worker kept when the board was cleared, played back from its event log. What each Intent changed is read from the trunk the run left behind, as it landed there." };
 /** Added to the last step of the front-page run. */
 const WHAT_NEXT = "The Results tab has the numbers. The Live tab runs it for real.";
 /**
@@ -145,6 +145,8 @@ export function App() {
 	const [chase, setChase] = useState<{ target: number; speed: number } | null>(null);
 	const [recording, setRecording] = useState<PremiseEvent[] | null>(null);
 	const [recordedDiffs, setRecordedDiffs] = useState<Record<IntentId, IntentDiff>>({});
+	// The past run being played, by its number. null when none was asked for, or the Worker no longer has it and the demo recording plays in its place.
+	const [pastRun, setPastRun] = useState<number | null>(PAST_RUN);
 	const [selected, setSelected] = useState<IntentId | null>(null);
 	const [notice, setNotice] = useState<string | null>(null);
 	const [token, setTokenState] = useState(loadToken);
@@ -178,6 +180,7 @@ export function App() {
 				: () =>
 						fetchPastRun(PAST_RUN).catch(() => {
 							if (current) {
+								setPastRun(null);
 								setNotice(`Run ${PAST_RUN} is not in the Worker's record any more. Playing the demo recording.`);
 							}
 							return (RUNS[`../../demo/runs/${DEFAULT_RUN}.json`] ?? BUILT_IN)();
@@ -223,7 +226,7 @@ export function App() {
 		}
 		const told = storyFor(playing, (at) => captionAt(playing, at, own(OPENINGS, DEMO)));
 		// A run that differs from the front page's in a way that matters says so on its first step.
-		const opening = PAST_RUN !== null ? PAST_RUN_NOTE : own(OPENING_NOTES, DEMO);
+		const opening = pastRun !== null ? PAST_RUN_NOTE : own(OPENING_NOTES, DEMO);
 		// The front-page run's last step says where to go next: the numbers are under the tape, and the same thing can be run live.
 		const closing = DEMO === DEFAULT_RUN ? WHAT_NEXT : undefined;
 		const steps = told.steps.map((step, index) => {
@@ -231,7 +234,7 @@ export function App() {
 			return add === undefined ? step : { ...step, body: `${step.body} ${add}`.trim() };
 		});
 		return { ...told, steps };
-	}, [mode, playing]);
+	}, [mode, playing, pastRun]);
 	// The live board has no script to read ahead in: its story is whatever the log says so far.
 	const liveStory = useMemo(() => (mode === "live" ? storyFor(events) : null), [mode, events]);
 	const names = (story ?? liveStory)?.names;
@@ -378,7 +381,7 @@ export function App() {
 	}, [onResults, scaleFromOtherRun, otherRun]);
 	const scaleRun = scaleFromOtherRun ? otherRun : DEMO === SCALE_RUN ? recording : null;
 	const scaleState = useMemo(() => (scaleRun === null || !onResults ? null : reduceAll(scaleRun)), [scaleRun, onResults]);
-	const diff = useIntentDiff(selectedIntent, mode, recordedDiffs);
+	const diff = useIntentDiff(selectedIntent, mode, recordedDiffs, pastRun);
 
 	// The page's keys: the story's (→ ← Space), j / k to open the next or previous agent's Intent, Esc to close it.
 	useEffect(() => {
@@ -453,7 +456,7 @@ export function App() {
 	);
 
 	// What the bar says is on screen: the kind of run, or that this is one frame of it held still.
-	const known = PAST_RUN !== null ? PAST_RUN_KIND : own(RUN_KINDS, DEMO);
+	const known = pastRun !== null ? PAST_RUN_KIND : own(RUN_KINDS, DEMO);
 	const runKind: RunKind | undefined = onResults
 		? { label: "Results · measured on Cloudflare", extra: "scripted agents", detail: "Numbers from runs of the deployed system on real Artifacts: the same work landed under three rules, and one larger recorded run. The agents in them are scripted." }
 		: mode === "live"
@@ -602,7 +605,7 @@ export function App() {
 			{/* A keyboard gets the palette (⌘K). A touch screen, or a narrow window, gets the same actions as buttons. */}
 			{plainMenu ? <MoreSheet open={paletteOpen} onOpenChange={setPaletteOpen} actions={menuActions} /> : <Palette open={paletteOpen} onOpenChange={setPaletteOpen} actions={offered} />}
 			<Shortcuts open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
-			{selectedIntent && !onResults ? <Drawer intent={selectedIntent} events={events} callsignOf={callsignOf} named={named} diff={diff} replay={mode === "replay"} layout={layout} onSelect={setSelected} onClose={() => setSelected(null)} /> : null}
+			{selectedIntent && !onResults ? <Drawer intent={selectedIntent} events={events} callsignOf={callsignOf} named={named} diff={diff} changesFrom={mode === "live" ? "live" : pastRun !== null ? "past-run" : "recording"} layout={layout} onSelect={setSelected} onClose={() => setSelected(null)} /> : null}
 		</div>
 	);
 }

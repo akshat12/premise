@@ -39,6 +39,8 @@ export interface IntentDiff {
 	staged?: true;
 	/** The Intent's fork could not be read. */
 	unavailable?: true;
+	/** A past run only: the commit that landed this Intent landed this many together, and `files` is the changes of all of them. */
+	together?: number;
 }
 
 /** What the Drawer is given: a diff, null for "there is none", or "loading" while it is being fetched. */
@@ -60,6 +62,44 @@ export function isIntentDiff(value: unknown): value is IntentDiff {
 /** A diff that says only "the fork could not be read". */
 export function unreadable(intentId: IntentId): IntentDiff {
 	return { intentId, base: "", head: null, files: [], unavailable: true };
+}
+
+/**
+ * Where the diff on show comes from. "live": the Intent's fork, read now. "recording": saved with
+ * the recorded run. "past-run": the Intent's landing on the trunk of a past run of the live board.
+ */
+export type ChangesFrom = "live" | "recording" | "past-run";
+
+/** Why there is no diff to show, in a sentence. null when there is one. Pure. */
+export function emptyReason(diff: IntentDiff | null, from: ChangesFrom): string | null {
+	if (diff === null) {
+		return from === "past-run" ? "It did not land in this run. Only what landed on trunk is kept after a run, so its changes cannot be shown." : from === "recording" ? "The recording does not include this Intent's changes." : "Nothing pushed yet.";
+	}
+	if (diff.unavailable) {
+		return from === "past-run" ? "The trunk of this run can no longer be read, so its changes cannot be shown." : "Its fork can no longer be read, so its changes cannot be shown.";
+	}
+	if (diff.files.length > 0) {
+		return null;
+	}
+	if (from === "past-run") {
+		return "Its work was already on trunk when it landed, so landing it changed no files.";
+	}
+	if (diff.head === null) {
+		return from === "recording" ? "It had pushed nothing when the recording ended." : "Nothing pushed yet.";
+	}
+	return "What it pushed changed no files.";
+}
+
+/** What follows the counts, to say which version of the Intent's work this is. Pure. */
+export function changesTail(diff: Pick<IntentDiff, "staged" | "together">, from: ChangesFrom): string {
+	if (diff.staged) {
+		return ". Edited in its fork, not pushed yet.";
+	}
+	if (from === "past-run") {
+		const others = (diff.together ?? 1) - 1;
+		return others > 0 ? `. As it landed on trunk, in one commit with ${others} other workload Intent${others === 1 ? "" : "s"}: these are the changes of all of them.` : ". As it landed on trunk.";
+	}
+	return from === "recording" ? ". As it stood when the recording ended." : ".";
 }
 
 /** How many lines a file's diff adds and removes. */

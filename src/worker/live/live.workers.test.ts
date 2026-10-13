@@ -2,10 +2,12 @@ import { introspectWorkflow } from "cloudflare:test";
 import { env, exports } from "cloudflare:workers";
 import { afterAll, describe, expect, it } from "vitest";
 import type { Metrics } from "../../shared/types";
-import { resetDemo } from "../dispatch";
+import type { IntentDiff } from "../diff/intent-diff";
+import { isTrunkCopy, resetDemo, staleTrunks } from "../dispatch";
 import type { LandingStatus } from "../gate/client";
-import { hub } from "../hub/publish";
+import { currentTrunk, hub } from "../hub/publish";
 import type { RegistryRow } from "../metrics";
+import { getRepoStore } from "../ports";
 import { AT_REST, PUBLIC_RUN, type PublicRunStatus } from "./public-run";
 
 const ADMIN = { "x-admin-token": "test-admin-token", "content-type": "application/json" };
@@ -190,6 +192,54 @@ describe("the hub's record of runs", () => {
 		expect(await own.since(0)).toEqual([]);
 	});
 
+	it("names the trunk a kept run was on, and finds where its Intents landed there", async () => {
+		const gated = (intentId: string, landedCommit: string | null) => own.publish({ t: "gate.result", report: { intentId, landedCommit, ok: landedCommit !== null } as never });
+		const advanced = (commit: string, byIntent: string) => own.publish({ t: "trunk.advanced", commit, byIntent, changedSymbols: [] });
+		await own.setTrunk("trunk-first");
+		await own.publish({ t: "intent.created", intent: { id: "i000000f1", kind: "agent", taskId: "t01", status: "planning", baseCommit: "c0" } as never });
+		await own.publish({ t: "intent.created", intent: { id: "i000000f2", kind: "agent", taskId: "t02", status: "planning", baseCommit: "c0" } as never });
+		await own.publish({ t: "intent.created", intent: { id: "i000000f3", kind: "agent", taskId: "t03", status: "planning", baseCommit: "c0" } as never });
+		await gated("i000000f1", "c1");
+		await advanced("c1", "i000000f1");
+		await gated("i000000f2", "c2");
+		await advanced("c2", "i000000f2");
+		await gated("i000000f3", null);
+		// The run on the board is not a past one, so it has no trunk to name yet.
+		expect((await own.runs()).current).not.toHaveProperty("trunk");
+
+		// As a reset of the demo does it: the hub is already pointed at the fresh trunk, and is told which one the run was on.
+		await own.setTrunk("trunk-second");
+		await own.reset(true, "owner", "trunk-first");
+		const first = (await own.runs()).past[0];
+		expect(first).toMatchObject({ trunk: "trunk-first" });
+		const id = first?.id ?? 0;
+		expect(await own.runLanding(id, "i000000f1")).toEqual({ trunk: "trunk-first", landing: { commit: "c1", parent: "c0", together: 1 } });
+		expect(await own.runLanding(id, "i000000f2")).toEqual({ trunk: "trunk-first", landing: { commit: "c2", parent: "c1", together: 1 } });
+		// It was in the run and did not land: the run is known, the landing is not.
+		expect(await own.runLanding(id, "i000000f3")).toEqual({ trunk: "trunk-first", landing: null });
+		expect(await own.runLanding(999_999, "i000000f1")).toBeNull();
+
+		// A board cleared without a new trunk was on the one still in use.
+		await created("i000000g1", "agent");
+		await own.reset();
+		expect((await own.runs()).past[0]).toMatchObject({ trunk: "trunk-second" });
+		const kept = await own.keptTrunks();
+		expect(kept).toContain("trunk-first");
+		expect(kept).toContain("trunk-second");
+		expect(new Set(kept).size).toBe(kept.length);
+	});
+
+	it("a reset removes the trunk copies no kept run was on, and nothing else", () => {
+		expect(isTrunkCopy("trunk-mgq1x2ab")).toBe(true);
+		for (const name of ["trunk", "trunk-", "trunk-ABC", "trunkish-1", "i3k9x0a2q", "acme-accounts"]) {
+			expect(isTrunkCopy(name), name).toBe(false);
+		}
+		const names = ["acme-accounts", "i3k9x0a2q", "trunk", "trunk-a1", "trunk-b2", "trunk-c3", "trunk-d4"];
+		expect(staleTrunks(names, "trunk-d4", ["trunk-b2", "trunk"])).toEqual(["trunk-a1", "trunk-c3"]);
+		expect(staleTrunks(names, "trunk", [])).toEqual(["trunk-a1", "trunk-b2", "trunk-c3", "trunk-d4"]);
+		expect(staleTrunks([], "trunk-d4", ["trunk-b2"])).toEqual([]);
+	});
+
 	it("does not keep a comparison run, or an empty board", async () => {
 		const before = (await own.runs()).past.length;
 		await own.reset();
@@ -330,6 +380,10 @@ describe("GET /api/live and POST /api/live/start", () => {
 		expect(((await route.json()) as { current: unknown }).current).toMatchObject({ origin: "visitor", agents: { total: 12, landed: 12 } });
 		expect((await call("/api/runs", { method: "POST" })).status).toBe(405);
 		const pastBefore = listed.past.length;
+		const store = getRepoStore(env);
+		const ranOn = await currentTrunk(env);
+		// A copy of trunk that no run was on, as a reset that stopped half way could leave behind.
+		await store.ensureRepo("trunk-stray0");
 		await resetDemo(env);
 		const cleared = await hub(env).runs();
 		expect(cleared.current).toBeNull();
@@ -347,6 +401,50 @@ describe("GET /api/live and POST /api/live/start", () => {
 		expect((await call("/api/runs/999999/events")).status).toBe(404);
 		expect((await call(`/api/runs/${id}/events`, { method: "POST" })).status).toBe(405);
 		expect((await call("/api/runs/0/events")).status).toBe(404);
+
+		// The run's forks are gone with the reset, and its trunk is not: what each Intent changed is read from its landing there.
+		expect(cleared.past[0]).toMatchObject({ trunk: ranOn });
+		const repos = await store.list();
+		expect(repos).toContain(ranOn);
+		expect(repos).toContain(await currentTrunk(env));
+		expect(await currentTrunk(env)).not.toBe(ranOn);
+		expect(repos).not.toContain("trunk-stray0");
+		expect(repos.some((name) => /^i[0-9a-z]{8}/.test(name))).toBe(false);
+		for (const agent of agents) {
+			const response = await call(`/api/runs/${id}/intents/${agent.id}/diff`);
+			expect(response.status, agent.id).toBe(200);
+			expect(response.headers.get("cache-control")).toMatch(/max-age=3600/);
+			const diff = (await response.json()) as IntentDiff;
+			expect(diff, agent.id).toMatchObject({ intentId: agent.id });
+			expect(diff.unavailable, agent.id).toBeUndefined();
+			expect(diff.together, agent.id).toBeUndefined();
+			expect(diff.files.length, agent.id).toBeGreaterThan(0);
+			expect(diff.files.every((file) => !file.path.startsWith(".intent/"))).toBe(true);
+			expect(diff.base).not.toBe(diff.head);
+		}
+		// Two agents did different work, so their landings are different commits with different changes.
+		const [one, two] = (await Promise.all(agents.slice(0, 2).map((agent) => get<IntentDiff>(`/api/runs/${id}/intents/${agent.id}/diff`)))) as [IntentDiff, IntentDiff];
+		expect(one.head).not.toBe(two.head);
+		// A workload Intent that landed has a diff too, and says so when its commit carried others; one that did not land has none.
+		const workload = done.registry.filter((row) => row.kind === "workload");
+		const landedWork = workload.filter((row) => row.status === "landed");
+		expect(landedWork.length).toBeGreaterThan(0);
+		for (const row of landedWork) {
+			const diff = await get<IntentDiff>(`/api/runs/${id}/intents/${row.id}/diff`);
+			expect(diff.unavailable, row.id).toBeUndefined();
+			expect(diff.together === undefined || diff.together > 1, row.id).toBe(true);
+		}
+		for (const row of workload.filter((entry) => entry.status !== "landed")) {
+			expect((await call(`/api/runs/${id}/intents/${row.id}/diff`)).status, row.id).toBe(404);
+		}
+		expect((await call(`/api/runs/${id}/intents/i0000000q/diff`)).status).toBe(404);
+		expect((await call(`/api/runs/999999/intents/${agents[0]?.id}/diff`)).status).toBe(404);
+		expect((await call(`/api/runs/${id}/intents/${agents[0]?.id}/diff`, { method: "POST" })).status).toBe(405);
+
+		// The next reset keeps that trunk as well: the run is still one of those kept.
+		await resetDemo(env);
+		expect(await store.list()).toContain(ranOn);
+		expect((await call(`/api/runs/${id}/intents/${agents[0]?.id}/diff`)).status).toBe(200);
 		void introspector;
 	}, 320_000);
 });

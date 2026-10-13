@@ -2,6 +2,7 @@ import type { PremiseEvent, PremiseEventBody } from "../../shared/events";
 import type { Metrics } from "../../shared/types";
 import type { RecentRuns, RunSummary } from "../../shared/runs";
 import type { PublicRunStatus } from "../live/public-run";
+import type { Landing } from "../live/runs";
 import type { RegistryRow } from "../metrics";
 
 type HubEnv = Pick<Env, "HUB">;
@@ -22,9 +23,11 @@ export interface HubApi {
 	publish(body: PremiseEventBody): Promise<PremiseEvent>;
 	publishMany(bodies: PremiseEventBody[]): Promise<PremiseEvent[]>;
 	since(seq: number, limit?: number): Promise<PremiseEvent[]>;
-	reset(asked?: boolean, origin?: RunSummary["origin"]): Promise<void>;
+	reset(asked?: boolean, origin?: RunSummary["origin"], leavingTrunk?: string): Promise<void>;
 	runs(): Promise<RecentRuns>;
 	runEvents(id: number, seq?: number, limit?: number): Promise<PremiseEvent[]>;
+	keptTrunks(): Promise<string[]>;
+	runLanding(id: number, intentId: string): Promise<{ trunk: string | null; landing: Landing | null } | null>;
 	registry(): Promise<RegistryRow[]>;
 	knows(id: string): Promise<boolean>;
 	asserters(): Promise<string[]>;

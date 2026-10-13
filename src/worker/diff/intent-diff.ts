@@ -31,6 +31,11 @@ export interface IntentDiff {
 	staged?: true;
 	/** The Intent's fork could not be read (it was deleted by a reset, for example), so `files` is empty. */
 	unavailable?: true;
+	/**
+	 * Only for a past run, where the diff is of the commit that landed the Intent: how many Intents
+	 * that commit landed, when it is more than one. `files` is then the changes of all of them.
+	 */
+	together?: number;
 }
 
 export const MAX_FILES = 40;

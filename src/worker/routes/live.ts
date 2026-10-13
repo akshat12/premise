@@ -2,11 +2,14 @@
 // Neither takes a token, and the start takes no parameters, so there is nothing for a caller to
 // choose. The limits are in live/public-run.ts and are applied by the hub.
 import { parseSince } from "../../shared/wire";
+import { unavailableDiff } from "../diff/intent-diff";
 import { hub } from "../hub/publish";
 import type { PublicRunStatus } from "../live/public-run";
 import { PUBLIC_RUN } from "../live/public-run";
 import { gateBusy, type PublicRunParams, publicRunInstanceId } from "../live/start";
+import { getRepoStore } from "../ports";
 import { release } from "../ports/release";
+import { landedDiff } from "./diff";
 import { cachedJson, Memo } from "./memo";
 
 // The page asks every few seconds while the Live tab is open. One answer serves everyone for a moment.
@@ -41,6 +44,24 @@ export async function handleLive(request: Request, env: Env, url: URL): Promise<
 		const limit = Number.isInteger(requested) && requested > 0 ? Math.min(requested, 5000) : 5000;
 		const events = await hub(env).runEvents(Number(kept[1]), parseSince(url), limit);
 		return events.length === 0 && parseSince(url) === 0 ? Response.json({ error: "no such run, or its events were not kept" }, { status: 404 }) : cachedJson(events, 3600);
+	}
+	const changed = /^\/api\/runs\/([1-9]\d{0,8})\/intents\/([0-9a-z-]{1,40})\/diff$/.exec(url.pathname);
+	if (changed !== null) {
+		// What an Intent changed in a past run, as it landed. Its fork is gone; the run's trunk is kept.
+		if (request.method !== "GET") {
+			return Response.json({ error: "method not allowed" }, { status: 405 });
+		}
+		const intentId = changed[2] as string;
+		const found = await hub(env).runLanding(Number(changed[1]), intentId);
+		if (found === null) {
+			return Response.json({ error: "no such run" }, { status: 404 });
+		}
+		if (found.landing === null) {
+			return Response.json({ error: "that Intent did not land in this run, so its changes were not kept" }, { status: 404 });
+		}
+		const diff = found.trunk === null ? unavailableDiff(intentId, found.landing.parent, found.landing.commit) : await landedDiff(intentId, found.trunk, found.landing, getRepoStore(env));
+		// A landing is two commits and never changes. A trunk that could not be read may only be slow, so that answer is not kept.
+		return diff.unavailable ? noStore(diff) : cachedJson(found.landing.together > 1 ? { ...diff, together: found.landing.together } : diff, 3600);
 	}
 	if (url.pathname !== "/api/live/start") {
 		return null;

@@ -135,6 +135,19 @@ export interface ResetResult {
 	previousTrunk: string;
 }
 
+/** True for a copy of trunk that a reset made: "trunk-" plus the time it was made, in base36. */
+export function isTrunkCopy(name: string): boolean {
+	return /^trunk-[0-9a-z]+$/.test(name);
+}
+
+/**
+ * The trunk copies a reset may remove: every one except the trunk now in use and the trunks of the
+ * runs that are kept, whose landings are what a replay of them reads its changes from. Pure.
+ */
+export function staleTrunks(names: readonly string[], inUse: string, kept: readonly string[]): string[] {
+	return names.filter((name) => isTrunkCopy(name) && name !== inUse && !kept.includes(name));
+}
+
 /** True for a repo that belongs to an Intent: "i" plus 8 base36 characters, optionally "-r<n>" for a re-derive. */
 export function isIntentRepo(name: string): boolean {
 	return /^i[0-9a-z]{8}(-r\d+)?$/.test(name);
@@ -186,11 +199,11 @@ export async function resetDemo(env: Env, options: { asked?: boolean; origin?: R
 		await landing(env).clear();
 		await hub(env).setTrunk(trunk);
 		unadopted = undefined;
-		await hub(env).reset(asked, options.origin ?? "owner");
-		// Earlier reset copies are no longer needed. The original trunk repo is left alone.
-		if (previousTrunk !== trunk && previousTrunk !== env.TRUNK_REPO) {
-			await store.remove(previousTrunk).catch(() => undefined);
-		}
+		await hub(env).reset(asked, options.origin ?? "owner", previousTrunk);
+		// The trunk of a run that is kept stays, so that the run's changes can still be read. Copies that
+		// no kept run was on are no longer needed. The original trunk repo is left alone.
+		const stale = staleTrunks(names, trunk, await hub(env).keptTrunks());
+		await mapLimit(stale, DELETE_CONCURRENCY, (name) => store.remove(name).catch(() => undefined));
 		await publishMetrics(env);
 		return { trunk, head: await store.head(trunk), forksDeleted: forks.length, previousTrunk };
 	} catch (error) {

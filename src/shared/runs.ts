@@ -24,6 +24,11 @@ export interface RunSummary {
 	scripted: boolean;
 	/** How many of its events the Worker kept, so that it can be replayed. 0 or absent when only the line was kept. */
 	events?: number;
+	/**
+	 * The repo that was trunk during the run. It is kept for as long as the run is, and every landing
+	 * is a commit in it, so what an Intent changed can still be read after its fork is gone.
+	 */
+	trunk?: string;
 }
 
 export interface RecentRuns {

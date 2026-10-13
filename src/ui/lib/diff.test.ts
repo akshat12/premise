@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { IntentStatus } from "../../shared/types";
-import { countChanges, type DiffHunk, diffPhase, type FileDiff, hunkHeader, type IntentDiff, isIntentDiff, numberLines, totals, unreadable } from "./diff";
+import { changesTail, countChanges, type DiffHunk, diffPhase, emptyReason, type FileDiff, hunkHeader, type IntentDiff, isIntentDiff, numberLines, totals, unreadable } from "./diff";
 
 const hunk: DiffHunk = {
 	oldStart: 12,
@@ -64,5 +64,38 @@ describe("diffPhase", () => {
 		expect(phases.filter((phase, index) => phase !== phases[index - 1])).toEqual(["editing", "pushed", "queued", "stale", "rederiving", "landed"]);
 		expect(diffPhase("quarantined")).toBe("pushed");
 		expect(diffPhase("failed")).toBe(diffPhase("escalated"));
+	});
+});
+
+describe("what the Changes column says about where a diff comes from", () => {
+	const empty: IntentDiff = { ...diff, files: [] };
+
+	it("has nothing to explain when there are files to show", () => {
+		for (const from of ["live", "recording", "past-run"] as const) {
+			expect(emptyReason(diff, from)).toBeNull();
+		}
+	});
+
+	it("says why there is nothing, differently for a live board, a recording and a past run", () => {
+		expect(emptyReason(null, "live")).toBe("Nothing pushed yet.");
+		expect(emptyReason(null, "recording")).toMatch(/recording does not include/);
+		// A past run keeps only trunk, so an Intent that never landed has nothing to show.
+		expect(emptyReason(null, "past-run")).toMatch(/did not land in this run/);
+		expect(emptyReason(unreadable("i3k9x0a2q"), "live")).toMatch(/fork can no longer be read/);
+		expect(emptyReason(unreadable("i3k9x0a2q"), "past-run")).toMatch(/trunk of this run can no longer be read/);
+		expect(emptyReason({ ...empty, head: null }, "recording")).toMatch(/pushed nothing when the recording ended/);
+		expect(emptyReason(empty, "live")).toBe("What it pushed changed no files.");
+		expect(emptyReason(empty, "past-run")).toMatch(/already on trunk/);
+	});
+
+	it("says which version of the work is on show", () => {
+		expect(changesTail({}, "live")).toBe(".");
+		expect(changesTail({ staged: true }, "live")).toMatch(/not pushed yet/);
+		expect(changesTail({}, "recording")).toMatch(/when the recording ended/);
+		expect(changesTail({}, "past-run")).toBe(". As it landed on trunk.");
+		expect(changesTail({ together: 1 }, "past-run")).toBe(". As it landed on trunk.");
+		// Workload Intents land several to a commit, and the commit is all there is to compare.
+		expect(changesTail({ together: 2 }, "past-run")).toMatch(/with 1 other workload Intent: these are the changes of all of them/);
+		expect(changesTail({ together: 5 }, "past-run")).toMatch(/with 4 other workload Intents/);
 	});
 });
