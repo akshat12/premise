@@ -1,6 +1,6 @@
 # Script for the screen recording: slides, then the live site
 
-Read this one when you record with the slide deck. (`script.md` is the older cut that uses the site alone.) It is about 1,200 spoken words: close to nine minutes with the presses and the two visits to the site, inside the five to ten the rules ask for. If you are past 8:00 when you reach slide 18, press through it without speaking and go on to slide 19.
+Read this one when you record with the slide deck. (`script.md` is the older cut that uses the site alone.) It is about 1,230 spoken words: about 9:00 at 150 words a minute and about 9:40 at 140, with the presses and the two visits to the site. The rules allow five to ten minutes, so rehearse once with a clock in view. If you are past 8:00 when you reach slide 18, press through it without speaking and go on to slide 19.
 
 **How to read it**
 
@@ -13,8 +13,9 @@ Read this one when you record with the slide deck. (`script.md` is the older cut
 **Before you press record**
 
 - Window 1: the deck, in Present mode, on slide 1.
-- Window 2: Chrome at `https://premise.akshatdivekar.workers.dev/`, page area 1440×900, on the **Demo** tab at "Step 01 / 07". (`shot-list.md` has the browser set-up.)
-- Open `https://premise.akshatdivekar.workers.dev/?results` once beforehand and check that at least one row of the **Live runs** table has a **Replay** link.
+- Window 2: Chrome at `https://premise.akshatdivekar.workers.dev/`, page area 1440×900, on the **Demo** tab at "Step 01 / 07". (`shot-list.md` has the browser set-up, with one change: capture the whole screen, not the page area, because this take shows two windows. Put Chrome in full screen instead of using the DevTools device toolbar.) Switch between the two windows with `⌘Tab`.
+- Open `https://premise.akshatdivekar.workers.dev/?results` once beforehand. Check that the headline still reads "The last 4 live runs each landed every agent, with nothing broken on trunk." and that a row under the top one has a **Replay** link (the top row, the run on the board now, never has one). If the number is no longer 4, say that number on slide 16.
+- In Present mode, check that slide 15 is "At scale" and slide 19 is "The honest part".
 - Do not press **Start a run** during the take: a run takes three to four minutes.
 
 **Words to keep to.** Intent, changes, relies on, premise, re-derive, gate, trunk; Wait, Split, Depend. Say "Agent 1" to "Agent 4". "Premises are the early warning. The gate is the guarantee." is said once, on slide 19. Never say "race".
@@ -51,7 +52,7 @@ Here is that change. Agent 1 changes one function, verifySession. For an expired
 
 **[→]** Now nothing is thrown, so the entry is never written.
 
-**[→]** Same signature, different files. Nothing flags it.
+**[→]** Same signature, different files. Both checks pass.
 
 **[NEXT SLIDE]**
 
@@ -59,7 +60,7 @@ Here is that change. Agent 1 changes one function, verifySession. For an expired
 
 ### Slide 4 · Premise has six parts
 
-Premise has six parts. Agents, each working on an Intent.
+Premise has six parts. Agents, each on a job called an Intent.
 
 **[→]** Forks: a private copy of the code.
 
@@ -75,7 +76,7 @@ Premise has six parts. Agents, each working on an Intent.
 
 ### Slide 5 · Part 1, agents
 
-Each agent works on an Intent: its job, written down. This is Agent 2's. Its goal: write an audit entry when a login arrives with an expired session.
+An Intent is an agent's job, written down. This is Agent 2's. Its goal: write an audit entry when a login arrives with an expired session.
 
 **[→]** What it changes: handleLogin.
 
@@ -99,7 +100,7 @@ No agent works on trunk directly.
 
 ### Slide 7 · Part 3, the ledger
 
-The ledger is a sign-up sheet for the code. Before it writes anything, an agent says what it will change. Agent 1 signs up for verifySession.
+The ledger is a sign-up sheet for the code. Before an agent writes anything, it says what it will change. Agent 1 signs up for verifySession.
 
 **[→]** What an agent reads or calls is noted too. Agents 2, 3 and 4 rely on verifySession.
 
@@ -117,7 +118,7 @@ Sometimes two agents want the same function. The ledger gives one of three answe
 
 **[→]** Split: divide the work.
 
-**[→]** Depend: this work depends on the other's, so it pauses too.
+**[→]** Depend: this work depends on the other, so it pauses too.
 
 **[→]** A fixed rule decides, not a model. If it cannot, a person is asked.
 
@@ -183,7 +184,7 @@ The gate is the only way onto trunk. Five checks. The typecheck.
 
 **[SWITCH TO THE BROWSER: the Demo tab, "Step 01 / 07"]**
 
-That was the idea. This is a real run on Cloudflare Artifacts, replayed. The agents are scripted. The forks, the tests and the landings are real.
+That was the idea. This is a real run on Cloudflare Artifacts, replayed. The agents are scripted: no model. The forks, tests and landings are real.
 
 **[PRESS → ONCE: "Step 02 / 07"]** Each row is an agent's Intent.
 
@@ -191,13 +192,13 @@ That was the idea. This is a real run on Cloudflare Artifacts, replayed. The age
 
 **[PRESS →: "Step 05 / 07"]** Agent 2 is re-derived, and lands.
 
-**[PRESS →: "Step 06 / 07"]** And Agent 4: every test passed. Only its premise failed.
+**[PRESS →: "Step 06 / 07"]** And Agent 4: the case that tests miss.
 
 **[BACK TO THE SLIDES, THEN NEXT SLIDE]**
 
 ### Slide 13 · The case tests miss
 
-Look closely at Agent 4. After Agent 1's change, its own tests passed.
+Look closely at Agent 4. Its own tests passed, after Agent 1's change.
 
 **[→]** So did the reference checks.
 
@@ -215,7 +216,7 @@ Look closely at Agent 4. After Agent 1's change, its own tests passed.
 
 We put twelve tasks through three rules. With a typecheck only, three problems reach trunk.
 
-**[→]** A queue that also runs the tests hands two back to a person, and one still reaches trunk: the kind you just saw.
+**[→]** With a queue that runs the tests, two go back to a person, and one still reaches trunk: the kind you just saw.
 
 **[→]** With Premise, none reach trunk and none are handed back. To be clear: the break is planted, the agents are scripted, and Premise is the slowest.
 
@@ -241,13 +242,13 @@ You can run it yourself. On the site's Live tab, anyone can start a run: twelve 
 
 **[→]** And a kept run can be played again.
 
-**[→]** The four live runs on October the twelfth each landed every agent, with nothing broken on trunk.
+**[→]** The last four live runs each landed every agent, with nothing broken on trunk.
 
 **[SWITCH TO THE BROWSER, THEN CLICK THE "Results" TAB]**
 
 **[CLICK "Replay" ON A ROW OF THE LIVE RUNS TABLE]** Here is one of those runs, played back. Twelve agents this time.
 
-**[CLICK THE LAST SEGMENT OF THE STEP BAR, THEN CLICK AGENT 2'S ROW]** And for any of them: what it changed, as it landed on trunk.
+**[CLICK THE LAST SEGMENT OF THE STEP BAR, THEN CLICK AGENT 2'S ROW]** And for any agent: its changes, as they landed on trunk.
 
 **[BACK TO THE SLIDES, THEN NEXT SLIDE]**
 
@@ -255,7 +256,7 @@ You can run it yourself. On the site's Live tab, anyone can start a run: twelve 
 
 ### Slide 17 · How it is built
 
-It is one Worker on Cloudflare: the API, the page, and the TypeScript compiler.
+Premise is one Worker on Cloudflare: the API, the page, and the TypeScript compiler.
 
 **[→]** Code lives in Artifacts: trunk, and a fork for every Intent.
 
@@ -291,7 +292,7 @@ One more thing, because it is the honest part. Every agent so far was scripted. 
 
 Premises are the early warning. The gate is the guarantee.
 
-Since then, the gate turns back a redo identical to the stopped work. A second live-model run still let one through. What we changed after that has not been run with a live model yet.
+Since then, the gate turns back a redo identical to the stopped work. The model's second run still let one through. What we changed after that narrows the hole. It does not close it.
 
 **[NEXT SLIDE]**
 
