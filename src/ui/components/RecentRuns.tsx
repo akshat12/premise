@@ -139,13 +139,15 @@ export function RecentRuns({ onWatch, owner, token, onNeedToken }: RecentRunsPro
 						<tbody>
 							{shown.map((row) => {
 								// A past run opens beside the list when its events were kept. The owner can open any past run, to remove it.
-								const opens = !row.current && (row.replay !== null || owner);
+								// The run on the board is on the Live tab: its row goes there.
+								const opens = row.current || row.replay !== null || owner;
+								const go = row.current ? onWatch : () => setOpen(row);
 								return (
-									<tr key={row.key} data-current={row.current} data-opens={opens} onClick={opens ? () => setOpen(row) : undefined}>
+									<tr key={row.key} data-current={row.current} data-opens={opens} onClick={opens ? go : undefined}>
 										<th scope="row">
 											{opens ? (
 												// The whole row is the target for a pointer; this button is the same thing for a keyboard.
-												<button type="button" className="runs-open" aria-label={`Open the run from ${row.when}`} onClick={(event) => (event.stopPropagation(), setOpen(row))}>
+												<button type="button" className="runs-open" aria-label={row.current ? "See the run on the board, on the Live tab" : `Open the run from ${row.when}`} onClick={(event) => (event.stopPropagation(), go())}>
 													{row.when}
 												</button>
 											) : (
