@@ -1139,3 +1139,13 @@ Asked for by the user: slides that match what is built, approachable, organised 
 - **Reported by the user:** a charge for Dynamic Workers. The runner makes one with `env.LOADER.load(...)` for every batch of tests and premise checks, and Cloudflare bills each unique Dynamic Worker created in a day ($0.002 beyond 1,000 a month; `load()` with no ID counts as a new one every call).
 - **Done now:** the public Start button allows ten runs in any 24 hours, not forty (`PUBLIC_RUN.dailyCap`). That is the bound on this part of the bill.
 - **Not done yet:** giving identical runs a stable ID (`LOADER.get` with a hash of the code), and running fewer isolates. See the next note once measured.
+
+### Isolates are named for their code (Oct 13; the user chose this over a fresh isolate every run)
+
+- **Measured first,** with a temporary counter on the local Worker: a live run starts 95 isolates. About a third repeat within the run (one premise check runs fifteen times; most gate runs happen twice with identical code), and a second run repeats all but about six of the first.
+- **The change:** `runInIsolate` asks for its isolate with `env.LOADER.get(id, …)`, where the id is a SHA-256 of the compatibility date, the CPU limit and every module (`isolateId`), instead of `env.LOADER.load(…)`. Billed creations for ten runs in a day should fall from about 950 to about 120. Not yet read off the dashboard.
+- **What was given up:** "a fresh isolate every run". The user asked whether memory could be cleared first; it cannot (a Worker cannot re-evaluate its modules, and there is no way to ask for a fresh isolate under the same name). Instead the runner counts its own runs and the result says `reused` when the isolate had run before.
+- **Tests:** the old test that required a fresh isolate was rewritten to the new promise (reuse is reported; different code never shares). New ones run the trunk suite and every task's reference solution three to five times and require the same answers, and a deliberately leaky test shows the flag is set exactly when state was seen again. On the local runtime an isolate was handed back every time, so these do exercise reuse.
+- **Found on the way:** files are compiled before they are hashed, so a change that is only a comment or a blank line is the same code.
+- `reused` is on `RunResult` only; it is not in the gate's report or the event log.
+

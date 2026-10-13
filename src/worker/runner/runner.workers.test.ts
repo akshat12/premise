@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { Assertion, TaskDef } from "../../shared/types";
 import type { FileMap } from "../ports/repo-store";
 import { demoFiles, demoWith } from "../testing/demo";
-import { runInIsolate } from "./index";
+import { isolateId, type RunResult, runInIsolate } from "./index";
 
 const SESSION_THROWS: Assertion = JSON.parse(demoFiles()["premise/assertions.json"] ?? "[]")[0];
 const TASKS: TaskDef[] = JSON.parse(demoFiles()["premise/tasks.json"] ?? "[]");
@@ -195,15 +195,98 @@ describe("runInIsolate: hostile or broken code", () => {
 		expect(result.assertions[0]).toMatchObject({ ok: false, error: result.loadError });
 	});
 
-	it("gives each run a fresh isolate, so module state does not leak between runs", async () => {
+	// Until Oct 13 every run had an isolate to itself. Now an isolate is named for its code and may be handed
+	// back for the same code (Cloudflare bills a name once a day), so state a module keeps can be seen again.
+	// What is promised instead: a run that got a used isolate says so, and different code never shares one.
+	it("says when the same code got an isolate that had run before, and never shares one between different code", async () => {
 		const files = withTest('\t"counts": () => { assert.eq(next(), 1); },');
 		files["src/util/counter.ts"] = "let n = 0;\nexport function next(): number {\n\treturn ++n;\n}\n";
 		files["tests/x.test.ts"] = `import { next } from "../src/util/counter.js";\n${files["tests/x.test.ts"]}`;
-		expect((await run(files, ["counts"])).tests[0]?.ok).toBe(true);
-		expect((await run(files, ["counts"])).tests[0]?.ok).toBe(true);
+		const first = await run(files, ["counts"]);
+		expect(first.tests[0]?.ok).toBe(true);
+		expect(first.reused).toBeUndefined();
+		const second = await run(files, ["counts"]);
+		expect(second.tests[0]?.ok).toBe(second.reused !== true);
+		// Any difference in what would run is different code. (Blank lines and comments are not: files are compiled first.)
+		const other = await run({ ...files, "src/util/counter.ts": `${files["src/util/counter.ts"]}export const unused = 1;\n` }, ["counts"]);
+		expect(other.reused).toBeUndefined();
+		expect(other.tests[0]?.ok).toBe(true);
 	});
 
 	it("returns an empty result for an empty request", async () => {
 		expect(await runInIsolate(env, { files: demoFiles(), tests: [], assertions: [] })).toEqual({ tests: [], assertions: [] });
 	});
 });
+
+describe("isolates are named for their code, and may be handed back", () => {
+	const PATCH_IDS = Object.keys(import.meta.glob("/demo-repo/premise/reference/*.patch.ts")).map((path) => path.replace(/^.*\/(.+)\.patch\.ts$/, "$1"));
+	// What a run answered, without how long each item took: that is the only part allowed to differ.
+	const answers = (result: RunResult) => ({ tests: result.tests.map(({ ms: _ms, ...rest }) => rest), assertions: result.assertions.map(({ ms: _ms, ...rest }) => rest), loadError: result.loadError });
+	const suiteOf = (files: FileMap) =>
+		Object.keys(files)
+			.filter((path) => path.startsWith("tests/") && path.endsWith(".test.ts"))
+			.flatMap((file) => allTestsIn(files, file));
+
+	it("gives the same code the same name and anything different another", async () => {
+		const a = await isolateId({ "a.js": "1", "b.js": "2" }, 5000);
+		expect(a).toMatch(/^run-[0-9a-f]{64}$/);
+		// The order the modules were listed in is not a difference.
+		expect(await isolateId({ "b.js": "2", "a.js": "1" }, 5000)).toBe(a);
+		expect(await isolateId({ "a.js": "1", "b.js": "3" }, 5000)).not.toBe(a);
+		expect(await isolateId({ "a.js": "1", "b.js": "2", "c.js": "" }, 5000)).not.toBe(a);
+		expect(await isolateId({ "a.js": "1", "c.js": "2" }, 5000)).not.toBe(a);
+		expect(await isolateId({ "a.js": "1", "b.js": "2" }, 6000)).not.toBe(a);
+		// A name and its content cannot be confused with each other.
+		expect(await isolateId({ ab: "c" }, 5000)).not.toBe(await isolateId({ a: "bc" }, 5000));
+	});
+
+	it("the trunk suite and its assertion answer the same every time the same code is run", async () => {
+		const files = demoFiles();
+		const request = { files, tests: suiteOf(files), assertions: [SESSION_THROWS] };
+		const first = await runInIsolate(env, request);
+		expect(first.reused).toBeUndefined();
+		expect(first.tests.filter((test) => !test.ok)).toEqual([]);
+		for (let again = 0; again < 4; again++) {
+			expect(answers(await runInIsolate(env, request)), `run ${again + 2}`).toEqual(answers(first));
+		}
+	});
+
+	it("so does every task's reference solution: its checks, the suite and the assertion", async () => {
+		expect(PATCH_IDS.length).toBeGreaterThanOrEqual(12);
+		for (const id of PATCH_IDS) {
+			const files = demoWith(id);
+			const request = { files, tests: suiteOf(files), assertions: [SESSION_THROWS] };
+			const first = await runInIsolate(env, request);
+			const second = await runInIsolate(env, request);
+			const third = await runInIsolate(env, request);
+			expect(answers(second), id).toEqual(answers(first));
+			expect(answers(third), id).toEqual(answers(first));
+		}
+	}, 120_000);
+
+	it("says so when an isolate was handed back, which is the only time left-over state can show", async () => {
+		// A test that passes only the first time its module's counter is touched: the kind of state a warm isolate keeps.
+		const files = { ...demoFiles(), "tests/leaky.test.ts": `let seen = 0;\nexport const tests = {\n\t"first time only": () => {\n\t\tif (++seen > 1) throw new Error("seen " + seen + " times");\n\t},\n};\n` };
+		const request = { files, tests: [{ file: "tests/leaky.test.ts", name: "first time only" }], assertions: [] };
+		const first = await runInIsolate(env, request);
+		expect(first.tests[0]).toMatchObject({ ok: true });
+		expect(first.reused).toBeUndefined();
+		let handedBack = 0;
+		for (let again = 0; again < 5; again++) {
+			const next = await runInIsolate(env, request);
+			// Either it was a fresh isolate and passed, or it was handed back, said so, and the counter had moved on.
+			if (next.reused) {
+				handedBack++;
+				expect(next.tests[0]).toMatchObject({ ok: false, error: expect.stringMatching(/seen \d+ times/) });
+			} else {
+				expect(next.tests[0]).toMatchObject({ ok: true });
+			}
+		}
+		console.log(`isolates handed back in 5 repeats: ${handedBack}`);
+		// A different file is different code: a fresh isolate, whatever happened to the other one.
+		const other = await runInIsolate(env, { ...request, files: { ...files, "tests/leaky.test.ts": `${files["tests/leaky.test.ts"]}export const unused = 1;\n` } });
+		expect(other.reused).toBeUndefined();
+		expect(other.tests[0]).toMatchObject({ ok: true });
+	});
+});
+

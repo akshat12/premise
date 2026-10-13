@@ -19,6 +19,11 @@ export interface RunResult {
 	tests: { file: string; name: string; ok: boolean; error?: string; ms: number }[];
 	assertions: { id: string; ok: boolean; error?: string; ms: number }[];
 	loadError?: string;
+	/**
+	 * The isolate had run this same code before (see `runInIsolate`): its modules were not loaded
+	 * afresh, so anything they keep at module level was as the earlier run left it.
+	 */
+	reused?: true;
 }
 
 export const ASSERT_MODULE = "premise/assert.ts";
@@ -260,6 +265,8 @@ function runnerSource(items: readonly Item[]): string {
 
 const ITEMS = ${JSON.stringify(items.map(({ uses: _uses, ...item }) => item))};
 let ticks = 0;
+// How many times this isolate has been asked to run. More than once means it was kept warm and handed back.
+let runs = 0;
 globalThis.__premiseTick = () => {
 	if (++ticks > ${LOOP_BUDGET}) {
 		throw new Error("stopped: a loop ran more than ${LOOP_BUDGET.toLocaleString("en-US")} times (possible infinite loop)");
@@ -296,7 +303,7 @@ export class Runner extends WorkerEntrypoint {
 				results.push({ kind: item.kind, index: item.index, ok: false, error: describe(e), ms: Date.now() - start });
 			}
 		}
-		return results;
+		return { results, run: ++runs };
 	}
 }
 `;
@@ -321,7 +328,19 @@ export function startFailureModule(message: string, modules: Record<string, stri
 }
 
 type IsolateResult = { kind: "test" | "assertion"; index: number; ok: boolean; error?: string; ms: number };
-type RunnerEntrypoint = WorkerEntrypoint & { run(): Promise<IsolateResult[]> };
+type RunnerEntrypoint = WorkerEntrypoint & { run(): Promise<{ results: IsolateResult[]; run: number }> };
+
+/**
+ * The name a run's isolate is asked for by: a hash of exactly what it would run. The same code
+ * gets the same name, and anything different (a file, a test, the limit) gets another. Cloudflare
+ * bills each differently named or differently coded Dynamic Worker once a day, so a run that
+ * repeats an earlier one costs nothing more. Pure, apart from the hashing.
+ */
+export async function isolateId(modules: Readonly<Record<string, string>>, cpuMs: number): Promise<string> {
+	const ordered = Object.keys(modules).sort().map((name) => [name, modules[name]]);
+	const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(JSON.stringify([COMPATIBILITY_DATE, cpuMs, ordered])));
+	return `run-${[...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("")}`;
+}
 
 function assemble(req: RunRequest, outcome: (kind: "test" | "assertion", index: number) => { ok: boolean; error?: string; ms: number }, loadError?: string): RunResult {
 	const tests = req.tests.map((test, index) => ({ file: test.file, name: test.name, ...outcome("test", index) }));
@@ -348,6 +367,7 @@ export async function runInIsolate(env: Pick<Env, "LOADER">, req: RunRequest): P
 	const modules = { ...plan.modules };
 	let items = plan.items;
 	let results: IsolateResult[] = [];
+	let reused = false;
 	let timer: ReturnType<typeof setTimeout> | undefined;
 
 	// The transpiler catches most syntax errors, but not every one JavaScript rejects (a second
@@ -355,23 +375,24 @@ export async function runInIsolate(env: Pick<Env, "LOADER">, req: RunRequest): P
 	// Worker from starting. The runtime names the module, so drop it, fail its items, and try again.
 	for (let attempt = 0; items.length > 0; attempt++) {
 		try {
-			// A fresh isolate every run, never a cached one: repo modules may hold state, and a test
-			// must not see what an earlier run left behind.
-			const worker = env.LOADER.load({
-				compatibilityDate: COMPATIBILITY_DATE,
-				mainModule: RUNNER_MODULE,
-				modules,
-				globalOutbound: null,
-				limits: { cpuMs: req.cpuMs ?? DEFAULT_CPU_MS },
-			});
+			// An isolate named for its code. Cloudflare may hand back the one that ran this same code a
+			// moment ago instead of starting another, and bills the name once a day however often it is
+			// asked for. A warm isolate does not load its modules again, so module-level state survives:
+			// the runner says when that happened (`reused`), and runner.workers.test.ts holds the demo
+			// repo's checks to giving the same answers the second time.
+			const cpuMs = req.cpuMs ?? DEFAULT_CPU_MS;
+			const code = { compatibilityDate: COMPATIBILITY_DATE, mainModule: RUNNER_MODULE, modules: { ...modules }, globalOutbound: null, limits: { cpuMs } };
+			const worker = env.LOADER.get(await isolateId(modules, cpuMs), async () => code);
 			const timeout = new Promise<never>((_, reject) => {
 				timer = setTimeout(() => reject(new Error(`the run did not finish within ${WALL_CLOCK_MS / 1000} seconds`)), WALL_CLOCK_MS);
 			});
 			const runner = worker.getEntrypoint<RunnerEntrypoint>("Runner");
 			try {
-				results = await Promise.race([runner.run(), timeout]);
+				const ran = await Promise.race([runner.run(), timeout]);
+				results = ran.results;
+				reused = ran.run > 1;
 			} finally {
-				// The isolate is used once. Its stubs are let go here, not left for the garbage collector.
+				// Its stubs are let go here, not left for the garbage collector.
 				release(runner, worker);
 			}
 			break;
@@ -398,7 +419,7 @@ export async function runInIsolate(env: Pick<Env, "LOADER">, req: RunRequest): P
 	}
 
 	const byKey = new Map(results.map((result) => [`${result.kind}:${result.index}`, result]));
-	return assemble(req, (kind, index) => {
+	const assembled = assemble(req, (kind, index) => {
 		const key = `${kind}:${index}`;
 		const result = byKey.get(key);
 		if (result !== undefined) {
@@ -406,4 +427,5 @@ export async function runInIsolate(env: Pick<Env, "LOADER">, req: RunRequest): P
 		}
 		return { ok: false, error: failures.get(key) ?? "the item did not run", ms: 0 };
 	});
+	return reused ? { ...assembled, reused: true } : assembled;
 }
