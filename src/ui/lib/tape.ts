@@ -110,12 +110,19 @@ export interface Tape {
 	span: number;
 	/** Axis marks, evenly spaced. */
 	ticks: number[];
+	/**
+	 * Set when only the last stretch of a long run is shown (see `zoomTape`): how much earlier time is
+	 * off the left edge. Every time in the tape is measured from there; add this to say it by the clock.
+	 */
+	offset?: number;
 }
 
-/** "0:57", "4:35". */
+/** "0:57", "4:35", and from an hour on "2:05:00". */
 export function clock(ms: number): string {
 	const seconds = Math.max(0, Math.floor(ms / 1000));
-	return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
+	const minutes = Math.floor(seconds / 60);
+	const tail = String(seconds % 60).padStart(2, "0");
+	return minutes < 60 ? `${minutes}:${tail}` : `${Math.floor(minutes / 60)}:${String(minutes % 60).padStart(2, "0")}:${tail}`;
 }
 
 const SPANS_MS = [60_000, 90_000, 120_000, 180_000, 300_000, 600_000];
@@ -525,5 +532,50 @@ export function advanceTape(tape: Tape, now: number): Tape {
 		...tape,
 		now: until,
 		rows: tape.rows.map((row) => (row.segments.some((segment) => segment.open) ? { ...row, segments: row.segments.map((segment) => (segment.open ? { ...segment, to: Math.max(segment.to, until) } : segment)) } : row)),
+	};
+}
+
+/** A run longer than this is offered a closer view: on the whole-run axis its short bars are too thin to read. */
+export const ZOOM_FROM_MS = 600_000;
+/** The closer views: the last ten minutes, the last two. */
+export const ZOOM_WINDOWS_MS = [600_000, 120_000] as const;
+
+/**
+ * The same tape showing only its last `windowMs`, for a run too long to read on one axis. The left
+ * edge moves in steps of a quarter of the window, never continuously, so nothing slides about
+ * while a run is going: "now" sits between 70% and 95% of the way along. What ended before the
+ * left edge is left out; a bar that crosses it is cut there. Times in the result are measured from
+ * the left edge, and `offset` says where that is. A tape that already fits is returned as it is. Pure.
+ */
+export function zoomTape(tape: Tape, windowMs: number | null): Tape {
+	if (windowMs === null || tape.now <= windowMs * NOW_AT) {
+		return tape;
+	}
+	const step = windowMs / 4;
+	const offset = Math.ceil((tape.now - windowMs * NOW_AT) / step) * step;
+	const inside = (at: number) => at >= offset && at <= offset + windowMs;
+	const bucketMs = tape.workload?.bucketMs ?? 1;
+	const first = Math.floor(offset / bucketMs);
+	const count = Math.ceil(windowMs / bucketMs);
+	const landed = tape.workload?.landed.slice(first, first + count) ?? [];
+	return {
+		rows: tape.rows.map((row) => {
+			const { end, ...rest } = row;
+			return {
+				...rest,
+				segments: row.segments.filter((segment) => segment.to > offset && segment.from < offset + windowMs).map((segment) => ({ ...segment, from: Math.max(0, segment.from - offset), to: Math.min(windowMs, segment.to - offset) })),
+				hits: row.hits.filter(inside).map((at) => at - offset),
+				asks: row.asks.filter((ask) => inside(ask.at)).map((ask) => ({ ...ask, at: ask.at - offset })),
+				...(end !== undefined && inside(end.at) ? { end: { ...end, at: end.at - offset } } : {}),
+			};
+		}),
+		landings: tape.landings.filter((landing) => inside(landing.at)).map((landing) => ({ ...landing, at: landing.at - offset })),
+		breaks: tape.breaks.filter((line) => inside(line.at)).map((line) => ({ ...line, at: line.at - offset })),
+		cuts: tape.cuts.filter((cut) => inside(cut.at)).map((cut) => ({ ...cut, at: cut.at - offset })),
+		workload: tape.workload === null ? null : { bucketMs, landed, stale: tape.workload.stale.slice(first, first + count), peak: Math.max(1, ...landed) },
+		now: tape.now - offset,
+		span: windowMs,
+		ticks: ticksFor(windowMs),
+		offset,
 	};
 }

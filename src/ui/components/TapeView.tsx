@@ -2,7 +2,7 @@ import { ArrowsClockwise, Bell, CheckCircle, Eye, PencilSimple, XCircle } from "
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { IntentId } from "../../shared/types";
 import { jobLine, type StoryStep } from "../lib/story";
-import { clock, type Tape, type TapeBreak, type TapeRow, type TapeSegment } from "../lib/tape";
+import { clock, type Tape, type TapeBreak, type TapeRow, type TapeSegment, ZOOM_FROM_MS, ZOOM_WINDOWS_MS, zoomTape } from "../lib/tape";
 import { type Lanes, type Layout, STATUS_LOOK, washOf } from "../lib/view";
 import { BAND, StatusMark } from "./Strip";
 
@@ -204,7 +204,12 @@ function Key({ cutMs }: { cutMs: number }) {
  * The tape: time runs left to right, one row for each agent's Intent, with trunk along the top.
  * A landing that broke a premise is a red line through the rows it stopped, and only those.
  */
-export function TapeView({ tape, workload, layout, selected, onSelect, live, ended, total, onSeek, step, notes }: TapeViewProps) {
+export function TapeView({ tape: whole, workload, layout, selected, onSelect, live, ended, total, onSeek, step, notes }: TapeViewProps) {
+	// A long run can be looked at closer: the last ten minutes or the last two, instead of the whole of it.
+	const [zoom, setZoom] = useState<number | null>(null);
+	const zoomable = Math.max(whole.now, total ?? 0) > ZOOM_FROM_MS;
+	const tape = useMemo(() => zoomTape(whole, zoomable ? zoom : null), [whole, zoom, zoomable]);
+	const offset = tape.offset ?? 0;
 	const phone = layout === "phone";
 	const density: Density = phone ? "compact" : densityFor(tape.rows.length);
 	const focus = step?.focus ?? [];
@@ -231,8 +236,8 @@ export function TapeView({ tape, workload, layout, selected, onSelect, live, end
 				"aria-label": "Replay position",
 				"aria-valuemin": 0,
 				"aria-valuemax": Math.round(total / 1000),
-				"aria-valuenow": Math.round(tape.now / 1000),
-				"aria-valuetext": `${clock(tape.now)} of ${clock(total)}`,
+				"aria-valuenow": Math.round((tape.now + offset) / 1000),
+				"aria-valuetext": `${clock(tape.now + offset)} of ${clock(total)}`,
 				onKeyDown: (event: React.KeyboardEvent) => {
 					if (event.key === "Home" || event.key === "End") {
 						event.preventDefault();
@@ -246,11 +251,11 @@ export function TapeView({ tape, workload, layout, selected, onSelect, live, end
 					event.preventDefault();
 					event.stopPropagation();
 					const direction = event.key === "ArrowLeft" ? -1 : 1;
-					onSeek(Math.min(total, Math.max(0, tape.now + (event.shiftKey ? 10_000 : 1000) * direction)), direction);
+					onSeek(Math.min(total, Math.max(0, tape.now + offset + (event.shiftKey ? 10_000 : 1000) * direction)), direction);
 				},
 				onClick: (event: React.MouseEvent<HTMLDivElement>) => {
 					const box = event.currentTarget.getBoundingClientRect();
-					onSeek(Math.min(total, Math.max(0, ((event.clientX - box.left) / box.width) * tape.span)));
+					onSeek(Math.min(total, Math.max(0, offset + ((event.clientX - box.left) / box.width) * tape.span)));
 				},
 			}
 		: {};
@@ -344,7 +349,7 @@ export function TapeView({ tape, workload, layout, selected, onSelect, live, end
 					return null;
 				}
 				return (
-					<span key={from} className="tape-density-slot" style={{ left: pct(from), width: pct(tape.workload?.bucketMs ?? 0) }} title={`${clock(from)}: ${count} landed${stale ? ", some were stopped" : ""}`}>
+					<span key={from} className="tape-density-slot" style={{ left: pct(from), width: pct(tape.workload?.bucketMs ?? 0) }} title={`${clock(from + offset)}: ${count} landed${stale ? ", some were stopped" : ""}`}>
 						{count > 0 ? <span className="tape-density-bar" style={{ height: `${Math.max(12, (count / (tape.workload?.peak ?? 1)) * 100)}%` }} /> : null}
 						{stale ? <span className="tape-density-stale" /> : null}
 					</span>
@@ -459,7 +464,7 @@ export function TapeView({ tape, workload, layout, selected, onSelect, live, end
 								{line.n}
 							</span>
 							<span>
-								{clock(line.at)} · {line.flag} · {line.rows.length} stopped
+								{clock(line.at + offset)} · {line.flag} · {line.rows.length} stopped
 							</span>
 						</li>
 					))}
@@ -468,16 +473,28 @@ export function TapeView({ tape, workload, layout, selected, onSelect, live, end
 
 			<div className="tape-head">
 				<div className="tape-headrow">
-					<div className="tape-headcell tape-soft">{phone ? null : "Time"}</div>
+					<div className="tape-headcell tape-soft">
+						{zoomable ? (
+							<span className="tape-zoom" role="group" aria-label="How much of the run to show">
+								{[null, ...ZOOM_WINDOWS_MS].map((choice) => (
+									<button key={choice ?? "all"} type="button" className="tape-zoom-choice label" aria-pressed={zoom === choice} title={choice === null ? "The whole run on one axis" : `Only the last ${choice / 60_000} minutes, so short bars can be read`} onClick={() => setZoom(choice)}>
+										{choice === null ? "All" : `${choice / 60_000} min`}
+									</button>
+								))}
+							</span>
+						) : phone ? null : (
+							"Time"
+						)}
+					</div>
 					<div className="tape-axis">
 						<div className="tape-ticks" ref={axisRef} {...slider}>
 							{(phone ? [0, tape.span / 2] : tape.ticks).map((tick) => (
 								<span key={tick} className="tape-tick" style={{ left: pct(tick) }}>
-									{clock(tick)}
+									{clock(tick + offset)}
 								</span>
 							))}
 							<span className="tape-now-pill" data-flip={px(tape.now) > width - 30} style={{ left: pct(tape.now) }}>
-								{live ? "now" : clock(tape.now)}
+								{live ? "now" : clock(tape.now + offset)}
 							</span>
 						</div>
 						<div className="tape-flags">{flags}</div>

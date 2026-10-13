@@ -2205,3 +2205,30 @@ button.tape-label:focus-visible {
 	gap: 8px;
 	padding: 4px 16px 0;
 }
+
+/* A long run: how much of it the tape shows. Three small choices where the word "Time" stands. */
+.tape-zoom {
+	display: inline-flex;
+	border: 1px solid var(--rule-strong);
+	border-radius: 6px;
+	overflow: hidden;
+}
+.tape-zoom-choice {
+	padding: 2px 8px;
+	border: 0;
+	background: transparent;
+	color: var(--ink-soft);
+	cursor: pointer;
+}
+.tape-zoom-choice + .tape-zoom-choice {
+	border-left: 1px solid var(--rule-strong);
+}
+.tape-zoom-choice[aria-pressed="true"] {
+	background: var(--ink);
+	color: var(--surface);
+}
+.tape-zoom-choice:focus-visible {
+	outline: 2px solid var(--ink);
+	outline-offset: -2px;
+}
+
