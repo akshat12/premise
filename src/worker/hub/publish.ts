@@ -1,5 +1,6 @@
 import type { PremiseEvent, PremiseEventBody } from "../../shared/events";
 import type { Metrics } from "../../shared/types";
+import type { PublicRunStatus } from "../live/public-run";
 import type { RegistryRow } from "../metrics";
 
 type HubEnv = Pick<Env, "HUB">;
@@ -20,7 +21,7 @@ export interface HubApi {
 	publish(body: PremiseEventBody): Promise<PremiseEvent>;
 	publishMany(bodies: PremiseEventBody[]): Promise<PremiseEvent[]>;
 	since(seq: number, limit?: number): Promise<PremiseEvent[]>;
-	reset(): Promise<void>;
+	reset(asked?: boolean): Promise<void>;
 	registry(): Promise<RegistryRow[]>;
 	knows(id: string): Promise<boolean>;
 	asserters(): Promise<string[]>;
@@ -35,6 +36,13 @@ export interface HubApi {
 	setMode(mode: RunMode): Promise<void>;
 	llm(): Promise<{ provider: string; model?: string } | null>;
 	setLlm(choice: { provider: string; model?: string } | null): Promise<void>;
+	publicRun(gateBusy: boolean, now?: number): Promise<PublicRunStatus>;
+	claimPublicRun(gateBusy: boolean, now?: number): Promise<{ ok: true; startedAt: number; seed: number } | { ok: false; status: PublicRunStatus }>;
+	confirmPublicRun(startedAt: number, gateBusy: boolean, now?: number): Promise<string | null>;
+	publicRunFailed(startedAt: number, error: string, now?: number): Promise<void>;
+	setPublicRuns(enabled: boolean, clear?: boolean): Promise<void>;
+	resetBegun(): Promise<void>;
+	resetAbandoned(): Promise<void>;
 	recordTurn(script: string, index: number, turn: string): Promise<void>;
 	recordedTurns(): Promise<Record<string, unknown[]>>;
 	addWaiter(instanceId: string, topic: string): Promise<void>;

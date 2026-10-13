@@ -237,6 +237,30 @@ curl -X POST <your worker>/api/admin/llm -H "x-admin-token: <your token>" -H "co
 - **A scripted re-derive can undo a workload edit.** It writes whole files from its script, so if a workload Intent landed an edit to the same file in the meantime, that edit is silently dropped. A real agent reads the current file. This bears on the "Intents landed" counts in the A/B and the larger recording.
 - **Little is cleaned up.** A demo reset removes the forks and clears the log, the ledger and the gate. The Durable Objects and Workflow instances of finished Intents are never deleted.
 
+## How this would scale
+
+The competition asks for a prototype, and this is one: the largest run so far is twelve agents and 294 scripted Intents on a repo of 35 source files. Nothing below has been built or measured. It is here so the limits are stated by us and not found by you.
+
+**What already works at any size**
+
+- **Each Intent has its own fork.** Agents never share a working copy, so adding agents adds forks, not contention.
+- **The ledger is sharded by module path.** Two Intents that claim symbols in different modules never talk to the same Durable Object.
+- **Invalidation by type is targeted.** The ledger knows who reads what, so a landing that changes a symbol's type reaches only the Intents that recorded a premise on that symbol. The cost follows how many Intents rely on it, not how many are in flight. (Asserted premises are different: see the table.)
+- **Each agent is its own Workflow,** with its own request budget.
+
+**What would have to change**
+
+| Today | Why it stops working | What it would become |
+|---|---|---|
+| One gate for trunk. Agents' Intents are checked one at a time, two to five seconds each. | Every landing waits for every other, however unrelated. This is the ceiling on agents, well before Artifacts is. | A gate for each ledger shard. Landings in unrelated modules go through in parallel; a landing that crosses shards takes each of them. |
+| The gate typechecks the whole repo, with the TypeScript compiler inside the Worker. | A Worker's memory is fixed and small, and the check grows with the repo. | Typecheck by package, keeping each package's declarations for a commit, so a landing rechecks only what its change can reach. |
+| Every landing runs every test on trunk. | Time and isolates grow with the test suite. | Only the tests that reach the changed symbols. The symbol index already records what calls what; it is how derived premises are made. |
+| After every landing, every assertion held by an in-flight Intent is run again on the new trunk, in one isolate. | The work grows with agents times landings. | Run only the assertions whose imports can reach a file the landing changed. |
+| A premise on a symbol's type breaks on any change to that type. | Most such breaks turn out not to matter (see the comparison), and on a busy trunk every one is a rebase or a restart. | Narrower premises: the members an agent actually used, not the whole surface. |
+| Symbols are found with the TypeScript compiler. | One language. | A symbol index per language, behind the same interface (`src/worker/symbols/`). |
+
+The headline on the competition page is hundreds of thousands of agents. The honest reading of this prototype against that number: the parts that coordinate (forks, the ledger, invalidation by type) are shaped for it, and the part that decides what lands is one queue and is not.
+
 ## Repository layout
 
 ```

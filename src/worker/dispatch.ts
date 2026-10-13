@@ -3,7 +3,7 @@ import { newIntentId } from "../shared/ids";
 import type { Intent, IntentId, TaskDef, TaskId } from "../shared/types";
 import { DEFAULT_PRIORITY } from "./agent/run";
 import { landing } from "./gate/client";
-import { workflowInstanceId } from "./agent/workflow";
+import { workflowInstanceId } from "./agent/instance";
 import { currentTrunk, hub, publish, publishMetrics } from "./hub/publish";
 import { intentStub, newIntent } from "./intent/client";
 import { ledgerShard } from "./ledger/client";
@@ -142,43 +142,66 @@ export function isIntentRepo(name: string): boolean {
 /**
  * Puts everything back to the start for another demo run: deletes every Intent fork, makes a
  * fresh copy of the demo repo as trunk under a new name, and clears the event log and the ledger.
+ * `asked: false` is for a reset nobody requested and no run follows (see `EventHub.reset`).
  */
-export async function resetDemo(env: Env): Promise<ResetResult> {
+export async function resetDemo(env: Env, options: { asked?: boolean } = {}): Promise<ResetResult> {
+	const asked = options.asked ?? true;
 	const store = getRepoStore(env);
-	const previousTrunk = await currentTrunk(env);
-	const names = await store.list();
+	// Said before anything else: until the hub's own reset below, the board still shows the run before,
+	// at rest, and a run started by a visitor in that time would land on top of this one.
+	if (asked) {
+		await hub(env).resetBegun();
+	}
+	// The fresh trunk, from the moment it exists until the hub has been told to use it.
+	let unadopted: string | undefined;
+	try {
+		const previousTrunk = await currentTrunk(env);
+		const names = await store.list();
 
-	const forks = names.filter(isIntentRepo);
-	await mapLimit(forks, DELETE_CONCURRENCY, (name) => store.remove(name).catch(() => undefined));
+		const forks = names.filter(isIntentRepo);
+		await mapLimit(forks, DELETE_CONCURRENCY, (name) => store.remove(name).catch(() => undefined));
 
-	const trunk = `trunk-${Date.now().toString(36)}`;
-	if (env.REPO_STORE === "memory") {
-		await store.ensureRepo(trunk);
-		await store.commit(trunk, ZERO_SHA, DEMO_REPO_FILES, "acme-accounts: initial");
-	} else {
-		const status = await importRepo(env, trunk, env.DEMO_REPO_URL);
-		if (status !== "ready") {
-			throw new Error(`the fresh trunk "${trunk}" is ${status}, not ready; the old trunk is still in use`);
+		const trunk = `trunk-${Date.now().toString(36)}`;
+		unadopted = trunk;
+		if (env.REPO_STORE === "memory") {
+			await store.ensureRepo(trunk);
+			await store.commit(trunk, ZERO_SHA, DEMO_REPO_FILES, "acme-accounts: initial");
+		} else {
+			const status = await importRepo(env, trunk, env.DEMO_REPO_URL);
+			if (status !== "ready") {
+				throw new Error(`the fresh trunk "${trunk}" is ${status}, not ready; the old trunk is still in use`);
+			}
+			// A repo that was imported a moment ago can refuse its first forks ("internal error") when
+			// several arrive together, which is exactly what the first dispatch after a reset does. So
+			// make one fork here, on its own, and only call the trunk ready once that has worked.
+			const probe = newIntentId();
+			await store.fork(trunk, probe);
+			await store.remove(probe).catch(() => undefined);
 		}
-		// A repo that was imported a moment ago can refuse its first forks ("internal error") when
-		// several arrive together, which is exactly what the first dispatch after a reset does. So
-		// make one fork here, on its own, and only call the trunk ready once that has worked.
-		const probe = newIntentId();
-		await store.fork(trunk, probe);
-		await store.remove(probe).catch(() => undefined);
-	}
 
-	const shards = await hub(env).shards();
-	await Promise.all(shards.map((shard) => ledgerShard(env, shard).clear()));
-	await landing(env).clear();
-	await hub(env).setTrunk(trunk);
-	await hub(env).reset();
-	// Earlier reset copies are no longer needed. The original trunk repo is left alone.
-	if (previousTrunk !== trunk && previousTrunk !== env.TRUNK_REPO) {
-		await store.remove(previousTrunk).catch(() => undefined);
+		const shards = await hub(env).shards();
+		await Promise.all(shards.map((shard) => ledgerShard(env, shard).clear()));
+		await landing(env).clear();
+		await hub(env).setTrunk(trunk);
+		unadopted = undefined;
+		await hub(env).reset(asked);
+		// Earlier reset copies are no longer needed. The original trunk repo is left alone.
+		if (previousTrunk !== trunk && previousTrunk !== env.TRUNK_REPO) {
+			await store.remove(previousTrunk).catch(() => undefined);
+		}
+		await publishMetrics(env);
+		return { trunk, head: await store.head(trunk), forksDeleted: forks.length, previousTrunk };
+	} catch (error) {
+		// A reset that stops half way leaves the old trunk in use. The copy it was making is not needed,
+		// and nothing should go on waiting for a reset that is not coming.
+		if (unadopted !== undefined) {
+			await store.remove(unadopted).catch(() => undefined);
+		}
+		if (asked) {
+			await hub(env).resetAbandoned().catch(() => undefined);
+		}
+		throw error;
 	}
-	await publishMetrics(env);
-	return { trunk, head: await store.head(trunk), forksDeleted: forks.length, previousTrunk };
 }
 
 /**
@@ -200,6 +223,6 @@ export async function recoverMemoryStore(env: Env): Promise<boolean> {
 	if (!trunkGone && !forksGone) {
 		return false;
 	}
-	await resetDemo(env);
+	await resetDemo(env, { asked: false });
 	return true;
 }

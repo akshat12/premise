@@ -49,18 +49,55 @@ async function runMode(mode: AbMode, seed: number): Promise<ModeResult> {
 // Worker is written beside them (git-ignored), so trying the script does not replace those numbers.
 const local = /\/\/(localhost|127\.0\.0\.1|\[::1\])(:|\/|$)/.test(url);
 const out = arg("out") ?? (local ? "docs/ab-results.local" : "docs/ab-results");
-const trials: Trial[] = [];
-for (const seed of seeds) {
-	const results = {} as Record<AbMode, ModeResult>;
-	for (const mode of AB_MODES) {
-		results[mode] = await runMode(mode, seed);
+// Anyone can start a run from the Live tab, and a run resets the board. Between two modes the board is
+// at rest, which is when a start is allowed, so public runs are switched off while this measures.
+const publicRuns = await fetch(`${url}/api/live`)
+	.then(async (response) => (response.ok ? ((await response.json()) as { enabled?: boolean }).enabled !== false : null))
+	.catch(() => null);
+const restore = async () => {
+	if (publicRuns) {
+		await post("/api/admin/public-runs", { enabled: true }).then(
+			() => console.log("Public runs are on again."),
+			(error: unknown) => console.error(`Public runs are still OFF: ${error instanceof Error ? error.message : String(error)}. Turn them on with POST /api/admin/public-runs {"enabled": true}.`),
+		);
 	}
-	trials.push({ seed, ...results });
-	// Written after every seed, so a long run that is cut short still leaves a report of what finished.
-	const report = buildReport(trials);
-	const date = new Date().toISOString().slice(0, 10);
-	writeFileSync(`${out}.json`, `${JSON.stringify({ date, url, n, seeds: trials.map((trial) => trial.seed), headline: report.headline, table: report.table, trials }, null, "\t")}\n`);
-	writeFileSync(`${out}.md`, renderMarkdown(trials, { date, source: url }));
-	console.log(`\nseed ${seed} done. ${report.headline}\n`);
+};
+if (publicRuns) {
+	await post("/api/admin/public-runs", { enabled: false });
+	console.log("Public runs (the Live tab's Start button) are off until this finishes.");
+	// Ctrl-C skips `finally`, and would leave the button off with nothing said.
+	process.once("SIGINT", () => void restore().finally(() => process.exit(130)));
+	// A run a visitor started a moment ago is still going, or about to reset the board. Wait for it to be over.
+	for (let waited = 0; ; waited += 5) {
+		const live = (await fetch(`${url}/api/live`).then((response) => response.json())) as { running?: boolean };
+		if (!live.running) {
+			break;
+		}
+		if (waited === 0) {
+			console.log("A run is in progress on the board. Waiting for it to end before measuring.");
+		}
+		if (waited >= 20 * 60) {
+			throw new Error("the run on the board did not end within 20 minutes; reset the demo and try again");
+		}
+		await new Promise((resolve) => setTimeout(resolve, 5000));
+	}
 }
-console.log(`Wrote ${out}.json and ${out}.md`);
+const trials: Trial[] = [];
+try {
+	for (const seed of seeds) {
+		const results = {} as Record<AbMode, ModeResult>;
+		for (const mode of AB_MODES) {
+			results[mode] = await runMode(mode, seed);
+		}
+		trials.push({ seed, ...results });
+		// Written after every seed, so a long run that is cut short still leaves a report of what finished.
+		const report = buildReport(trials);
+		const date = new Date().toISOString().slice(0, 10);
+		writeFileSync(`${out}.json`, `${JSON.stringify({ date, url, n, seeds: trials.map((trial) => trial.seed), headline: report.headline, table: report.table, trials }, null, "\t")}\n`);
+		writeFileSync(`${out}.md`, renderMarkdown(trials, { date, source: url }));
+		console.log(`\nseed ${seed} done. ${report.headline}\n`);
+	}
+	console.log(`Wrote ${out}.json and ${out}.md`);
+} finally {
+	await restore();
+}

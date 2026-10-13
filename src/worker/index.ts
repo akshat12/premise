@@ -10,6 +10,7 @@ import { handleAdmin } from "./routes/admin";
 import { handleApi } from "./routes/api";
 import { handleDispatch } from "./routes/dispatch";
 import { handleEvents } from "./routes/events";
+import { handleLive } from "./routes/live";
 
 // Memory mode: checked once each time this code is loaded, before the first request is answered.
 // See recoverMemoryStore for what it is checking.
@@ -41,7 +42,7 @@ export default {
 			return handleEvents(request, env, url);
 		}
 		if (url.pathname.startsWith("/api/")) {
-			return (await handleDispatch(request, env, url)) ?? (await handleApi(request, env, url)) ?? Response.json({ error: "not found" }, { status: 404 });
+			return (await handleLive(request, env, url)) ?? (await handleDispatch(request, env, url)) ?? (await handleApi(request, env, url)) ?? Response.json({ error: "not found" }, { status: 404 });
 		}
 		// Everything else is the UI. Static assets are served before the Worker runs
 		// (see `assets` in wrangler.jsonc), so reaching here means there was no match.

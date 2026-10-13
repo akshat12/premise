@@ -1,7 +1,21 @@
 import { Button } from "@cloudflare/kumo";
 import { DotsThree } from "@phosphor-icons/react";
 import type { Layout } from "../lib/view";
-import { releaseFocus } from "./TopBar";
+
+/**
+ * Kumo's tabs keep the arrow keys for moving between tabs, which is right for a keyboard user. But
+ * after a click the tab keeps focus, and the → key (the story's next step) would go to the tabs
+ * instead. So a pointer click gives focus back to the page; keyboard use is untouched.
+ */
+export function releaseFocus(event: React.PointerEvent<HTMLElement>) {
+	const tabs = event.currentTarget;
+	window.setTimeout(() => {
+		const focused = document.activeElement;
+		if (focused instanceof HTMLElement && tabs.contains(focused)) {
+			focused.blur();
+		}
+	}, 0);
+}
 
 /** What kind of run is being replayed: a short label, a few more words where there is room, and a sentence for the tooltip. */
 export interface RunKind {
@@ -12,7 +26,7 @@ export interface RunKind {
 
 interface SimpleBarProps {
 	layout: Layout;
-	/** The view tabs. */
+	/** The two tabs: Demo and Live. */
 	views: React.ReactNode;
 	/** Opens the list of everything else the app can do (the command palette). */
 	onMore: () => void;
@@ -20,9 +34,9 @@ interface SimpleBarProps {
 }
 
 /**
- * The top bar while a demo recording is on screen: the name, one line saying what Premise is,
- * and the three views. Everything a newcomer does not need (the live board, dispatching, speeds)
- * is one click away under "More", not in front of the story.
+ * The top bar: the name, one line saying what Premise is, what kind of run is on screen, and the
+ * two tabs. Everything a newcomer does not need (dispatching by hand, resetting, the shortcuts) is
+ * one click away under "More", not in front of the story.
  */
 export function SimpleBar({ layout, views, onMore, kind }: SimpleBarProps) {
 	return (
@@ -44,7 +58,7 @@ export function SimpleBar({ layout, views, onMore, kind }: SimpleBarProps) {
 			<div className="simplebar-views" onPointerUp={releaseFocus}>
 				{views}
 			</div>
-			<Button variant="ghost" size="sm" shape="square" aria-label="More: the live board, dispatching, keyboard shortcuts" title="More (⌘K)" onClick={onMore}>
+			<Button variant="ghost" size="sm" shape="square" aria-label="More: dispatching, resetting, keyboard shortcuts" title="More (⌘K)" onClick={onMore}>
 				<DotsThree size={20} weight="bold" />
 			</Button>
 		</header>

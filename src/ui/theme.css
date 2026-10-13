@@ -567,33 +567,6 @@ kbd {
 	border-left: 1px solid var(--rule);
 }
 
-/* ---- The live board's bar on narrow screens (under 1280px): see layoutFor in lib/view.ts ---- */
-.topbar-narrow {
-	position: relative;
-	display: flex;
-	flex: none;
-	flex-direction: column;
-	gap: 8px;
-	padding: 8px 12px;
-	border-bottom: 1px solid var(--rule);
-	background: var(--surface);
-}
-/* The view tabs scroll sideways rather than push the player off the row. */
-.topbar-scroll {
-	min-width: 0;
-	overflow-x: auto;
-	scrollbar-width: none;
-}
-.topbar-scroll::-webkit-scrollbar {
-	display: none;
-}
-.topbar-counters {
-	display: grid;
-	grid-template-columns: repeat(6, minmax(0, 1fr));
-	align-items: end;
-	gap: 12px;
-}
-
 @media (max-width: 1279px) {
 	.drawer {
 		position: fixed;
@@ -608,11 +581,6 @@ kbd {
 
 /* ---- Phones (under 768px) ---- */
 @media (max-width: 767px) {
-	.topbar-counters {
-		grid-template-columns: repeat(4, minmax(0, 1fr));
-		gap: 8px;
-	}
-
 	/* The strip on two lines: callsign and status, then its chips, which may wrap. */
 
 	/* Two chips share the line; a long name is cut with an ellipsis rather than wrapped. */
@@ -1707,7 +1675,76 @@ button.tape-label:focus-visible {
 	}
 }
 
-/* ---- The top bar while a demo recording is on screen ---- */
+/* ---- The Live tab's bar: the story bar's shape, with the Start button where Back and Next are ---- */
+.live-flag {
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+	color: var(--amber);
+}
+.live-flag[data-on="true"] {
+	color: var(--holds);
+}
+.live-flag::before {
+	width: 7px;
+	height: 7px;
+	border-radius: 50%;
+	background: currentColor;
+	content: "";
+}
+.live-flag[data-on="true"]::before {
+	animation: live-pulse 1.5s ease-in-out infinite;
+}
+.live-controls {
+	flex-direction: column;
+	align-items: flex-end;
+	gap: 8px;
+	max-width: 300px;
+}
+.live-controls button {
+	min-width: 168px;
+	font-variant-numeric: tabular-nums;
+}
+.live-note {
+	max-width: 280px;
+	margin: 0;
+	color: var(--ink-soft);
+	font-size: 13px;
+	line-height: 1.4;
+	text-align: right;
+	text-wrap: balance;
+}
+.live-empty {
+	margin: 0;
+	padding: 28px 16px;
+	border: 1px dashed var(--rule);
+	border-radius: 6px;
+	text-align: center;
+}
+/* What goes with the recorded run, under its tape: the comparison, then the larger run. */
+.below {
+	margin-top: 28px;
+}
+@media (max-width: 767px) {
+	.live-controls {
+		align-items: flex-start;
+		max-width: none;
+	}
+	.live-note {
+		max-width: none;
+		text-align: left;
+	}
+	.below {
+		margin-top: 20px;
+	}
+}
+@media (prefers-reduced-motion: reduce) {
+	.live-flag[data-on="true"]::before {
+		animation: none;
+	}
+}
+
+/* ---- The top bar ---- */
 .simplebar {
 	display: flex;
 	flex: none;

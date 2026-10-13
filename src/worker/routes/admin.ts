@@ -10,6 +10,8 @@ import { runInIsolate } from "../runner";
 import { analyze } from "../surface";
 import type { Assertion } from "../../shared/types";
 import { importTrunk } from "./import-trunk";
+import { gateBusy } from "../live/start";
+import { forgetLiveStatus } from "./live";
 import { MAX_WORKLOAD, runWorkload } from "../workload/run";
 import { type AbOptions, collectAb, isQuiet, runAbMode, startAbMode } from "../ab/run";
 
@@ -123,6 +125,7 @@ export async function handleAdmin(request: Request, env: Env, url: URL): Promise
 			const body = ((await request.json().catch(() => null)) ?? {}) as Record<string, unknown>;
 			if (body.provider === null) {
 				await hub(env).setLlm(null);
+				forgetLiveStatus();
 				return Response.json({ ok: true, llm: describeLlm(env) });
 			}
 			if (typeof body.provider !== "string" || (body.model !== undefined && typeof body.model !== "string")) {
@@ -130,13 +133,34 @@ export async function handleAdmin(request: Request, env: Env, url: URL): Promise
 			}
 			const choice = { provider: body.provider, ...(typeof body.model === "string" ? { model: body.model } : {}) };
 			const chosen = { ...env, LLM: choice.provider, ...(choice.model === undefined ? {} : { LLM_MODEL: choice.model }) };
+			let provider: string;
 			try {
-				resolveLlmConfig(chosen); // refuses an unknown provider, or one whose key is not set
+				provider = resolveLlmConfig(chosen).provider; // refuses an unknown provider, or one whose key is not set
 			} catch (error) {
 				return Response.json({ error: error instanceof Error ? error.message : String(error) }, { status: 400 });
 			}
+			if (provider !== "scripted") {
+				// Each agent reads this choice when it starts, and a re-derive is a new start. Changed in the middle of a
+				// run, the rest of that run would call the model, and the run may be one a visitor started from the Live tab.
+				const board = await hub(env).publicRun(await gateBusy(env));
+				if (board.running && !board.starting) {
+					return Response.json({ error: "a run is in progress, and the rest of it would switch to the model. Wait for it to end, or reset the demo first." }, { status: 409 });
+				}
+			}
 			await hub(env).setLlm(choice);
+			forgetLiveStatus();
 			return Response.json({ ok: true, llm: describeLlm(chosen) });
+		}
+		case "/api/admin/public-runs": {
+			// The switch for the run anyone can start from the Live tab: { enabled: false } refuses every start until it is turned on again.
+			const body = ((await request.json().catch(() => null)) ?? {}) as Record<string, unknown>;
+			// { clear: true } also forgets the starts on record: the day's runs are given back and the wait between runs ends.
+			if (typeof body.enabled !== "boolean" || (body.clear !== undefined && typeof body.clear !== "boolean")) {
+				return Response.json({ error: "body must be { enabled: boolean, clear?: boolean }" }, { status: 400 });
+			}
+			await hub(env).setPublicRuns(body.enabled, body.clear === true);
+			forgetLiveStatus();
+			return Response.json({ ok: true, enabled: body.enabled, cleared: body.clear === true });
 		}
 		case "/api/admin/llm-turns":
 			// What a real model answered since the last reset, as scripts the scripted provider can replay.

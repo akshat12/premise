@@ -4,6 +4,7 @@ import { moduleShard } from "../../shared/ids";
 import type { IntentKind, IntentStatus, Metrics } from "../../shared/types";
 import { parseSince, PING, PONG } from "../../shared/wire";
 import { computeMetrics, countEvent, type Counters, emptyCounters, type RegistryRow } from "../metrics";
+import { AT_REST, type BoardFacts, claimPublicRun, clearPublicRuns, failPublicRun, isScripted, newPublicRunState, type PublicRunState, type PublicRunStatus, publicRunStatus, refusePublicRun } from "../live/public-run";
 import { atCapacity, capacityMessage, RETRY_AFTER_S } from "./limits";
 
 const BACKLOG_PAGE = 2000;
@@ -142,9 +143,10 @@ export class EventHub extends DurableObject<Env> {
 
 	/**
 	 * Clears the log, the registry, the counters and the waiters, and restarts `seq` at 1.
-	 * Connected clients are told to drop what they have. The current trunk name is kept.
+	 * Connected clients are told to drop what they have. The current trunk name is kept, and so are
+	 * the model choice and the public run's record (its switch and its starts are not part of a run).
 	 */
-	async reset(): Promise<void> {
+	async reset(asked = true): Promise<void> {
 		const sql = this.ctx.storage.sql;
 		sql.exec("DELETE FROM events");
 		sql.exec("DELETE FROM sqlite_sequence WHERE name = 'events'");
@@ -154,7 +156,12 @@ export class EventHub extends DurableObject<Env> {
 		sql.exec("DELETE FROM processed_commits");
 		sql.exec("DELETE FROM asserters");
 		sql.exec("DELETE FROM llm_turns");
-		sql.exec("DELETE FROM meta WHERE key NOT IN ('trunk', 'llm')");
+		sql.exec("DELETE FROM meta WHERE key NOT IN ('trunk', 'llm', 'public_runs')");
+		// A reset somebody asked for is about to be followed by a run, and says when it happened so that a
+		// public start does not land on top of it. One that nobody asked for (see recoverMemoryStore) does not.
+		if (asked) {
+			this.setMeta("reset_at", Date.now());
+		}
 		this.broadcast(JSON.stringify({ reset: true }));
 	}
 
@@ -236,6 +243,83 @@ export class EventHub extends DurableObject<Env> {
 
 	async setLlm(choice: { provider: string; model?: string } | null): Promise<void> {
 		this.setMeta("llm", choice);
+	}
+
+	// ---- the run anyone can start (see live/public-run.ts for the rules) ----
+
+	private publicRuns(): PublicRunState {
+		return { ...newPublicRunState(), ...this.getMeta<Partial<PublicRunState>>("public_runs", {}) };
+	}
+
+	private board(): BoardFacts {
+		const sql = this.ctx.storage.sql;
+		const rest = AT_REST.map(() => "?").join(", ");
+		const counts = sql.exec<{ intents: number; unsettled: number | null }>(`SELECT COUNT(*) AS intents, SUM(CASE WHEN status NOT IN (${rest}) THEN 1 ELSE 0 END) AS unsettled FROM registry`, ...AT_REST).one();
+		// The newest event is the last by `seq`, which is one row to read. (MAX(ts) would read the whole log, and this is asked every few seconds.)
+		const last = sql.exec<{ ts: number }>("SELECT ts FROM events ORDER BY seq DESC LIMIT 1").toArray()[0];
+		return { intents: counts.intents, unsettled: counts.unsettled ?? 0, lastEventAt: last?.ts ?? 0, resetAt: this.getMeta<number>("reset_at", 0), resetBegunAt: this.getMeta<number>("reset_begun", 0) };
+	}
+
+	private publicRunFacts(gateBusy: boolean, now: number) {
+		return { ...this.board(), now, gateBusy, scripted: isScripted(this.getMeta<{ provider: string } | null>("llm", null), this.env.LLM) };
+	}
+
+	/** Whether a public run may start now. `gateBusy` is the one thing only the gate knows. */
+	async publicRun(gateBusy: boolean, now = Date.now()): Promise<PublicRunStatus> {
+		return publicRunStatus(this.publicRuns(), this.publicRunFacts(gateBusy, now));
+	}
+
+	/**
+	 * Takes the next public start, if one is allowed. Deciding and recording happen here, in one
+	 * turn of this object, so of two requests that arrive together exactly one is told yes.
+	 */
+	async claimPublicRun(gateBusy: boolean, now = Date.now()): Promise<{ ok: true; startedAt: number; seed: number } | { ok: false; status: PublicRunStatus }> {
+		const claim = claimPublicRun(this.publicRuns(), this.publicRunFacts(gateBusy, now));
+		if (!claim.ok) {
+			return claim;
+		}
+		this.setMeta("public_runs", claim.state);
+		return { ok: true, startedAt: claim.startedAt, seed: claim.seed };
+	}
+
+	/**
+	 * Asked by a claimed start just before it resets the board: why it must not go ahead, or null.
+	 * A start that is told no is recorded as failed, so nothing waits for it.
+	 */
+	async confirmPublicRun(startedAt: number, gateBusy: boolean, now = Date.now()): Promise<string | null> {
+		const refusal = refusePublicRun(this.publicRuns(), this.publicRunFacts(gateBusy, now), startedAt);
+		if (refusal !== null) {
+			this.setMeta("public_runs", failPublicRun(this.publicRuns(), startedAt, refusal, now));
+		}
+		return refusal;
+	}
+
+	/** The start made at `startedAt` did not get going. */
+	async publicRunFailed(startedAt: number, error: string, now = Date.now()): Promise<void> {
+		this.setMeta("public_runs", failPublicRun(this.publicRuns(), startedAt, error, now));
+	}
+
+	/**
+	 * The switch for public runs. Off refuses every start until it is turned on again. `clear`
+	 * also forgets the starts on record, which gives the day's runs back.
+	 */
+	async setPublicRuns(enabled: boolean, clear = false): Promise<void> {
+		const state = { ...this.publicRuns(), enabled };
+		this.setMeta("public_runs", clear ? clearPublicRuns(state) : state);
+	}
+
+	/**
+	 * A reset is about to begin (see `resetDemo`). It takes a while before it reaches `reset()`
+	 * here, and until then the board still shows the run before, at rest, which is exactly when a
+	 * public start would be allowed. This is how that start is told to wait.
+	 */
+	async resetBegun(): Promise<void> {
+		this.setMeta("reset_begun", Date.now());
+	}
+
+	/** The reset that was begun did not finish. Nothing is waiting on it any more. */
+	async resetAbandoned(): Promise<void> {
+		this.ctx.storage.sql.exec("DELETE FROM meta WHERE key = 'reset_begun'");
 	}
 
 	/**

@@ -1,0 +1,246 @@
+import { introspectWorkflow } from "cloudflare:test";
+import { env, exports } from "cloudflare:workers";
+import { afterAll, describe, expect, it } from "vitest";
+import type { Metrics } from "../../shared/types";
+import { resetDemo } from "../dispatch";
+import type { LandingStatus } from "../gate/client";
+import { hub } from "../hub/publish";
+import type { RegistryRow } from "../metrics";
+import { AT_REST, PUBLIC_RUN, type PublicRunStatus } from "./public-run";
+
+const ADMIN = { "x-admin-token": "test-admin-token", "content-type": "application/json" };
+const call = (path: string, init?: RequestInit) => exports.default.fetch(`http://premise.test${path}`, init);
+const get = async <T>(path: string) => (await (await call(path)).json()) as T;
+// The hub stamps resets and events with the real clock, so the tests' own times are taken from it: T0 is two hours ago.
+const T0 = Date.now() - 2 * 60 * 60_000;
+const MIN = 60_000;
+
+interface StartAnswer {
+	ok: boolean;
+	reason?: string;
+	startedAt?: number;
+	status: PublicRunStatus;
+}
+
+async function until<T>(read: () => Promise<T>, done: (value: T) => boolean, timeoutMs: number): Promise<T> {
+	const deadline = Date.now() + timeoutMs;
+	for (;;) {
+		const value = await read();
+		if (done(value) || Date.now() > deadline) {
+			return value;
+		}
+		await new Promise((resolve) => setTimeout(resolve, 250));
+	}
+}
+
+describe("the hub's record of public runs", () => {
+	// A hub of its own: nothing here touches the board the other tests share.
+	const own = hub(env, "public-run-test");
+
+	it("gives exactly one of two claims made together", async () => {
+		const [a, b] = await Promise.all([own.claimPublicRun(false, T0), own.claimPublicRun(false, T0)]);
+		expect([a.ok, b.ok].sort()).toEqual([false, true]);
+		const refused = a.ok ? b : a;
+		expect(!refused.ok && refused.status.reason).toBe("running");
+	});
+
+	it("keeps the record through a reset, and counts the reset as a run starting", async () => {
+		const before = await own.publicRun(false, T0 + 10 * MIN);
+		expect(before).toMatchObject({ canStart: true, startsToday: 1, lastStartAt: T0 });
+		await own.reset();
+		const now = Date.now();
+		expect(await own.publicRun(false, now)).toMatchObject({ startsToday: 1, lastStartAt: T0, running: true, starting: true, reason: "running" });
+		// Once the starting time has passed with nothing dispatched, the board is simply empty.
+		expect(await own.publicRun(false, now + PUBLIC_RUN.startingMs + 1000)).toMatchObject({ running: false, canStart: true });
+	});
+
+	it("does not count a reset nobody asked for", async () => {
+		await own.reset(false);
+		expect(await own.publicRun(false, Date.now() + 1000)).toMatchObject({ running: false, starting: false, canStart: true });
+		await own.reset();
+		expect(await own.publicRun(false, Date.now() + 1000)).toMatchObject({ running: true, starting: true });
+		await own.reset(false);
+	});
+
+	it("counts Intents that have not come to rest, and the gate's word, as a run in progress", async () => {
+		await own.publish({ t: "intent.created", intent: { id: "i0000000a", kind: "agent", taskId: "t01", status: "planning" } as never });
+		expect(await own.publicRun(false, Date.now() + 1000)).toMatchObject({ running: true, starting: false, reason: "running" });
+		for (const status of AT_REST) {
+			await own.publish({ t: "intent.status", id: "i0000000a", status } as never);
+			expect(await own.publicRun(false, Date.now() + 1000), status).toMatchObject({ running: false, canStart: true });
+		}
+		// Only the gate knows it still has something in hand. The log is recent, so this is not a stuck run.
+		expect(await own.publicRun(true, Date.now() + 1000)).toMatchObject({ running: true, reason: "running" });
+	});
+
+	it("can be switched off and on, and the switch survives a reset", async () => {
+		await own.setPublicRuns(false);
+		await own.reset();
+		const later = Date.now() + 10 * MIN;
+		expect(await own.publicRun(false, later)).toMatchObject({ enabled: false, canStart: false, reason: "off" });
+		expect((await own.claimPublicRun(false, later)).ok).toBe(false);
+		await own.setPublicRuns(true);
+		expect(await own.publicRun(false, later)).toMatchObject({ enabled: true, canStart: true });
+	});
+
+	it("records a failed start, which ends the wait for it but not the cooldown", async () => {
+		const at = Date.now() + 20 * MIN;
+		const claim = await own.claimPublicRun(false, at);
+		expect(claim.ok).toBe(true);
+		expect(await own.publicRun(false, at + 1000)).toMatchObject({ running: true, starting: true });
+		await own.publicRunFailed(at, "the fresh trunk is importing, not ready");
+		expect(await own.publicRun(false, at + 1000)).toMatchObject({ running: false, reason: "cooldown", failed: true, nextAt: at + PUBLIC_RUN.cooldownMs });
+	});
+
+	it("says a reset has begun before the board is cleared, and forgets it if the reset is abandoned", async () => {
+		await own.setPublicRuns(true, true);
+		await own.reset(false);
+		await own.publish({ t: "intent.created", intent: { id: "i0000000b", kind: "agent", taskId: "t01", status: "landed" } as never });
+		const soon = Date.now() + 1000;
+		expect(await own.publicRun(false, soon)).toMatchObject({ canStart: true, running: false });
+		await own.resetBegun();
+		expect(await own.publicRun(false, soon)).toMatchObject({ canStart: false, reason: "running", starting: true });
+		expect((await own.claimPublicRun(false, soon)).ok).toBe(false);
+		await own.resetAbandoned();
+		expect(await own.publicRun(false, soon)).toMatchObject({ canStart: true });
+		// A reset that goes through ends the "begun" state by itself, and the usual few seconds of grace follow.
+		await own.resetBegun();
+		await own.reset();
+		expect(await own.publicRun(false, Date.now() + 1000)).toMatchObject({ starting: true });
+		expect(await own.publicRun(false, Date.now() + PUBLIC_RUN.resetGraceMs + 1000)).toMatchObject({ canStart: true, running: false });
+		await own.reset(false);
+	});
+
+	it("asks again before a claimed start resets the board, and records a refusal as a failed start", async () => {
+		await own.setPublicRuns(true, true);
+		const at = Date.now() + 2 * 60 * MIN;
+		expect((await own.claimPublicRun(false, at)).ok).toBe(true);
+		expect(await own.confirmPublicRun(at, false, at + 1000)).toBeNull();
+		// Switched off a second after the claim: the start does not go ahead, and nothing waits for it.
+		await own.setPublicRuns(false);
+		expect(await own.confirmPublicRun(at, false, at + 1500)).toMatch(/switched off/);
+		await own.setPublicRuns(true);
+		expect(await own.publicRun(false, at + 2000)).toMatchObject({ failed: true, starting: false, reason: "cooldown" });
+		// And once refused it stays refused.
+		expect(await own.confirmPublicRun(at, false, at + 2500)).toMatch(/no longer the latest/);
+		await own.setPublicRuns(true, true);
+		expect(await own.publicRun(false, at + 3000)).toMatchObject({ canStart: true, startsToday: 0, failed: false });
+	});
+
+	it("refuses when a model has been chosen for the agents", async () => {
+		const later = Date.now() + 3 * 60 * MIN;
+		await own.setLlm({ provider: "google", model: "gemini-3.5-flash-lite" });
+		expect(await own.publicRun(false, later)).toMatchObject({ canStart: false, reason: "model" });
+		expect((await own.claimPublicRun(false, later)).ok).toBe(false);
+		await own.setLlm(null);
+		expect(await own.publicRun(false, later)).toMatchObject({ canStart: true });
+	});
+});
+
+describe("GET /api/live and POST /api/live/start", () => {
+	afterAll(async () => {
+		await hub(env).setLlm(null);
+		await hub(env).setPublicRuns(true);
+		// The run below lands every task on the trunk all the Worker tests share, and leaves its claims in the ledger.
+		// The tests that come after this file start from a fresh trunk, as they would have without it.
+		await resetDemo(env);
+	});
+
+	it("answers only GET and POST, and takes no token", async () => {
+		expect((await call("/api/live", { method: "POST" })).status).toBe(405);
+		expect((await call("/api/live/start")).status).toBe(405);
+		expect((await call("/api/live/start", { method: "DELETE" })).status).toBe(405);
+		const response = await call("/api/live");
+		expect(response.status).toBe(200);
+		expect(response.headers.get("cache-control")).toBe("no-store");
+		expect(await response.json()).toMatchObject({ enabled: true, dailyCap: PUBLIC_RUN.dailyCap, workload: PUBLIC_RUN.workload });
+	});
+
+	it("the switch needs the admin token", async () => {
+		expect((await call("/api/admin/public-runs", { method: "POST", body: JSON.stringify({ enabled: false }) })).status).toBe(401);
+		expect((await call("/api/admin/public-runs", { method: "POST", headers: ADMIN, body: JSON.stringify({ enabled: "no" }) })).status).toBe(400);
+		expect((await call("/api/admin/public-runs", { method: "POST", headers: ADMIN, body: JSON.stringify({ enabled: true, clear: "yes" }) })).status).toBe(400);
+		expect((await get<PublicRunStatus>("/api/live")).enabled).toBe(true);
+	});
+
+	it("refuses to start when switched off, or when the agents are a model, and starts nothing", async () => {
+		// Whatever the tests before this one left running is cleared, and the reset is given time to stop counting as a start.
+		await resetDemo(env);
+		const events = async () => (await hub(env).since(0, 5000)).length;
+		const before = await events();
+
+		expect((await call("/api/admin/public-runs", { method: "POST", headers: ADMIN, body: JSON.stringify({ enabled: false }) })).status).toBe(200);
+		const off = await call("/api/live/start", { method: "POST" });
+		expect(off.status).toBe(403);
+		expect(await off.json()).toMatchObject({ ok: false, reason: "off" });
+		expect((await call("/api/admin/public-runs", { method: "POST", headers: ADMIN, body: JSON.stringify({ enabled: true }) })).status).toBe(200);
+
+		await hub(env).setLlm({ provider: "google", model: "gemini-3.5-flash-lite" });
+		const model = await call("/api/live/start", { method: "POST" });
+		expect(model.status).toBe(403);
+		expect(await model.json()).toMatchObject({ ok: false, reason: "model" });
+		await hub(env).setLlm(null);
+
+		expect(await events()).toBe(before);
+		expect(await hub(env).registry()).toEqual([]);
+	});
+
+	it("starts one run for any number of requests, ignores what the caller sends, and the run lands everything", async () => {
+		await using introspector = await introspectWorkflow(env.AGENT_WORKFLOW);
+		// The reset in the test above still counts as "starting" for a minute. A public start waits it out; here the clock is not ours to move,
+		// so the board is given what ends that state: an Intent that came to rest.
+		await hub(env).publish({ t: "intent.created", intent: { id: "i0000000z", kind: "workload", taskId: "workload", status: "landed" } as never });
+		expect(await hub(env).publicRun(false)).toMatchObject({ canStart: true });
+
+		// A body that asks for a thousand Intents and a model is not read.
+		const body = JSON.stringify({ n: 1000, workload: 1000, seed: 99, taskIds: ["t01-null-expired"], provider: "google", mode: "baseline" });
+		const answers = await Promise.all(Array.from({ length: 5 }, () => call("/api/live/start", { method: "POST", headers: { "content-type": "application/json" }, body })));
+		const parsed = (await Promise.all(answers.map((response) => response.json()))) as StartAnswer[];
+		expect(answers.map((response) => response.status).sort()).toEqual([202, 429, 429, 429, 429]);
+		expect(parsed.filter((answer) => answer.ok)).toHaveLength(1);
+		expect(parsed.filter((answer) => !answer.ok).every((answer) => answer.reason === "running")).toBe(true);
+		expect(await get<PublicRunStatus>("/api/live")).toMatchObject({ running: true, canStart: false, reason: "running", startsToday: 1 });
+
+		// The run reaches the board: every task in the demo repo, and the fixed workload, in the product's own mode.
+		const registry = await until(
+			() => hub(env).registry(),
+			(rows) => rows.filter((row) => row.kind === "agent").length === 12 && rows.filter((row) => row.kind === "workload").length === PUBLIC_RUN.workload,
+			60_000,
+		);
+		expect(registry.filter((row) => row.kind === "agent")).toHaveLength(12);
+		expect(registry.filter((row) => row.kind === "workload")).toHaveLength(PUBLIC_RUN.workload);
+		expect(registry.some((row) => row.id === "i0000000z")).toBe(false);
+		expect(await hub(env).mode()).toBe("premise");
+		expect(await get<PublicRunStatus>("/api/live")).toMatchObject({ running: true, starting: false, reason: "running" });
+		expect((await call("/api/live/start", { method: "POST" })).status).toBe(429);
+		// The owner cannot point the agents at a model while this run is going: the rest of it would call the model.
+		const model = await call("/api/admin/llm", { method: "POST", headers: ADMIN, body: JSON.stringify({ provider: "google", model: "gemini-3.5-flash-lite" }) });
+		expect([400, 409]).toContain(model.status);
+		expect(await hub(env).llm()).toBeNull();
+
+		// And it ends by itself, with every agent's Intent on trunk and nothing broken there.
+		const rest = (rows: RegistryRow[]) => rows.length > 0 && rows.every((row) => (AT_REST as readonly string[]).includes(row.status));
+		const done = await until(
+			async () => ({ registry: await hub(env).registry(), gate: await get<LandingStatus>("/api/gate") }),
+			(state) => rest(state.registry) && !state.gate.busy && state.gate.queue.length === 0 && state.gate.stale.length === 0 && state.gate.rederiving.length === 0,
+			240_000,
+		);
+		const agents = done.registry.filter((row) => row.kind === "agent");
+		expect(agents.map((row) => row.status)).toEqual(Array.from({ length: 12 }, () => "landed"));
+		const metrics = await get<Metrics>("/api/metrics");
+		expect(metrics).toMatchObject({ brokenBuildsOnTrunk: 0, behaviouralRegressionsOnTrunk: 0 });
+		expect(metrics.premisesBroken).toBeGreaterThan(0);
+
+		// Over, and the next start has to wait out the cooldown.
+		const after = await until(() => get<PublicRunStatus>("/api/live"), (status) => !status.running, 10_000);
+		expect(after).toMatchObject({ running: false, canStart: false, reason: "cooldown", failed: false });
+		expect(after.nextAt).toBe((after.lastStartAt ?? 0) + PUBLIC_RUN.cooldownMs);
+		const again = await call("/api/live/start", { method: "POST" });
+		expect(again.status).toBe(429);
+		expect(await again.json()).toMatchObject({ ok: false, reason: "cooldown" });
+		// The owner can give the wait back.
+		expect((await call("/api/admin/public-runs", { method: "POST", headers: ADMIN, body: JSON.stringify({ enabled: true, clear: true }) })).status).toBe(200);
+		expect(await get<PublicRunStatus>("/api/live")).toMatchObject({ canStart: true, startsToday: 0 });
+		void introspector;
+	}, 320_000);
+});

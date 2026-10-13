@@ -66,7 +66,7 @@ This answers the skeptic's question, "doesn't tsc already catch it?" The next qu
 - A live counter of forks created, with their cost.
 
 ## UI (Cloudflare Kumo, `@cloudflare/kumo`)
-*As built:* none of the layout below survived. The front page is the run told as a story over a tape (one row per agent over time), with a details panel for an Intent and two more views, At scale and Compared. Kumo's `Flow` is not used, and there is no ledger rail. `docs/UI.md` has the current brief. The event log, the three premise sources, the 3-line "why" and the human's role are as written.
+*As built:* none of the layout below survived. The front page is the run told as a story over a tape (one row per agent over time), with a details panel for an Intent, and under the tape two panels of numbers, Compared and At scale. A second tab, Live, is the same page for the deployed Worker's board. Kumo's `Flow` is not used, and there is no ledger rail. `docs/UI.md` has the current brief. The event log, the three premise sources, the 3-line "why" and the human's role are as written.
 
 - **Top counters:** agents active, intents landed, broken builds on main, human merges.
 - **Center:** a horizontal `Flow` with Backlog → `Flow.Parallel` lanes. Each lane is a `Flow.List`: Intent card → Check → Gate → main.

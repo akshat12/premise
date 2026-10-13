@@ -8,6 +8,7 @@ import type { Intent } from "../../shared/types";
 import { handOff } from "./handoff";
 import { type AgentOutcome, type AgentParams, runAgent, type Steps } from "./run";
 import { AGENT_SCRIPTS, scriptKey } from "./scripts";
+import { isPublicRunParams, type PublicRunParams, type PublicRunResult, runPublicRun } from "../live/start";
 import { isWorkloadParams, runWorkloadIntent, type WorkloadParams, type WorkloadResult } from "../workload/run";
 
 /** The model client for a run. A scripted run replays from wherever the conversation has got to, so a restarted Workflow carries on with the right turn. */
@@ -63,11 +64,16 @@ export function workflowSteps(step: WorkflowStep): Steps {
 /**
  * One agent run for one Intent. All the logic is in run.ts; this class only wires in the
  * environment and makes each step durable. It also runs scripted workload Intents (workload/run.ts),
- * so that each of those gets an invocation of its own.
+ * so that each of those gets an invocation of its own, and the start of a public run (live/start.ts),
+ * so that it outlives the request that asked for it.
  */
-export class AgentWorkflow extends WorkflowEntrypoint<Env, AgentParams | WorkloadParams> {
-	async run(event: WorkflowEvent<AgentParams | WorkloadParams>, step: WorkflowStep): Promise<AgentOutcome | WorkloadResult> {
+export class AgentWorkflow extends WorkflowEntrypoint<Env, AgentParams | WorkloadParams | PublicRunParams> {
+	async run(event: WorkflowEvent<AgentParams | WorkloadParams | PublicRunParams>, step: WorkflowStep): Promise<AgentOutcome | WorkloadResult | PublicRunResult> {
 		const env = this.env;
+		if (isPublicRunParams(event.payload)) {
+			// A reset, a dispatch and a workload: each done once, never retried (see runPublicRun).
+			return runPublicRun(env, event.payload, (name, fn) => step.do(name, { retries: { limit: 0, delay: "1 second" }, timeout: "5 minutes" }, fn as () => Promise<never>) as Promise<never>);
+		}
 		if (isWorkloadParams(event.payload)) {
 			// A scripted workload Intent: no model, one step. It never throws, so there is nothing to retry.
 			const { job, trunk } = event.payload;

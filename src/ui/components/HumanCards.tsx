@@ -51,15 +51,17 @@ interface CardProps {
 	inline: boolean;
 	intent: IntentView;
 	other?: IntentView;
-	/** In a replay nothing can be answered: the recording decides. */
+	/** In a replay nothing can be answered: the recording decides. On the live board a visitor has no token to answer with. */
 	readOnly: boolean;
+	/** Why the buttons are off, when it is not because this is a recording. */
+	readOnlyNote?: string;
 	token: string;
 	named: (text: string) => string;
 	onNeedToken: () => void;
 	nameOf?: (id: IntentId) => string;
 }
 
-function HumanCard({ inline, intent, other, readOnly, token, named, nameOf, onNeedToken }: CardProps) {
+function HumanCard({ inline, intent, other, readOnly, readOnlyNote, token, named, nameOf, onNeedToken }: CardProps) {
 	const shortName = (subject: IntentView) => nameOf?.(subject.id) ?? callsign(subject).split(" ")[0];
 	const [applied, setApplied] = useState<Choice | null>(null);
 	const [error, setError] = useState<string | null>(null);
@@ -164,7 +166,7 @@ function HumanCard({ inline, intent, other, readOnly, token, named, nameOf, onNe
 					))}
 				</div>
 			)}
-			{readOnly && !applied ? <p style={{ margin: "8px 0 0", fontSize: 12, color: "var(--ink-soft)" }}>This is a recording, so the buttons are off. The recording shows what was chosen.</p> : null}
+			{readOnly && !applied ? <p style={{ margin: "8px 0 0", fontSize: 12, color: "var(--ink-soft)" }}>{readOnlyNote ?? "This is a recording, so the buttons are off. The recording shows what was chosen."}</p> : null}
 			{error ? (
 				<p role="alert" style={{ margin: "8px 0 0", fontSize: 12, color: "var(--redpen)" }}>
 					{error}
@@ -178,6 +180,7 @@ interface HumanCardsProps {
 	cards: IntentView[];
 	intents: Record<IntentId, IntentView>;
 	readOnly: boolean;
+	readOnlyNote?: string;
 	token: string;
 	named: (text: string) => string;
 	/** What an Intent is called on screen ("Agent 5", or its callsign). */
@@ -188,7 +191,7 @@ interface HumanCardsProps {
 }
 
 /** One card for each Intent that is waiting for a person, stacked at the top right. */
-export function HumanCards({ cards, intents, readOnly, token, named, nameOf, onNeedToken, inline = false }: HumanCardsProps) {
+export function HumanCards({ cards, intents, readOnly, readOnlyNote, token, named, nameOf, onNeedToken, inline = false }: HumanCardsProps) {
 	if (cards.length === 0) {
 		return null;
 	}
@@ -196,7 +199,7 @@ export function HumanCards({ cards, intents, readOnly, token, named, nameOf, onN
 		<div className="human-cards flex flex-col gap-2" style={inline ? { marginBottom: 12 } : { position: "fixed", top: 64, right: 12, zIndex: 20 }} aria-live="polite">
 			{cards.map((intent) => {
 				const otherId = waitingOn(intent);
-				return <HumanCard key={intent.id} inline={inline} intent={intent} other={otherId === undefined ? undefined : intents[otherId]} readOnly={readOnly} token={token} named={named} {...(nameOf ? { nameOf } : {})} onNeedToken={onNeedToken} />;
+				return <HumanCard key={intent.id} inline={inline} intent={intent} other={otherId === undefined ? undefined : intents[otherId]} readOnly={readOnly} {...(readOnlyNote === undefined ? {} : { readOnlyNote })} token={token} named={named} {...(nameOf ? { nameOf } : {})} onNeedToken={onNeedToken} />;
 			})}
 		</div>
 	);
