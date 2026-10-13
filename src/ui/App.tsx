@@ -1,5 +1,5 @@
 import { Button, SkeletonLine, Tabs } from "@cloudflare/kumo";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { PremiseEvent } from "../shared/events";
 import type { IntentId } from "../shared/types";
 import type { IntentDiff } from "./lib/diff";
@@ -207,7 +207,15 @@ export function App() {
 	}, [gliding, replayTimes, stream.position, stream.clock]);
 	const tape = useMemo(() => (gliding ? advanceTape(builtTape, glide) : builtTape), [builtTape, gliding, glide]);
 
-	// A new recording (or the same one, started again) opens held on the story's first step.
+	// A new recording opens held on the story's first step. Coming back from the Live tab is the same
+	// recording started again by the stream (it shows nothing until told where to be), and it goes back
+	// to wherever the reader had left it.
+	const leftAt = useRef(0);
+	useEffect(() => {
+		if (mode === "replay" && position > 0) {
+			leftAt.current = position;
+		}
+	}, [mode, position]);
 	useEffect(() => {
 		const first = story?.steps[0];
 		if (first === undefined) {
@@ -215,9 +223,9 @@ export function App() {
 		}
 		setChase(null);
 		setPaused(true);
-		seek(first.at);
+		seek(leftAt.current > 0 ? leftAt.current : first.at);
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [playing]);
+	}, [playing, mode]);
 	// "Next" runs the tape forward to the step, fast enough to take about a second, and holds it there. "Back" simply shows the earlier step.
 	const goToStep = useCallback(
 		(index: number) => {
@@ -290,8 +298,8 @@ export function App() {
 	const pressed = control.startedAt !== null && control.now - control.startedAt < 60_000 && !(control.status?.failed ?? false);
 	const liveStarting = control.asking || (((control.status?.starting ?? false) || pressed) && !ofNewRun);
 	const caption = useMemo(
-		() => (liveStory === null ? null : liveCaption(events, liveStory, { unreachable, starting: liveStarting, over: liveOver, store: control.store, workload: control.status?.workload ?? 30 })),
-		[liveStory, events, unreachable, liveStarting, liveOver, control.store, control.status?.workload],
+		() => (liveStory === null ? null : liveCaption(events, liveStory, { unreachable, connecting: loading, starting: liveStarting, over: liveOver, store: control.store, workload: control.status?.workload ?? 30 })),
+		[liveStory, events, unreachable, loading, liveStarting, liveOver, control.store, control.status?.workload],
 	);
 	const liveStatus = useMemo(() => (control.status === null ? null : { ...control.status, starting: control.status.starting && liveStarting }), [control.status, liveStarting]);
 	const offer = startOffer(liveStatus, control.now, { asking: control.asking || (pressed && liveStarting), unreachable: control.unreachable });
@@ -478,16 +486,23 @@ export function App() {
 					<div aria-hidden="true" style={{ height: 12 }} />
 					{humanCards}
 					{loading ? (
-						<div className="flex flex-col gap-2" aria-label="Loading the run">
-							{Array.from({ length: 4 }, (_, index) => (
-								<div key={index} className="strip" style={{ width: 480, maxWidth: "100%", gridTemplateColumns: "6px 1fr", alignItems: "center" }}>
-									<span className="strip-band" />
-									<div style={{ padding: "0 12px" }}>
-										<SkeletonLine />
+						// The tape's own shape, across the whole width, so nothing jumps when the run arrives.
+						<section className="tape bracketed tape-loading" data-layout={layout} data-density={layout === "phone" ? "compact" : "medium"} aria-label={mode === "live" ? "Connecting to the live board" : "Loading the run"} aria-busy="true">
+							<div className="tape-rows">
+								{Array.from({ length: mode === "live" ? 8 : 4 }, (_, index) => (
+									<div key={index} className="tape-row">
+										<span className="tape-label">
+											<span className="tape-band" />
+											<SkeletonLine />
+										</span>
+										<span className="tape-trackwrap">
+											{/* Bars of different lengths, like a run part of the way through. */}
+											<span className="tape-loading-bar" style={{ width: `${28 + ((index * 23) % 44)}%`, animationDelay: `${index * 90}ms` }} />
+										</span>
 									</div>
-								</div>
-							))}
-						</div>
+								))}
+							</div>
+						</section>
 					) : empty ? (
 						// The sentence above says what to do. This only says the tape is not missing: there is nothing to draw yet.
 						<p className="live-empty label">{unreachable ? "No Worker to show a board for" : liveStarting ? "The board is being cleared" : "No Intents on the board"}</p>
@@ -540,7 +555,7 @@ export function App() {
 			{/* A keyboard gets the palette (⌘K). A touch screen, or a narrow window, gets the same actions as buttons. */}
 			{plainMenu ? <MoreSheet open={paletteOpen} onOpenChange={setPaletteOpen} actions={menuActions} jumps={jumps} /> : <Palette open={paletteOpen} onOpenChange={setPaletteOpen} actions={actions} jumps={jumps} />}
 			<Shortcuts open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
-			{selectedIntent ? <Drawer intent={selectedIntent} events={events} callsignOf={callsignOf} named={named} diff={diff} replay={mode === "replay"} onSelect={setSelected} onClose={() => setSelected(null)} /> : null}
+			{selectedIntent ? <Drawer intent={selectedIntent} events={events} callsignOf={callsignOf} named={named} diff={diff} replay={mode === "replay"} layout={layout} onSelect={setSelected} onClose={() => setSelected(null)} /> : null}
 		</div>
 	);
 }

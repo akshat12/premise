@@ -4,7 +4,7 @@ import { type RaceMark, raceRows } from "../lib/chips";
 import type { IntentView } from "../lib/reduce";
 import { type Band, STATUS_LOOK, type StatusIcon } from "../lib/view";
 
-export const BAND: Record<Band, string> = { "ink-soft": "var(--ink-soft)", amber: "var(--amber)", redpen: "var(--redpen)", bluestamp: "var(--bluestamp)", holds: "var(--holds)" };
+export const BAND: Record<Band, string> = { "ink-soft": "var(--ink-soft)", redo: "var(--amber)", redpen: "var(--redpen)", holds: "var(--holds)" };
 
 const ICONS: Record<StatusIcon, typeof Bell> = {
 	plan: MagnifyingGlass,

@@ -20,8 +20,14 @@ export function LiveBar({ caption, offer, connected, onStart }: LiveBarProps) {
 		<section className="story live" aria-label="The live run">
 			<div className="story-text">
 				<div className="story-progress">
-					<span className="story-count live-flag" data-on={connected} role="status">
-						{connected ? "Live" : "Connecting"}
+					{/* Whether this page is hearing from the Worker. "Live" means what is below is the board as it is this second. */}
+					<span
+						className="story-count live-flag"
+						data-on={connected}
+						role="status"
+						title={connected ? "Connected to the Worker: what you see is its board as it is right now, and it updates by itself." : "Opening the connection to the Worker. If this stays for more than a few seconds, the Worker cannot be reached."}
+					>
+						{connected ? "Live" : "Connecting to the Worker…"}
 					</span>
 				</div>
 				<div aria-live="polite">

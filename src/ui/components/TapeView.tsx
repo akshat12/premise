@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { IntentId } from "../../shared/types";
 import { jobLine, type StoryStep } from "../lib/story";
 import { clock, type Tape, type TapeBreak, type TapeRow, type TapeSegment } from "../lib/tape";
-import { type Lanes, type Layout, STATUS_LOOK } from "../lib/view";
+import { type Lanes, type Layout, STATUS_LOOK, washOf } from "../lib/view";
 import { BAND, StatusMark } from "./Strip";
 
 interface TapeViewProps {
@@ -390,7 +390,7 @@ export function TapeView({ tape, workload, layout, selected, onSelect, live, end
 				const inFocus = focus.includes(row.id);
 				const status = <StatusMark status={row.status} size={12} />;
 				return (
-					<li key={row.id} className="tape-row" data-selected={selected === row.id} data-dimmed={dimmed(row.id)} data-focus={inFocus} data-callout={rowChecks !== undefined && density === "roomy"}>
+					<li key={row.id} className="tape-row" data-selected={selected === row.id} data-dimmed={dimmed(row.id)} data-focus={inFocus} data-wash={washOf(row.status)} data-callout={rowChecks !== undefined && density === "roomy"}>
 						<button type="button" className="tape-label" data-node-id={`strip-${row.id}`} style={{ ["--band" as string]: BAND[STATUS_LOOK[row.status].band] }} aria-pressed={selected === row.id} aria-label={row.summary} onClick={() => onSelect(row.id)}>
 							<span className="tape-band" aria-hidden="true" />
 							<span className="tape-name">

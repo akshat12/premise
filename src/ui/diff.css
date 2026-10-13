@@ -35,6 +35,10 @@
 		border-top: 1px solid var(--rule);
 		border-left: 0;
 	}
+	/* The dividers belong to the three columns in the first row, which is two fifths of the height. */
+	.drawer-columns.has-changes > .column-handle {
+		bottom: 60%;
+	}
 	.drawer-columns.has-changes[data-review="true"] {
 		grid-template-columns: minmax(0, 1fr);
 		grid-template-rows: minmax(0, 1fr);

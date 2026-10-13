@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { PremiseEvent } from "../../shared/events";
 import realRun from "../fixtures/real-run.json";
 import { type IntentView, reduceAll } from "./reduce";
-import { callsign, lanesOf, layoutFor, shortSha, STATUS_LOOK, symbolFile, symbolName, waitingOn, clampDrawerHeight, DRAWER_MIN_HEIGHT, DRAWER_TOP_ROOM } from "./view";
+import { callsign, lanesOf, layoutFor, shortSha, STATUS_LOOK, symbolFile, symbolName, waitingOn, clampDrawerHeight, columnEdges, dragColumns, DRAWER_COLUMN_MIN, DRAWER_COLUMNS, DRAWER_MIN_HEIGHT, DRAWER_TOP_ROOM, washOf } from "./view";
 
 const VERIFY = "src/auth/session.ts#verifySession";
 const events = realRun as PremiseEvent[];
@@ -29,9 +29,11 @@ describe("status looks", () => {
 			expect(look.icon).toBeTruthy();
 		}
 		expect(STATUS_LOOK.stale).toMatchObject({ band: "redpen", word: "stopped" });
-		expect(STATUS_LOOK.rederiving.band).toBe("bluestamp");
+		expect(STATUS_LOOK.rederiving.band).toBe("redo");
 		expect(STATUS_LOOK.landed.band).toBe("holds");
-		expect(STATUS_LOOK.waiting.band).toBe("amber");
+		// Waiting is not a colour: nothing is wrong, and the yellow belongs to work being redone.
+		expect(STATUS_LOOK.waiting.band).toBe("ink-soft");
+		expect(STATUS_LOOK.quarantined.band).toBe("ink-soft");
 		expect(STATUS_LOOK.escalated).toMatchObject({ band: "redpen", icon: "bell", word: "needs you" });
 	});
 });
@@ -97,5 +99,76 @@ describe("clampDrawerHeight", () => {
 
 	it("never goes below the smallest size, even in a very short window", () => {
 		expect(clampDrawerHeight(300, 200)).toBe(DRAWER_MIN_HEIGHT);
+	});
+});
+
+describe("dragColumns", () => {
+	const sum = (weights: readonly number[]) => weights.reduce((total, weight) => total + weight, 0);
+	const WIDTH = 1392;
+	const px = (weights: readonly number[]) => weights.map((weight) => (weight / sum(weights)) * WIDTH);
+
+	it("moves the divider by the pixels it was dragged, changing only the two columns beside it", () => {
+		const before = px(DRAWER_COLUMNS);
+		const after = px(dragColumns(DRAWER_COLUMNS, 1, 80, WIDTH));
+		expect(after[0]).toBeCloseTo(before[0] as number, 6);
+		expect(after[1]).toBeCloseTo((before[1] as number) + 80, 6);
+		expect(after[2]).toBeCloseTo((before[2] as number) - 80, 6);
+		expect(after[3]).toBeCloseTo(before[3] as number, 6);
+		expect(sum(dragColumns(DRAWER_COLUMNS, 1, 80, WIDTH))).toBeCloseTo(sum(DRAWER_COLUMNS), 9);
+	});
+
+	it("stops at the narrowest a column may be, in either direction", () => {
+		const farLeft = px(dragColumns(DRAWER_COLUMNS, 0, -5000, WIDTH));
+		expect(farLeft[0]).toBeCloseTo(DRAWER_COLUMN_MIN, 6);
+		const farRight = px(dragColumns(DRAWER_COLUMNS, 0, 5000, WIDTH));
+		expect(farRight[1]).toBeCloseTo(DRAWER_COLUMN_MIN, 6);
+		// The pair's width is the same as before, so the columns after it have not moved.
+		expect((farRight[0] as number) + (farRight[1] as number)).toBeCloseTo((px(DRAWER_COLUMNS)[0] as number) + (px(DRAWER_COLUMNS)[1] as number), 6);
+	});
+
+	it("is measured from where the drag began, so dragging there and back changes nothing", () => {
+		const out = dragColumns(DRAWER_COLUMNS, 2, 137, WIDTH);
+		const back = dragColumns(out, 2, -137, WIDTH);
+		back.forEach((weight, index) => expect(weight).toBeCloseTo(DRAWER_COLUMNS[index] as number, 9));
+	});
+
+	it("shares a pair evenly at most, where the row is too narrow for two columns of the smallest width", () => {
+		// 200 pixels for two columns that each want 160: however far the divider is dragged, it stays in the middle.
+		expect(dragColumns([1, 1], 0, 400, 200)).toEqual([1, 1]);
+		expect(dragColumns([1, 1], 0, -400, 200)).toEqual([1, 1]);
+	});
+
+	it("leaves the columns alone for a divider that is not there, a row with no width, or a move that is not a number", () => {
+		expect(dragColumns(DRAWER_COLUMNS, 3, 50, WIDTH)).toEqual([...DRAWER_COLUMNS]);
+		expect(dragColumns(DRAWER_COLUMNS, -1, 50, WIDTH)).toEqual([...DRAWER_COLUMNS]);
+		expect(dragColumns(DRAWER_COLUMNS, 0, 50, 0)).toEqual([...DRAWER_COLUMNS]);
+		expect(dragColumns(DRAWER_COLUMNS, 0, Number.NaN, WIDTH)).toEqual([...DRAWER_COLUMNS]);
+	});
+});
+
+describe("columnEdges", () => {
+	it("gives each divider's place across the row, one for every column but the last", () => {
+		expect(columnEdges([1, 1, 2])).toEqual([25, 50]);
+		expect(columnEdges([1])).toEqual([]);
+		expect(columnEdges([])).toEqual([]);
+		const edges = columnEdges(DRAWER_COLUMNS);
+		expect(edges).toHaveLength(3);
+		expect(edges[2]).toBeCloseTo((3.4 / 5.4) * 100, 9);
+	});
+});
+
+describe("washOf", () => {
+	it("colours a lane green when its Intent has landed, red when it is stopped or needs a person, yellow while it is redone", () => {
+		expect(washOf("landed")).toBe("landed");
+		expect(washOf("stale")).toBe("stopped");
+		expect(washOf("escalated")).toBe("stopped");
+		expect(washOf("failed")).toBe("stopped");
+		expect(washOf("rederiving")).toBe("redo");
+	});
+
+	it("leaves every other lane plain, waiting included", () => {
+		for (const status of ["planning", "claiming", "waiting", "working", "submitted", "checking", "quarantined", "queued", "gating"] as const) {
+			expect(washOf(status), status).toBeUndefined();
+		}
 	});
 });

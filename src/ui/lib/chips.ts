@@ -53,7 +53,7 @@ export interface TimelineEntry {
 	other?: IntentId;
 }
 
-const TONE_OF_BAND = { "ink-soft": "plain", holds: "good", redpen: "bad", bluestamp: "rederive", amber: "wait" } as const;
+const TONE_OF_BAND = { "ink-soft": "plain", holds: "good", redpen: "bad", redo: "rederive" } as const;
 
 /** One Intent's story from the event log, newest first: status changes, broken premises, gate verdicts and race results. */
 export function timelineFor(events: readonly PremiseEvent[], id: IntentId, describe: (assertionId: string) => string | undefined = () => undefined): TimelineEntry[] {

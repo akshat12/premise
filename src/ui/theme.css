@@ -18,6 +18,12 @@
 	--accent-wash: #fff4ec;
 	--bluestamp: #2b55c2;
 	--amber: #8f5b0e; /* 5.7:1 on white, so it can be text */
+	--amber-ink: #744a0a; /* amber as text on a yellow fill: 6:1 on the re-derive bar */
+	/* A lane's colour, from how its Intent stands. Pale enough that the status word in the same hue
+	   still reads on it: green 5.3:1, red 4.6:1, amber 4.9:1; grey labels 4.9:1 or better. */
+	--wash-landed: #d8eedf;
+	--wash-stopped: #fdeee7;
+	--wash-redo: #faefc2;
 	--rule: #dcdfdb;
 	--rule-strong: #c9cdc8;
 
@@ -139,9 +145,9 @@ body {
 	align-items: center;
 	height: 20px;
 	padding: 0 5px;
-	border: 1px solid var(--bluestamp);
+	border: 1px solid var(--amber);
 	border-radius: 2px;
-	color: var(--bluestamp);
+	color: var(--amber-ink);
 	font-size: 11px;
 	line-height: 1;
 	animation: stamp-in 120ms ease-out both;
@@ -177,9 +183,12 @@ body {
 }
 
 /* ---- Drawer ---- */
+/* The details panel comes up over the board, and has to read as in front of it: an ink line along its
+   top edge, a shadow thrown up onto what is behind, and a tab on the edge to drag it by and to close it. */
 .drawer {
-	border-top: 1px solid var(--rule);
+	border-top: 2px solid var(--ink);
 	background: var(--surface);
+	box-shadow: 0 -18px 32px -18px rgba(20, 24, 29, 0.38);
 	animation: drawer-up 160ms ease-out both;
 }
 @keyframes drawer-up {
@@ -512,39 +521,85 @@ kbd {
 }
 .drawer {
 	position: relative;
+	/* Its own layer, above anything on the board that is raised (the tape's sticky header, a flag). */
+	z-index: 20;
 }
 /* The drawer's top edge: drag it to make the drawer taller or shorter. */
 .drawer-handle {
 	position: absolute;
-	top: -5px;
+	top: -7px;
 	right: 0;
 	left: 0;
 	z-index: 2;
-	height: 11px;
+	height: 12px;
 	cursor: ns-resize;
 	touch-action: none;
-}
-.drawer-handle::after {
-	content: "";
-	position: absolute;
-	top: 8px;
-	left: 50%;
-	width: 44px;
-	height: 4px;
-	border-radius: 2px;
-	background: var(--ink-soft);
-	opacity: 0.7;
-	transform: translateX(-50%);
-	transition: opacity 120ms linear;
-}
-.drawer-handle:hover::after,
-.drawer-handle:focus-visible::after,
-.drawer[data-dragging="true"] .drawer-handle::after {
-	opacity: 1;
 }
 .drawer-handle:focus-visible {
 	outline: 2px solid var(--bluestamp);
 	outline-offset: -2px;
+}
+/* The tab that stands on the top edge, in the middle: the grip, and Close beside it. */
+.drawer-tab {
+	position: absolute;
+	top: -28px; /* its own height, and the edge's 2px line */
+	left: 50%;
+	z-index: 3;
+	display: flex;
+	align-items: stretch;
+	height: 26px;
+	overflow: hidden;
+	border-radius: 6px 6px 0 0;
+	background: var(--ink);
+	color: var(--surface);
+	box-shadow: 0 -8px 18px -8px rgba(20, 24, 29, 0.45);
+	transform: translateX(-50%);
+}
+.drawer-grip {
+	display: flex;
+	align-items: center;
+	padding: 0 10px 0 12px;
+	cursor: ns-resize;
+	touch-action: none;
+}
+.drawer-close {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	padding: 0 14px 0 12px;
+	border: 0;
+	border-left: 1px solid rgba(251, 251, 250, 0.24);
+	background: none;
+	color: inherit;
+	cursor: pointer;
+	font-family: var(--font-label);
+	font-size: 11px;
+	letter-spacing: 0.08em;
+	line-height: 1;
+	text-transform: uppercase;
+}
+.drawer-grip:hover,
+.drawer-close:hover,
+.drawer[data-dragging="true"] .drawer-grip {
+	background: rgba(251, 251, 250, 0.16);
+}
+.drawer-close:focus-visible {
+	outline: 2px solid #9db5f0; /* the stamp blue, lightened to show on ink */
+	outline-offset: -3px;
+}
+/* A finger needs more to hit than a pointer does. */
+@media (pointer: coarse) {
+	.drawer-tab {
+		top: -38px;
+		height: 36px;
+	}
+	.drawer-grip {
+		padding: 0 14px 0 16px;
+	}
+	.drawer-close {
+		padding: 0 18px 0 16px;
+		font-size: 12px;
+	}
 }
 /* While it is being dragged nothing in it should be selected, and it should not ease towards the pointer. */
 .drawer[data-dragging="true"] {
@@ -555,9 +610,45 @@ kbd {
 	padding: 12px 24px 8px;
 }
 .drawer-columns {
+	position: relative;
 	display: grid;
 	grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr) minmax(0, 1.2fr);
 	border-top: 1px solid var(--rule);
+}
+/* A divider between two columns: drag it to give one more room and the other less. It lies over the
+   boundary, mostly on the side of the column to its right, whose padding it covers (a column's own
+   scrollbar is at its right edge, and stays clear). */
+.column-handle {
+	position: absolute;
+	top: 0;
+	bottom: 0;
+	z-index: 2;
+	width: 11px;
+	margin-left: -3px;
+	cursor: col-resize;
+	touch-action: none;
+}
+.column-handle::after {
+	content: "";
+	position: absolute;
+	top: 0;
+	bottom: 0;
+	left: 2px;
+	width: 3px;
+	background: var(--ink);
+	opacity: 0;
+	transition: opacity 120ms linear;
+}
+.column-handle:hover::after,
+.column-handle:focus-visible::after {
+	opacity: 0.45;
+}
+.column-handle[data-held="true"]::after {
+	opacity: 0.9;
+}
+.column-handle:focus-visible {
+	outline: 2px solid var(--bluestamp);
+	outline-offset: -2px;
 }
 .drawer-column {
 	padding: 12px 24px;
@@ -575,7 +666,6 @@ kbd {
 		left: 0;
 		z-index: 25;
 		height: min(72dvh, 620px);
-		box-shadow: 0 -1px 0 var(--rule);
 	}
 }
 
@@ -633,6 +723,7 @@ kbd {
 	/* A row's height, and how far down it its bars sit. Roomier rows change these two. */
 	--tape-row: 40px;
 	--tape-pad: 10px;
+	--tape-gap: 3px;
 	--tape-line: #eceeea;
 	--tape-edge: #868e97; /* 3.2:1 on the panel: the least a bar's outline may be */
 	position: relative;
@@ -645,6 +736,36 @@ kbd {
 }
 .tape[data-layout="medium"] {
 	--tape-label: 136px;
+}
+/* While a run is being fetched: the tape's shape, with nothing in it yet. */
+.tape-loading .tape-label {
+	justify-content: center;
+	padding-right: 24px;
+}
+.tape-loading .tape-trackwrap {
+	align-items: center;
+	padding-left: 24px;
+	cursor: default;
+}
+.tape-loading-bar {
+	height: 20px;
+	border: 1px solid var(--rule-strong);
+	background: #e4e7e2;
+	animation: tape-loading 1.2s ease-in-out infinite alternate;
+}
+@keyframes tape-loading {
+	from {
+		opacity: 0.35;
+	}
+	to {
+		opacity: 0.9;
+	}
+}
+@media (prefers-reduced-motion: reduce) {
+	.tape-loading-bar {
+		animation: none;
+		opacity: 0.6;
+	}
 }
 .tape-sr {
 	position: absolute;
@@ -892,17 +1013,23 @@ kbd {
 	margin: 0 7px;
 }
 
+/* Each lane is a strip of its own, with air between it and the next: packed edge to edge, a board of
+   coloured lanes reads as one block. The gap grows with the room the rows have. */
 .tape-rows {
 	position: relative;
 	z-index: 1;
+	display: flex;
+	flex-direction: column;
+	gap: var(--tape-gap);
 	margin: 0;
-	padding: 0;
+	padding: var(--tape-gap) 0;
 	list-style: none;
 }
 .tape-row {
 	display: flex;
 	height: var(--tape-row);
-	border-bottom: 1px solid var(--tape-line);
+	/* A hairline above and below, so a lane with no colour is still a lane. */
+	box-shadow: 0 -1px 0 var(--tape-line), 0 1px 0 var(--tape-line);
 }
 .tape-trackwrap,
 .tape-band {
@@ -910,6 +1037,10 @@ kbd {
 }
 .tape-row[data-selected="true"] {
 	box-shadow: inset 0 0 0 1px var(--ink);
+}
+/* The line between the names and the tracks runs through the gaps too. */
+.tape-body {
+	background: linear-gradient(var(--rule), var(--rule)) calc(var(--tape-label) - 1px) 0 / 1px 100% no-repeat;
 }
 .tape-label {
 	position: relative;
@@ -1013,9 +1144,10 @@ button.tape-label:focus-visible {
 	border-style: dashed;
 	background: #fff;
 }
+/* Waiting is a pause, not a colour: the working bar's grey, hatched. (Yellow belongs to work being redone.) */
 .tape-bar[data-kind="wait"] {
-	border-color: var(--amber);
-	background: #fcefd9;
+	background: repeating-linear-gradient(135deg, #fff 0 5px, #dfe2dd 5px 8px);
+	color: #3f4753;
 }
 .tape-bar[data-kind="person"] {
 	border-color: var(--redpen);
@@ -1024,12 +1156,12 @@ button.tape-label:focus-visible {
 	font-weight: 600;
 }
 .tape-bar[data-kind="rederive"] {
-	border-color: var(--bluestamp);
-	background: #e6ecfa;
-	color: var(--bluestamp);
+	border-color: var(--amber);
+	background: #f6e2a3;
+	color: var(--amber-ink);
 	font-weight: 600;
 }
-/* The plain rebase won: nothing was re-derived, so it is not blue. */
+/* The plain rebase won: nothing was re-derived, so it is not yellow. */
 .tape-bar[data-kind="rederive"][data-rebased="true"] {
 	border-color: var(--tape-edge);
 	background: #fff;
@@ -1223,6 +1355,8 @@ button.tape-label:focus-visible {
 }
 .tape-row {
 	scroll-margin-top: 110px;
+	/* Room for the details panel's tab, which stands on the panel's top edge over the row brought into view. */
+	scroll-margin-bottom: 36px;
 }
 .tape-key {
 	display: flex;
@@ -1370,12 +1504,14 @@ button.tape-label:focus-visible {
 	--tape-label: 400px;
 	--tape-row: 94px;
 	--tape-pad: 37px;
+	--tape-gap: 8px;
 	font-size: 14px;
 }
 .tape[data-density="medium"] {
 	--tape-label: 300px;
 	--tape-row: 50px;
 	--tape-pad: 15px;
+	--tape-gap: 5px;
 }
 /* A row a step is about shows what it relies on as well, so it needs a third line. */
 .tape[data-density="medium"] .tape-row[data-focus="true"] {
@@ -1465,6 +1601,41 @@ button.tape-label:focus-visible {
 .tape-row[data-focus="true"],
 .tape-row[data-focus="true"] .tape-label {
 	background: var(--strip);
+}
+/* A lane takes the colour of how its Intent stands, across its whole width: green once it has landed,
+   red while it is stopped or needs a person, yellow while its work is being redone. The status word
+   beside the name says the same thing, so the colour is never the only sign. (After the focus rule,
+   so a lane that is both keeps its colour.) */
+.tape-row,
+.tape-label {
+	transition: background-color 240ms linear;
+}
+.tape-row[data-wash="landed"] {
+	--wash: var(--wash-landed);
+}
+.tape-row[data-wash="stopped"] {
+	--wash: var(--wash-stopped);
+}
+.tape-row[data-wash="redo"] {
+	--wash: var(--wash-redo);
+}
+.tape-row[data-wash],
+.tape-row[data-wash] .tape-label {
+	background: var(--wash);
+}
+.tape-row[data-wash] button.tape-label:hover {
+	background: color-mix(in srgb, var(--wash) 90%, var(--ink));
+}
+/* A lane the step is not about steps back with its marks: half the colour. */
+.tape-row[data-wash][data-dimmed="true"],
+.tape-row[data-wash][data-dimmed="true"] .tape-label {
+	background: color-mix(in srgb, var(--wash) 50%, var(--surface));
+}
+@media (prefers-reduced-motion: reduce) {
+	.tape-row,
+	.tape-label {
+		transition: none;
+	}
 }
 /* The rows a step is not about step back: their marks fade, which are drawn for the eye only (the row's
    button says the same in words). Their words stay at full strength, so they can still be read. */

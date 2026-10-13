@@ -153,6 +153,16 @@ describe("liveCaption, following a run as it happens", () => {
 		expect(liveCaption(main, storyFor(main), { ...MOMENT, unreachable: true, over: true }).id).toBe("end");
 	});
 
+	it("does not say nothing is running before the board has been read", () => {
+		const caption = liveCaption([], storyFor([]), { ...MOMENT, connecting: true, over: false });
+		expect(caption.id).toBe("connecting");
+		expect(`${caption.title} ${caption.body}`).not.toMatch(/Nothing is running|Start a run/);
+		// Once anything has arrived, the board is described, connected or not.
+		expect(liveCaption(main, storyFor(main), { ...MOMENT, connecting: true, over: true }).id).toBe("end");
+		// And no Worker at all is said as that, not as connecting.
+		expect(liveCaption([], storyFor([]), { ...MOMENT, connecting: true, unreachable: true, over: false }).id).toBe("unreachable");
+	});
+
 	it("has something true to say about a finished run in which no premise broke", () => {
 		const quiet = main.filter((event) => event.t !== "premise.broken");
 		const caption = liveCaption(quiet, storyFor(quiet), { ...MOMENT, over: true });

@@ -56,6 +56,8 @@ export interface LiveCaption {
 export interface LiveMoment {
 	/** There is no Worker behind this page (a build served as plain files), or it cannot be reached. */
 	unreachable?: boolean;
+	/** The stream from the Worker is not open yet, and nothing has arrived: what is on the board is not known. */
+	connecting?: boolean;
 	/** A run has been asked for and its Intents are not on the board yet. */
 	starting: boolean;
 	/** The run on the board is over and its last events are in (see runSettled). */
@@ -86,6 +88,14 @@ export function liveCaption(events: readonly PremiseEvent[], story: Story, momen
 			id: "unreachable",
 			title: "The live board is not available from here.",
 			body: "It is the deployed Worker's own board, and this page cannot reach a Worker. The Demo tab plays a run that was recorded on real Cloudflare Artifacts.",
+		};
+	}
+	if (agents === 0 && moment.connecting) {
+		// Said instead of "nothing is running": until the board has been read, that is not known.
+		return {
+			id: "connecting",
+			title: "Opening the live board.",
+			body: `This tab follows the deployed Worker as it happens. It is asking what is on the board right now.`,
 		};
 	}
 	if (agents === 0) {
