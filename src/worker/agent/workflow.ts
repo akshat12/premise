@@ -85,7 +85,9 @@ export class AgentWorkflow extends WorkflowEntrypoint<Env, AgentParams | Workloa
 			const applied = await withChosenLlm(env);
 			return { LLM: applied.LLM, LLM_MODEL: applied.LLM_MODEL };
 		});
-		const llm = llmFor({ ...env, ...chosen }, params);
+		// Made at the first turn, inside its step: a provider that cannot be set up (a missing key) then fails
+		// the Intent with the reason, and does not leave it "planning" with the Workflow gone.
+		const llm = (intent: Intent, messages: readonly LlmMessage[]) => llmFor({ ...env, ...chosen }, params)(intent, messages);
 		return runAgent(
 			{
 				env,

@@ -178,13 +178,14 @@ export class Landing extends DurableObject<Env> {
 	/** The task list from trunk, which decides the order Intents are gated and re-derived in. Read once per trunk. */
 	private async tasks(trunk: string, store: RepoStore): Promise<TaskDef[]> {
 		if (this.taskOrder?.trunk !== trunk) {
-			let tasks: TaskDef[] = [];
 			try {
-				tasks = JSON.parse((await store.readFile(trunk, "main", "premise/tasks.json")) ?? "[]") as TaskDef[];
+				const tasks = JSON.parse((await store.readFile(trunk, "main", "premise/tasks.json")) ?? "[]") as TaskDef[];
+				this.taskOrder = { trunk, tasks };
 			} catch {
-				// No readable task list: every Intent gets the same priority and the queues are first in, first out.
+				// No readable task list this time: every Intent gets the same priority and the queues are first in,
+				// first out. Not remembered, so that one failed read does not last the whole run.
+				return [];
 			}
-			this.taskOrder = { trunk, tasks };
 		}
 		return this.taskOrder.tasks;
 	}

@@ -72,9 +72,15 @@ describe("EventHub RPC", () => {
 			byIntent: "i3k9x0a2q",
 			changedSymbols: ["src/auth/session.ts#verifySession"],
 		} as const;
+		// The Intent it names has to be one this log has seen created: an event about any other is from a run before.
+		await hub.publish({ t: "intent.created", intent: { id: body.byIntent, kind: "agent", taskId: "t01", status: "planning" } as never });
 		await hub.publish({ ...body, changedSymbols: [...body.changedSymbols] });
-		const [stored] = await hub.since(0);
+		const [, stored] = await hub.since(0);
 		expect(stored).toMatchObject(body);
+		// And one about an Intent it has not seen is neither kept nor sent.
+		expect(await hub.publish({ ...body, byIntent: "i0000000x", changedSymbols: [] })).toMatchObject({ seq: 0 });
+		expect(await hub.publish({ t: "gate.result", report: { intentId: "i0000000x", landedCommit: null, ok: false } as never })).toMatchObject({ seq: 0 });
+		expect(await hub.since(0)).toHaveLength(2);
 	});
 
 	it("reset clears the log and restarts seq at 1", async () => {

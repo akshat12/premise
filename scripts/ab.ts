@@ -67,23 +67,25 @@ if (publicRuns) {
 	console.log("Public runs (the Live tab's Start button) are off until this finishes.");
 	// Ctrl-C skips `finally`, and would leave the button off with nothing said.
 	process.once("SIGINT", () => void restore().finally(() => process.exit(130)));
-	// A run a visitor started a moment ago is still going, or about to reset the board. Wait for it to be over.
-	for (let waited = 0; ; waited += 5) {
-		const live = (await fetch(`${url}/api/live`).then((response) => response.json())) as { running?: boolean };
-		if (!live.running) {
-			break;
-		}
-		if (waited === 0) {
-			console.log("A run is in progress on the board. Waiting for it to end before measuring.");
-		}
-		if (waited >= 20 * 60) {
-			throw new Error("the run on the board did not end within 20 minutes; reset the demo and try again");
-		}
-		await new Promise((resolve) => setTimeout(resolve, 5000));
-	}
 }
 const trials: Trial[] = [];
 try {
+	if (publicRuns) {
+		// A run a visitor started a moment ago is still going, or about to reset the board. Wait for it to be over.
+		for (let waited = 0; ; waited += 5) {
+			const live = (await fetch(`${url}/api/live`).then((response) => response.json())) as { running?: boolean };
+			if (!live.running) {
+				break;
+			}
+			if (waited === 0) {
+				console.log("A run is in progress on the board. Waiting for it to end before measuring.");
+			}
+			if (waited >= 20 * 60) {
+				throw new Error("the run on the board did not end within 20 minutes; reset the demo and try again");
+			}
+			await new Promise((resolve) => setTimeout(resolve, 5000));
+		}
+	}
 	for (const seed of seeds) {
 		const results = {} as Record<AbMode, ModeResult>;
 		for (const mode of AB_MODES) {

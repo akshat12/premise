@@ -93,7 +93,7 @@ describe("runAgent: a scripted run of t04, end to end", () => {
 		const { outcome, steps, intent } = await run(store, started, scriptFor("t04-session-ttl-header"));
 
 		expect(outcome).toMatchObject({ result: "submitted", turns: 5 });
-		expect(steps.names).toEqual(["load", "plan-turn-1", "plan-turn-2", "claim-1", "work-turn-1", "work-turn-2", "work-turn-3", "push", "record-push", "hand-off"]);
+		expect(steps.names).toEqual(["load", "plan-turn-1", "plan-turn-2", "status-1-claim", "claim-1", "status-2-granted", "work-turn-1", "work-turn-2", "work-turn-3", "push", "record-push", "hand-off"]);
 
 		// The Intent went all the way to the gate's queue.
 		expect(intent.status).toBe("queued");
