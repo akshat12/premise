@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { PremiseEvent } from "../../shared/events";
-import { appendEvents, backoffMs, dueBy, liveUrl, replayDelays, replayOffsets, timeAtClock } from "./stream";
+import { appendEvents, backoffMs, dueBy, httpUrl, liveUrl, replayDelays, replayOffsets, restarted, timeAtClock } from "./stream";
 
 const marker = (seq: number, ts: number, label = "m"): PremiseEvent => ({ t: "demo.marker", label, seq, ts });
 const status = (seq: number, ts: number): PremiseEvent => ({ t: "intent.status", id: "i00000001", status: "working", seq, ts });
@@ -107,5 +107,31 @@ describe("timeAtClock", () => {
 		expect(timeAtClock(offsets, times, 3, 99999)).toBe(5000);
 		expect(timeAtClock(offsets, times, 0, 700)).toBe(0);
 		expect(timeAtClock([], [], 0, 10)).toBe(0);
+	});
+});
+
+
+describe("httpUrl", () => {
+	it("is the socket's address without /ws, over http, with the place to read from", () => {
+		expect(httpUrl("/api/events/ws", 0)).toBe("http://localhost/api/events?since=0");
+		expect(httpUrl("/api/events/ws", 976)).toBe("http://localhost/api/events?since=976");
+		expect(httpUrl("/api/events/ws", 0, 1)).toBe("http://localhost/api/events?since=0&limit=1");
+		expect(httpUrl("https://premise.example/api/events/ws", 12)).toBe("https://premise.example/api/events?since=12");
+	});
+});
+
+describe("restarted", () => {
+	it("says the log is another run's when its first event is not the one held", () => {
+		expect(restarted(1000, { ts: 2000 })).toBe(true);
+		expect(restarted(1000, { ts: 1000 })).toBe(false);
+	});
+
+	it("says so when the log is now empty and something is held", () => {
+		expect(restarted(1000, undefined)).toBe(true);
+	});
+
+	it("has nothing to say when nothing is held yet", () => {
+		expect(restarted(null, { ts: 2000 })).toBe(false);
+		expect(restarted(null, undefined)).toBe(false);
 	});
 });

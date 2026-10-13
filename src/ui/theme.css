@@ -798,6 +798,8 @@ kbd {
 	border-bottom: 1px solid var(--rule);
 	border-radius: 6px 6px 0 0;
 	background: var(--surface);
+	/* Stuck to the top, the tape's own top border has scrolled away: the header keeps an edge of its own. */
+	box-shadow: 0 -1px 0 var(--rule);
 }
 .tape-headrow {
 	display: flex;
@@ -1898,9 +1900,18 @@ button.tape-label:focus-visible {
 	border-radius: 6px;
 	text-align: center;
 }
-/* What goes with the recorded run, under its tape: the comparison, then the larger run. */
-.below {
-	margin-top: 28px;
+/* The Results tab: what was measured, as a column to read. The comparison, then the larger run. */
+.results {
+	display: flex;
+	flex-direction: column;
+	gap: 28px;
+	width: 100%;
+	max-width: 1080px;
+	margin: 0 auto;
+	padding: 4px 0 16px;
+}
+.results > .plane {
+	max-width: none;
 }
 @media (max-width: 767px) {
 	.live-controls {
@@ -1911,8 +1922,8 @@ button.tape-label:focus-visible {
 		max-width: none;
 		text-align: left;
 	}
-	.below {
-		margin-top: 20px;
+	.results {
+		gap: 20px;
 	}
 }
 @media (prefers-reduced-motion: reduce) {

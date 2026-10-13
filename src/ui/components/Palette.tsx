@@ -23,7 +23,6 @@ interface PaletteProps {
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
 	actions: Command[];
-	jumps: Command[];
 }
 
 /**
@@ -31,7 +30,7 @@ interface PaletteProps {
  * keyboard: it opens the on-screen keyboard over half the page, and on some phones a tap on one
  * of its items does not arrive as a click at all. A list of buttons has neither problem.
  */
-export function MoreSheet({ open, onOpenChange, actions, jumps }: PaletteProps) {
+export function MoreSheet({ open, onOpenChange, actions }: PaletteProps) {
 	const choose = (command: Command) => {
 		onOpenChange(false);
 		command.run();
@@ -55,28 +54,19 @@ export function MoreSheet({ open, onOpenChange, actions, jumps }: PaletteProps) 
 					</button>
 				</div>
 				<ul className="more-list">{shown.map(row)}</ul>
-				{jumps.length > 0 ? (
-					<>
-						<h3 className="label more-group">Open an agent's Intent</h3>
-						<ul className="more-list">{jumps.map(row)}</ul>
-					</>
-				) : null}
 			</Dialog>
 		</Dialog.Root>
 	);
 }
 
-/** ⌘K: every action on the screen, and a jump to any agent's Intent, from the keyboard. */
-export function Palette({ open, onOpenChange, actions, jumps }: PaletteProps) {
+/** ⌘K: the page's actions, from the keyboard. (An agent's Intent is opened by clicking its row; it is not listed here.) */
+export function Palette({ open, onOpenChange, actions }: PaletteProps) {
 	const [search, setSearch] = useState("");
 	const groups = useMemo<CommandGroup[]>(() => {
 		const needle = search.trim().toLowerCase();
 		const match = (command: Command) => needle === "" || command.title.toLowerCase().includes(needle);
-		return [
-			{ id: "actions", label: "Actions", items: actions.filter(match) },
-			{ id: "jump", label: "Jump to", items: jumps.filter(match) },
-		].filter((group) => group.items.length > 0);
-	}, [search, actions, jumps]);
+		return [{ id: "actions", label: "Actions", items: actions.filter(match) }].filter((group) => group.items.length > 0);
+	}, [search, actions]);
 
 	const choose = (command: Command) => {
 		onOpenChange(false);
@@ -100,7 +90,7 @@ export function Palette({ open, onOpenChange, actions, jumps }: PaletteProps) {
 			onSelect={(command) => choose(command)}
 			getSelectableItems={(all) => all.flatMap((group) => group.items)}
 		>
-			<CommandPalette.Input placeholder="Type a command, or an agent's name to jump to" />
+			<CommandPalette.Input placeholder="Type a command" />
 			<CommandPalette.List>
 				<CommandPalette.Results>
 					{(group: CommandGroup) => (

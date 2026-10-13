@@ -47,10 +47,11 @@ Every row, what it means, and the per-seed results are in [docs/ab-results.md](d
 
 ## See it in 2 minutes
 
-The site has two tabs.
+The site has three tabs.
 
-- **Demo:** <https://premise.akshatdivekar.workers.dev/>. A real run of the deployed system on Artifacts, told in seven steps: the four agents above, each on its own fork, drawn as four rows over time. **Next** and **Back** (or `→` and `←`) move between the steps, **Play** runs it through at normal speed, and clicking a row opens that agent's Intent: why it did what it did, what it relies on, its story, and its changes. Under the four rows, on the same page, are the three-rule comparison above and the numbers from a larger run of the same system: twelve agents and 294 scripted workload Intents (309 forks, 266 Intents landed in about four minutes). <https://premise.akshatdivekar.workers.dev/?demo=scale> walks through that larger run.
+- **Demo:** <https://premise.akshatdivekar.workers.dev/>. A real run of the deployed system on Artifacts, told in seven steps: the four agents above, each on its own fork, drawn as four rows over time. **Next** and **Back** (or `→` and `←`) move between the steps, **Play** runs it through at normal speed, and clicking a row opens that agent's Intent: why it did what it did, what it relies on, its story, and its changes.
 - **Live:** <https://premise.akshatdivekar.workers.dev/?live>. The deployed Worker's own board, and a **Start a run** button that needs no account and no token. It starts twelve scripted agents and thirty scripted workload Intents on real Artifacts, and the sentence over the board follows the run as it happens: the landing, the Intents it stops, each re-derive, and the result. A run takes three to four minutes. One runs at a time, and there is a short wait between runs; if the button says a run is in progress, it is someone else's, and you are watching it.
+- **Results:** <https://premise.akshatdivekar.workers.dev/?results>. What was measured: the three-rule comparison above, and the numbers from a larger run of the same system, twelve agents and 294 scripted workload Intents (309 forks, 266 Intents landed in about four minutes). <https://premise.akshatdivekar.workers.dev/?demo=scale> walks through that larger run.
 - **With a live model:** <https://premise.akshatdivekar.workers.dev/?demo=live> replays the same four tasks with Gemini 3.5 Flash-Lite as every agent. See "What a model does on its own" for what happened.
 - **Video:** _link to come_.
 

@@ -33,14 +33,18 @@ import { callsign, lanesOf, layoutFor, OUTSIDE } from "./lib/view";
 
 const LIVE_URL = "/api/events/ws";
 /**
- * Two tabs, and they are the same page twice. "Demo" plays a recorded run as a story, with the
- * numbers that go with it underneath. "Live" is the deployed Worker's board, and a button that
- * starts a run on it.
+ * Three tabs. "Demo" plays a recorded run as a story, and nothing else. "Live" is the same page for
+ * the deployed Worker's board, with a button that starts a run on it. "Results" is what was
+ * measured: the same work under three rules, and one larger run. (The numbers were under the story
+ * for an evening; the user wanted the Demo page clean.)
  */
+type Tab = "demo" | "live" | "results";
+/** Where the events on screen come from: a recording, or the Worker. Results has a recording behind it, unseen. */
 type Mode = "replay" | "live";
-const TABS = [
-	{ value: "replay" as const, label: "Demo" },
-	{ value: "live" as const, label: "Live" },
+const TABS: { value: Tab; label: string }[] = [
+	{ value: "demo", label: "Demo" },
+	{ value: "live", label: "Live" },
+	{ value: "results", label: "Results" },
 ];
 /** How long a "Next" takes to carry the tape to the next step, whatever stretch of the run lies between. */
 const STEP_TRAVEL_MS = 1100;
@@ -49,7 +53,7 @@ const STEP_MAX_SPEED = 40;
 
 const query = new URLSearchParams(window.location.search);
 /** `?live` opens on the live stream; otherwise the recorded run plays, which needs no backend. */
-const startMode = (): Mode => (query.has("live") ? "live" : "replay");
+const startTab = (): Tab => (query.has("live") ? "live" : query.has("results") ? "results" : "demo");
 /** `?frame=420` shows the recording as it stood after its first 420 events and stops there: a still, for screenshots and for pointing at one moment. */
 const FRAME = Number(query.get("frame")) > 0 ? Math.floor(Number(query.get("frame"))) : null;
 /**
@@ -71,7 +75,7 @@ const OPENING_NOTES: Record<string, string> = {
 	live: "In this run the four agents are a live model (Gemini 3.5 Flash-Lite), not scripts. About five and a half minutes of waiting for the model are cut out.",
 };
 /** Added to the last step of the front-page run. */
-const WHAT_NEXT = "Below: the same work landed under three different rules. The Live tab runs it for real.";
+const WHAT_NEXT = "The Results tab has the numbers. The Live tab runs it for real.";
 const DEMO = query.get("demo") ?? DEFAULT_RUN;
 /**
  * `?admin` shows the owner's tools under "More": dispatching by hand, the workload, and reset. A
@@ -105,7 +109,9 @@ const BUILT_IN = () => import("./fixtures/real-run.json").then((module) => modul
 const AB_RESULTS: AbResults | null = Object.values(import.meta.glob<AbResults>("../../docs/ab-results.json", { import: "default", eager: true }))[0] ?? null;
 
 export function App() {
-	const [mode, setMode] = useState<Mode>(startMode);
+	const [tab, setTab] = useState<Tab>(startTab);
+	const mode: Mode = tab === "live" ? "live" : "replay";
+	const onResults = tab === "results";
 	// A replay opens held on the story's first step. "Play" lets it run by itself.
 	const [paused, setPaused] = useState(true);
 	// On the way to a step: where the tape is headed and how fast it is being run to get there.
@@ -318,20 +324,22 @@ export function App() {
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [mode, boardAtRest, boardEmpty, control.refresh]);
 
-	// The larger run's numbers sit under the front-page run. They are loaded once that run is on screen.
-	const [scaleRun, setScaleRun] = useState<PremiseEvent[] | null>(null);
-	const scaleFromOtherRun = DEMO === DEFAULT_RUN && RUNS[`../../demo/runs/${SCALE_RUN}.json`] !== undefined;
+	// The Results tab shows the larger run's numbers. That run is a recording of its own, loaded the first
+	// time the tab is opened; when it is the one playing (`?demo=scale`), it is already here.
+	const [otherRun, setOtherRun] = useState<PremiseEvent[] | null>(null);
+	const scaleFromOtherRun = DEMO !== SCALE_RUN && RUNS[`../../demo/runs/${SCALE_RUN}.json`] !== undefined;
 	useEffect(() => {
-		if (mode !== "replay" || recording === null || !scaleFromOtherRun || scaleRun !== null) {
+		if (!onResults || !scaleFromOtherRun || otherRun !== null) {
 			return;
 		}
 		let current = true;
-		void RUNS[`../../demo/runs/${SCALE_RUN}.json`]?.().then((data) => current && setScaleRun(readRecording(data).events));
+		void RUNS[`../../demo/runs/${SCALE_RUN}.json`]?.().then((data) => current && setOtherRun(readRecording(data).events));
 		return () => {
 			current = false;
 		};
-	}, [mode, recording, scaleFromOtherRun, scaleRun]);
-	const scaleState = useMemo(() => (scaleRun === null ? null : reduceAll(scaleRun)), [scaleRun]);
+	}, [onResults, scaleFromOtherRun, otherRun]);
+	const scaleRun = scaleFromOtherRun ? otherRun : DEMO === SCALE_RUN ? recording : null;
+	const scaleState = useMemo(() => (scaleRun === null || !onResults ? null : reduceAll(scaleRun)), [scaleRun, onResults]);
 	const diff = useIntentDiff(selectedIntent, mode, recordedDiffs);
 
 	// The page's keys: the story's (→ ← Space), j / k to open the next or previous agent's Intent, Esc to close it.
@@ -352,7 +360,7 @@ export function App() {
 				return;
 			}
 			// The player's keys. They belong to a replay, and stay out of the way of a dialog.
-			if (mode === "replay" && FRAME === null && !event.metaKey && !event.ctrlKey && !event.altKey && target?.closest("[role=dialog]") == null) {
+			if (tab === "demo" && FRAME === null && !event.metaKey && !event.ctrlKey && !event.altKey && target?.closest("[role=dialog]") == null) {
 				if (event.key === " ") {
 					event.preventDefault();
 					if (paused && chase === null) {
@@ -388,34 +396,38 @@ export function App() {
 		};
 		window.addEventListener("keydown", onKey);
 		return () => window.removeEventListener("keydown", onKey);
-	}, [lanes.agents, selected, mode, paused, chase, stepIndex, goToStep, playThrough]);
+	}, [lanes.agents, selected, tab, paused, chase, stepIndex, goToStep, playThrough]);
 
-	const show = useCallback((next: Mode) => {
+	const show = useCallback((next: Tab) => {
 		setSelected(null);
 		setChase(null);
-		setMode(next);
+		setTab(next);
 	}, []);
 	const tabs = (
 		<Tabs
 			// The tab marker is measured when it moves. A new layout moves every tab, so start it afresh.
 			key={layout}
 			size={layout === "phone" ? "sm" : "base"}
-			value={mode}
-			onValueChange={(value: string) => show(value === "live" ? "live" : "replay")}
+			value={tab}
+			onValueChange={(value: string) => show(TABS.find((candidate) => candidate.value === value)?.value ?? "demo")}
 			tabs={TABS}
 		/>
 	);
 
 	// What the bar says is on screen: the kind of run, or that this is one frame of it held still.
 	const known = own(RUN_KINDS, DEMO);
-	const runKind: RunKind | undefined =
-		mode === "live" ? liveKind(control.store) : still !== null ? { label: `Still · after event ${still.length}`, extra: known?.label.replace(/^Replay · /, "") ?? "a recorded run", detail: "One moment of the recorded run, held still." } : known;
+	const runKind: RunKind | undefined = onResults
+		? { label: "Results · measured on Cloudflare", extra: "scripted agents", detail: "Numbers from runs of the deployed system on real Artifacts: the same work landed under three rules, and one larger recorded run. The agents in them are scripted." }
+		: mode === "live"
+			? liveKind(control.store)
+			: still !== null ? { label: `Still · after event ${still.length}`, extra: known?.label.replace(/^Replay · /, "") ?? "a recorded run", detail: "One moment of the recorded run, held still." } : known;
 	const cards = useMemo(() => openCards(state), [state]);
 	const figures = useMemo(() => figuresFor(events, state.intents, state.metrics), [events, state.intents, state.metrics]);
 	const actions = useMemo<Command[]>(
 		() => [
 			{ id: "live", title: "Watch the live board", hint: "what the deployed Worker is doing now", run: () => show("live") },
-			{ id: "replay", title: "Play the demo recording", hint: "the recorded run, told as a story", run: () => show("replay") },
+			{ id: "replay", title: "Play the demo recording", hint: "the recorded run, told as a story", run: () => show("demo") },
+			{ id: "results", title: "See the results", hint: "the same work under three rules, and a larger run", run: () => show("results") },
 			{ id: "dispatch", owner: true, title: "Dispatch tasks", hint: "starts a run; needs the admin token", run: () => setDispatching(true) },
 			{ id: "workload", owner: true, title: "Run workload", hint: "scripted Intents; needs the admin token", run: () => setDispatching(true) },
 			{
@@ -441,10 +453,9 @@ export function App() {
 	// The owner's tools are offered to the owner: with `?admin` in the address, or once the token has been typed in this session.
 	const ownerTools = ADMIN || token !== "";
 	const offered = useMemo(() => actions.filter((command) => ownerTools || !command.owner), [actions, ownerTools]);
-	// Whichever of "watch live" and "play the recording" is already on screen is not offered.
-	const menuActions = useMemo(() => offered.filter((command) => command.id !== (mode === "live" ? "live" : "replay")), [offered, mode]);
+	// The tab that is already on screen is not offered.
+	const menuActions = useMemo(() => offered.filter((command) => command.id !== (tab === "demo" ? "replay" : tab)), [offered, tab]);
 	const plainMenu = layout !== "wide" || COARSE_POINTER;
-	const jumps = useMemo<Command[]>(() => lanes.agents.map((intent) => ({ id: `jump-${intent.id}`, title: `Open ${callsignOf(intent.id)}`, run: () => setSelected(intent.id) })), [lanes.agents, callsignOf]);
 
 	// "Nothing in flight" is a state of the live board. A replay's first seconds, before its first Intent, are not it.
 	const empty = mode === "live" && !loading && lanes.agents.length === 0 && lanes.workload === null;
@@ -471,9 +482,7 @@ export function App() {
 			onNeedToken={() => setDispatching(true)}
 		/>
 	);
-	const storied = story !== null && story.steps.length > 0 && still === null;
-	// The numbers that go with the recorded run: the comparison, and the larger run. A still is one frame, and has neither.
-	const below = mode === "replay" && still === null && recording !== null && recording.length > 0;
+	const storied = story !== null && story.steps.length > 0 && still === null && !onResults;
 	return (
 		<div className="flex h-full flex-col" style={wide ? { minWidth: 1280 } : undefined}>
 			<SimpleBar layout={layout} views={tabs} onMore={() => setPaletteOpen(true)} {...(runKind === undefined ? {} : { kind: runKind })} />
@@ -490,19 +499,26 @@ export function App() {
 					</Button>
 				</div>
 			) : null}
-			<div className="flex min-h-0 flex-1">
-				<main className="min-w-0 flex-1 overflow-auto" style={{ padding: wide ? "0 24px 8px" : "0 12px 8px" }} aria-label={mode === "live" ? "The live board" : "The recorded run"}>
-					{/* A spacer that scrolls away, so the tape's sticky header meets the top of the scroll area with nothing showing above it. */}
-					<div aria-hidden="true" style={{ height: 12 }} />
-					{humanCards}
-					{loading ? (
+			{/* The space above the board is outside the part that scrolls, so it is still there when the tape's header has stuck to the top. */}
+			<div className="flex min-h-0 flex-1" style={{ paddingTop: 12 }}>
+				<main className="min-w-0 flex-1 overflow-auto" style={{ padding: wide ? "0 24px 8px" : "0 12px 8px" }} aria-label={onResults ? "Results" : mode === "live" ? "The live board" : "The recorded run"}>
+					{onResults ? null : humanCards}
+					{onResults ? (
+						<div className="results">
+							<AbPanel results={AB_RESULTS} />
+							{scaleRun === null || scaleState === null ? (
+								scaleFromOtherRun || DEMO === SCALE_RUN ? <p style={{ fontSize: 13, color: "var(--ink-soft)" }}>Loading the larger run…</p> : null
+							) : (
+								<ScaleView events={scaleRun} metrics={scaleState.metrics} intents={scaleState.intents} {...(scaleFromOtherRun ? { otherRun: { name: SCALE_RUN, href: `/?demo=${SCALE_RUN}` } } : {})} />
+							)}
+						</div>
+					) : loading ? (
 						// The tape's own shape, across the whole width, so nothing jumps when the run arrives.
 						<section className="tape bracketed tape-loading" data-layout={layout} data-density={layout === "phone" ? "compact" : "medium"} aria-label={mode === "live" ? "Connecting to the live board" : "Loading the run"} aria-busy="true">
 							<div className="tape-rows">
 								{Array.from({ length: mode === "live" ? 8 : 4 }, (_, index) => (
 									<div key={index} className="tape-row">
 										<span className="tape-label">
-											<span className="tape-band" />
 											<SkeletonLine />
 										</span>
 										<span className="tape-trackwrap">
@@ -531,24 +547,6 @@ export function App() {
 							{...((story ?? liveStory) !== null ? { notes: (story ?? liveStory)?.notes ?? {} } : {})}
 						/>
 					)}
-					{below && DEMO === DEFAULT_RUN ? (
-						<div className="below">
-							<AbPanel results={AB_RESULTS} />
-						</div>
-					) : null}
-					{below && scaleFromOtherRun ? (
-						<div className="below">
-							{scaleRun === null || scaleState === null ? (
-								<p style={{ fontSize: 13, color: "var(--ink-soft)" }}>Loading the larger run…</p>
-							) : (
-								<ScaleView events={scaleRun} metrics={scaleState.metrics} intents={scaleState.intents} otherRun={{ name: SCALE_RUN, href: `/?demo=${SCALE_RUN}` }} />
-							)}
-						</div>
-					) : below && DEMO === SCALE_RUN ? (
-						<div className="below">
-							<ScaleView events={events} metrics={state.metrics} intents={state.intents} />
-						</div>
-					) : null}
 					<div style={{ marginTop: 6 }}>
 						<BuiltOn />
 					</div>
@@ -563,9 +561,9 @@ export function App() {
 				/>
 			) : null}
 			{/* A keyboard gets the palette (⌘K). A touch screen, or a narrow window, gets the same actions as buttons. */}
-			{plainMenu ? <MoreSheet open={paletteOpen} onOpenChange={setPaletteOpen} actions={menuActions} jumps={jumps} /> : <Palette open={paletteOpen} onOpenChange={setPaletteOpen} actions={offered} jumps={jumps} />}
+			{plainMenu ? <MoreSheet open={paletteOpen} onOpenChange={setPaletteOpen} actions={menuActions} /> : <Palette open={paletteOpen} onOpenChange={setPaletteOpen} actions={offered} />}
 			<Shortcuts open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
-			{selectedIntent ? <Drawer intent={selectedIntent} events={events} callsignOf={callsignOf} named={named} diff={diff} replay={mode === "replay"} layout={layout} onSelect={setSelected} onClose={() => setSelected(null)} /> : null}
+			{selectedIntent && !onResults ? <Drawer intent={selectedIntent} events={events} callsignOf={callsignOf} named={named} diff={diff} replay={mode === "replay"} layout={layout} onSelect={setSelected} onClose={() => setSelected(null)} /> : null}
 		</div>
 	);
 }

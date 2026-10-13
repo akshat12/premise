@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { PremiseEvent } from "../../shared/events";
 import { parseServerMessage, PING } from "../../shared/wire";
-import { appendEvents, backoffMs, dueBy, liveUrl, PING_INTERVAL_MS, replayOffsets } from "./stream";
+import { appendEvents, backoffMs, dueBy, httpUrl, liveUrl, OPEN_TIMEOUT_MS, PING_INTERVAL_MS, POLL_AFTER_MS, POLL_EVERY_MS, replayOffsets, restarted } from "./stream";
 
 /** The replay looks at its clock at most once a frame. */
 const FRAME_MS = 16;
@@ -46,48 +46,146 @@ export function useEventStream(source: StreamSource): EventStream {
 		}
 		let stopped = false;
 		let socket: WebSocket | null = null;
+		let open = false;
 		let retry: ReturnType<typeof setTimeout> | undefined;
 		let ping: ReturnType<typeof setInterval> | undefined;
+		let giveUp: ReturnType<typeof setTimeout> | undefined;
 		let attempt = 0;
 		let lastSeq = 0;
+		// The time of the log's first event, as held here: how a reset that happened while nothing was listening is noticed.
+		let heldFirst: number | null = null;
+		// Since when there has been no open socket. Failed attempts to open one do not move it.
+		let downSince = Date.now();
 		setEvents([]);
 
+		const clear = () => {
+			lastSeq = 0;
+			heldFirst = null;
+			setEvents([]);
+		};
+		const take = (incoming: readonly PremiseEvent[]) => {
+			if (incoming.length === 0) {
+				return;
+			}
+			if (lastSeq === 0) {
+				heldFirst = incoming.reduce((first, event) => (event.seq < first.seq ? event : first)).ts;
+			}
+			lastSeq = Math.max(lastSeq, ...incoming.map((event) => event.seq));
+			setEvents((current) => appendEvents(current, incoming));
+		};
+		const json = async (url: string): Promise<PremiseEvent[] | null> => {
+			const response = await fetch(url, { cache: "no-store" });
+			const body: unknown = response.ok ? await response.json().catch(() => null) : null;
+			return Array.isArray(body) ? (body as PremiseEvent[]) : null;
+		};
+		// Was the board reset while nothing was listening? Then what is held is another run's, and is dropped.
+		const checkRestart = async (): Promise<boolean> => {
+			const head = await json(httpUrl(liveTarget, 0, 1));
+			if (stopped || head === null) {
+				return false;
+			}
+			if (restarted(heldFirst, head[0])) {
+				clear();
+			}
+			return true;
+		};
+
 		const connect = () => {
-			socket = new WebSocket(liveUrl(liveTarget, lastSeq));
-			socket.onopen = () => {
+			const mine = new WebSocket(liveUrl(liveTarget, lastSeq));
+			socket = mine;
+			// A socket from an earlier connect (or an earlier visit to this tab) can still report after a newer
+			// one is open. What it says is not about the newer one.
+			const current = () => !stopped && socket === mine;
+			clearTimeout(giveUp);
+			giveUp = setTimeout(() => {
+				if (current() && mine.readyState === WebSocket.CONNECTING) {
+					mine.close();
+				}
+			}, OPEN_TIMEOUT_MS);
+			mine.onopen = () => {
+				if (!current()) {
+					return;
+				}
+				const again = attempt > 0 || lastSeq > 0;
 				attempt = 0;
+				open = true;
 				setConnected(true);
-				ping = setInterval(() => socket?.readyState === WebSocket.OPEN && socket.send(PING), PING_INTERVAL_MS);
+				ping = setInterval(() => mine.readyState === WebSocket.OPEN && mine.send(PING), PING_INTERVAL_MS);
+				if (again) {
+					// Back after a gap: the socket only sends what came after the last event held, which is nothing if the log was restarted.
+					void checkRestart()
+						.then(async () => {
+							if (current() && lastSeq === 0) {
+								take((await json(httpUrl(liveTarget, 0))) ?? []);
+							}
+						})
+						.catch(() => undefined);
+				}
 			};
-			socket.onmessage = (message) => {
+			mine.onmessage = (message) => {
+				if (!current()) {
+					return;
+				}
 				const parsed = typeof message.data === "string" ? parseServerMessage(message.data) : null;
 				if (parsed === null) {
 					return;
 				}
 				if (parsed.kind === "reset") {
-					lastSeq = 0;
-					setEvents([]);
+					clear();
 					return;
 				}
-				const incoming = parsed.kind === "backlog" ? parsed.events : [parsed.event];
-				lastSeq = Math.max(lastSeq, ...incoming.map((event) => event.seq));
-				setEvents((current) => appendEvents(current, incoming));
+				take(parsed.kind === "backlog" ? parsed.events : [parsed.event]);
 			};
-			socket.onclose = () => {
-				clearInterval(ping);
-				setConnected(false);
-				if (!stopped) {
-					retry = setTimeout(connect, backoffMs(attempt++));
+			mine.onclose = () => {
+				if (!current()) {
+					return;
 				}
+				clearInterval(ping);
+				if (open) {
+					downSince = Date.now();
+					setConnected(false);
+				}
+				open = false;
+				retry = setTimeout(connect, backoffMs(attempt++));
 			};
-			socket.onerror = () => socket?.close();
+			mine.onerror = () => mine.close();
 		};
 		connect();
+
+		// While there is no socket, the same log is read over plain HTTP, so the board is never blank only
+		// because a network does not carry WebSockets. The socket goes on being tried, and takes over when it opens.
+		let asking = false;
+		const poll = setInterval(() => {
+			if (stopped || open || asking || Date.now() - downSince < POLL_AFTER_MS) {
+				return;
+			}
+			asking = true;
+			void (async () => {
+				try {
+					if (!(await checkRestart()) || stopped || open) {
+						return;
+					}
+					const page = await json(httpUrl(liveTarget, lastSeq));
+					if (page === null || stopped || open) {
+						return;
+					}
+					take(page);
+					// Following, if not by the socket.
+					setConnected(true);
+				} catch {
+					// No Worker to ask either. The label goes on saying so.
+				} finally {
+					asking = false;
+				}
+			})();
+		}, POLL_EVERY_MS);
 
 		return () => {
 			stopped = true;
 			clearTimeout(retry);
+			clearTimeout(giveUp);
 			clearInterval(ping);
+			clearInterval(poll);
 			socket?.close();
 			setConnected(false);
 		};

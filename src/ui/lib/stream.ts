@@ -17,6 +17,36 @@ export function appendEvents(current: readonly PremiseEvent[], incoming: readonl
 	return fresh.length === 0 ? (current as PremiseEvent[]) : [...current, ...fresh];
 }
 
+/** A socket that has not opened in this long is given up on and tried again. Some networks never answer the upgrade. */
+export const OPEN_TIMEOUT_MS = 5000;
+/** With no socket for this long, the log is asked for over plain HTTP instead, this often, until a socket opens. */
+export const POLL_AFTER_MS = 2500;
+export const POLL_EVERY_MS = 2500;
+
+/**
+ * The same log over plain HTTP: `/api/events/ws` is the socket, `/api/events` the JSON. Used while
+ * no socket is open, so the board still shows where WebSockets are blocked.
+ */
+export function httpUrl(base: string, since: number, limit?: number): string {
+	const url = new URL(base, typeof location === "undefined" ? "http://localhost" : location.href);
+	url.pathname = url.pathname.replace(/\/ws$/, "");
+	url.searchParams.set("since", String(since));
+	if (limit !== undefined) {
+		url.searchParams.set("limit", String(limit));
+	}
+	return url.toString();
+}
+
+/**
+ * True when the log on the Worker is not the one this page is holding: the board was reset while
+ * nothing was listening. `heldFirst` is the time of the first event held, null if none is;
+ * `first` is the log's first event now, undefined if the log is empty. A reset starts the
+ * numbering again, so asking for "everything after the last one I have" would return nothing.
+ */
+export function restarted(heldFirst: number | null, first: Pick<PremiseEvent, "ts"> | undefined): boolean {
+	return heldFirst !== null && (first === undefined || first.ts !== heldFirst);
+}
+
 /** `ws(s)://host/path?since=N` for the page the UI is served from. */
 export function liveUrl(base: string, since: number): string {
 	const url = new URL(base, typeof location === "undefined" ? "http://localhost" : location.href);
