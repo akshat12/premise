@@ -135,9 +135,13 @@ export interface ResetResult {
 	previousTrunk: string;
 }
 
-/** True for a copy of trunk that a reset made: "trunk-" plus the time it was made, in base36. */
+/**
+ * True for a copy of trunk that a reset made: "trunk-" plus the time it was made in base36, which is
+ * eight characters until the year 2059. Nothing looser: a repo somebody imported by hand under a
+ * name of their own ("trunk-v2") is not one of these, and is never removed.
+ */
 export function isTrunkCopy(name: string): boolean {
-	return /^trunk-[0-9a-z]+$/.test(name);
+	return /^trunk-[0-9a-z]{8}$/.test(name);
 }
 
 /**
@@ -202,7 +206,7 @@ export async function resetDemo(env: Env, options: { asked?: boolean; origin?: R
 		await hub(env).reset(asked, options.origin ?? "owner", previousTrunk);
 		// The trunk of a run that is kept stays, so that the run's changes can still be read. Copies that
 		// no kept run was on are no longer needed. The original trunk repo is left alone.
-		const stale = staleTrunks(names, trunk, await hub(env).keptTrunks());
+		const stale = staleTrunks(names, trunk, [...(await hub(env).keptTrunks()), env.TRUNK_REPO]);
 		await mapLimit(stale, DELETE_CONCURRENCY, (name) => store.remove(name).catch(() => undefined));
 		await publishMetrics(env);
 		return { trunk, head: await store.head(trunk), forksDeleted: forks.length, previousTrunk };

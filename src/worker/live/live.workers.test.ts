@@ -231,13 +231,15 @@ describe("the hub's record of runs", () => {
 
 	it("a reset removes the trunk copies no kept run was on, and nothing else", () => {
 		expect(isTrunkCopy("trunk-mgq1x2ab")).toBe(true);
-		for (const name of ["trunk", "trunk-", "trunk-ABC", "trunkish-1", "i3k9x0a2q", "acme-accounts"]) {
+		expect(isTrunkCopy(`trunk-${Date.now().toString(36)}`)).toBe(true);
+		// Not one a reset made: the original, a name somebody chose by hand, an Intent's fork, anything else.
+		for (const name of ["trunk", "trunk-", "trunk-v2", "trunk-backup", "trunk-MGQ1X2AB", "trunk-mgq1x2ab-old", "trunkish-mgq1x2ab", "i3k9x0a2q", "acme-accounts"]) {
 			expect(isTrunkCopy(name), name).toBe(false);
 		}
-		const names = ["acme-accounts", "i3k9x0a2q", "trunk", "trunk-a1", "trunk-b2", "trunk-c3", "trunk-d4"];
-		expect(staleTrunks(names, "trunk-d4", ["trunk-b2", "trunk"])).toEqual(["trunk-a1", "trunk-c3"]);
-		expect(staleTrunks(names, "trunk", [])).toEqual(["trunk-a1", "trunk-b2", "trunk-c3", "trunk-d4"]);
-		expect(staleTrunks([], "trunk-d4", ["trunk-b2"])).toEqual([]);
+		const names = ["acme-accounts", "i3k9x0a2q", "trunk", "trunk-v2", "trunk-aaaaaaa1", "trunk-bbbbbbb2", "trunk-ccccccc3", "trunk-ddddddd4"];
+		expect(staleTrunks(names, "trunk-ddddddd4", ["trunk-bbbbbbb2", "trunk"])).toEqual(["trunk-aaaaaaa1", "trunk-ccccccc3"]);
+		expect(staleTrunks(names, "trunk", [])).toEqual(["trunk-aaaaaaa1", "trunk-bbbbbbb2", "trunk-ccccccc3", "trunk-ddddddd4"]);
+		expect(staleTrunks([], "trunk-ddddddd4", ["trunk-bbbbbbb2"])).toEqual([]);
 	});
 
 	it("does not keep a comparison run, or an empty board", async () => {
@@ -383,7 +385,9 @@ describe("GET /api/live and POST /api/live/start", () => {
 		const store = getRepoStore(env);
 		const ranOn = await currentTrunk(env);
 		// A copy of trunk that no run was on, as a reset that stopped half way could leave behind.
-		await store.ensureRepo("trunk-stray0");
+		await store.ensureRepo("trunk-stray000");
+		// And one with a name of somebody's own choosing, which a reset must leave alone.
+		await store.ensureRepo("trunk-v2");
 		await resetDemo(env);
 		const cleared = await hub(env).runs();
 		expect(cleared.current).toBeNull();
@@ -408,7 +412,8 @@ describe("GET /api/live and POST /api/live/start", () => {
 		expect(repos).toContain(ranOn);
 		expect(repos).toContain(await currentTrunk(env));
 		expect(await currentTrunk(env)).not.toBe(ranOn);
-		expect(repos).not.toContain("trunk-stray0");
+		expect(repos).not.toContain("trunk-stray000");
+		expect(repos).toContain("trunk-v2");
 		expect(repos.some((name) => /^i[0-9a-z]{8}/.test(name))).toBe(false);
 		for (const agent of agents) {
 			const response = await call(`/api/runs/${id}/intents/${agent.id}/diff`);
