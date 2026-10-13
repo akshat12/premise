@@ -1,0 +1,113 @@
+<section id="built" data-transition="fade" style="background:#f3f4f2;color:#14181d;font-family:'Atkinson Hyperlegible Next', Arial, sans-serif;padding:128px 128px 160px;display:flex;flex-direction:column;gap:40px">
+<div style="display:flex;gap:32px;align-items:center">
+<div style="display:flex;align-items:center;justify-content:center;width:112px;height:112px;background:#14181d;border-radius:24px">
+<x-icon name="Code" style="color:#f08a4b;width:60px;height:60px"></x-icon>
+</div>
+<div style="flex:1;display:flex;flex-direction:column;gap:12px">
+<p style="font-family:'Atkinson Hyperlegible Mono', 'Courier New', monospace;font-size:26px;font-weight:500;letter-spacing:3px;text-transform:uppercase;color:#c2410c">How it is built</p>
+<h2 style="font-size:68px;font-weight:600;line-height:1.1;letter-spacing:-1px">One Worker on Cloudflare. No containers.</h2>
+</div>
+</div>
+<div style="position:absolute;left:740px;top:300px;width:440px;height:600px;background:#14181d;border-radius:12px;padding:32px;display:flex;flex-direction:column;gap:16px">
+<p style="font-family:'Atkinson Hyperlegible Mono', 'Courier New', monospace;font-size:26px;font-weight:500;line-height:1.3;letter-spacing:3px;text-transform:uppercase;color:#f08a4b">One Worker</p>
+<div style="display:flex;gap:16px;align-items:center;padding:0 0 14px">
+<div style="display:flex;align-items:center;justify-content:center;width:56px;height:56px;background:#20262d;border:1px solid #3a424b;border-radius:12px">
+<x-icon name="Code" style="color:#f08a4b;width:32px;height:32px"></x-icon>
+</div>
+<h3 style="font-size:44px;font-weight:600;line-height:1.2;color:#fbfbfa">Workers</h3>
+</div>
+<p style="height:84px;font-size:30px;line-height:1.3;color:#d8ddd9;background:#20262d;border:1px solid #3a424b;border-radius:8px;padding:21px 20px">The API</p>
+<p style="height:84px;font-size:30px;line-height:1.3;color:#d8ddd9;background:#20262d;border:1px solid #3a424b;border-radius:8px;padding:21px 20px">The page</p>
+<p style="height:84px;font-size:30px;line-height:1.3;color:#d8ddd9;background:#20262d;border:1px solid #3a424b;border-radius:8px;padding:21px 20px">TypeScript compiler</p>
+<div style="flex:1"></div>
+<div style="height:84px;border:2px dashed #3a424b;border-radius:8px"></div>
+</div>
+<div data-build-in="rise 1" style="position:absolute;left:128px;top:300px;width:540px;height:244px;background:#fbfbfa;border:1px solid #d5d9d3;border-radius:12px;padding:28px 32px;display:flex;flex-direction:column;gap:20px">
+<div style="display:flex;gap:16px;align-items:center">
+<div style="display:flex;align-items:center;justify-content:center;width:56px;height:56px;background:#14181d;border-radius:12px">
+<x-icon name="Database" style="color:#f08a4b;width:32px;height:32px"></x-icon>
+</div>
+<h3 style="font-size:44px;font-weight:600;line-height:1.2">Artifacts</h3>
+</div>
+<div style="display:flex;gap:10px;align-items:center">
+<p style="font-family:'Atkinson Hyperlegible Mono', 'Courier New', monospace;font-size:24px;line-height:1.3;color:#fbfbfa;background:#14181d;border:1px solid #14181d;border-radius:8px;padding:6px 14px">trunk</p>
+<x-connector style="width:32px;color:#868e97;border-width:3px"></x-connector>
+<p style="font-family:'Atkinson Hyperlegible Mono', 'Courier New', monospace;font-size:24px;line-height:1.3;color:#14181d;background:#fbfbfa;border:1px solid #d5d9d3;border-radius:8px;padding:6px 14px">fork</p>
+<p style="font-family:'Atkinson Hyperlegible Mono', 'Courier New', monospace;font-size:24px;line-height:1.3;color:#14181d;background:#fbfbfa;border:1px solid #d5d9d3;border-radius:8px;padding:6px 14px">fork</p>
+<p style="font-family:'Atkinson Hyperlegible Mono', 'Courier New', monospace;font-size:24px;line-height:1.3;color:#14181d;background:#fbfbfa;border:1px solid #d5d9d3;border-radius:8px;padding:6px 14px">fork</p>
+</div>
+<p style="font-size:24px;line-height:1.3;color:#55606b">a fork for every Intent</p>
+</div>
+<x-connector data-build-in="fade 1" x1="740" y1="422" x2="668" y2="422" style="color:#868e97;border-width:4px"></x-connector>
+<div data-build-in="rise 2" style="position:absolute;left:1252px;top:300px;width:540px;height:244px;background:#fbfbfa;border:1px solid #d5d9d3;border-radius:12px;padding:28px 32px;display:flex;flex-direction:column;gap:20px">
+<div style="display:flex;gap:16px;align-items:center">
+<div style="display:flex;align-items:center;justify-content:center;width:56px;height:56px;background:#14181d;border-radius:12px">
+<x-icon name="Key" style="color:#f08a4b;width:32px;height:32px"></x-icon>
+</div>
+<h3 style="font-size:44px;font-weight:600;line-height:1.2">Durable Objects</h3>
+</div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+<p style="font-family:'Atkinson Hyperlegible Mono', 'Courier New', monospace;font-size:24px;line-height:1.3;color:#14181d;background:#fbfbfa;border:1px solid #d5d9d3;border-radius:8px;padding:6px 14px">ledger</p>
+<p style="font-family:'Atkinson Hyperlegible Mono', 'Courier New', monospace;font-size:24px;line-height:1.3;color:#14181d;background:#fbfbfa;border:1px solid #d5d9d3;border-radius:8px;padding:6px 14px">each Intent</p>
+<p style="font-family:'Atkinson Hyperlegible Mono', 'Courier New', monospace;font-size:24px;line-height:1.3;color:#14181d;background:#fbfbfa;border:1px solid #d5d9d3;border-radius:8px;padding:6px 14px">gate</p>
+<p style="font-family:'Atkinson Hyperlegible Mono', 'Courier New', monospace;font-size:24px;line-height:1.3;color:#14181d;background:#fbfbfa;border:1px solid #d5d9d3;border-radius:8px;padding:6px 14px">event log</p>
+</div>
+</div>
+<x-connector data-build-in="fade 2" x1="1180" y1="422" x2="1252" y2="422" style="color:#868e97;border-width:4px"></x-connector>
+<div data-build-in="rise 3" style="position:absolute;left:128px;top:592px;width:540px;height:308px;background:#fbfbfa;border:1px solid #d5d9d3;border-radius:12px;padding:28px 32px;display:flex;flex-direction:column;gap:20px">
+<div style="display:flex;gap:16px;align-items:center">
+<div style="display:flex;align-items:center;justify-content:center;width:56px;height:56px;background:#14181d;border-radius:12px">
+<x-icon name="Activity" style="color:#f08a4b;width:32px;height:32px"></x-icon>
+</div>
+<h3 style="font-size:44px;font-weight:600;line-height:1.2">Workflows</h3>
+</div>
+<div style="display:flex;flex-direction:column;gap:12px">
+<div style="display:flex;gap:12px;align-items:center">
+<p style="width:124px;font-family:'Atkinson Hyperlegible Mono', 'Courier New', monospace;font-size:24px;line-height:1.3;letter-spacing:1px;text-transform:uppercase;color:#55606b">Agent 1</p>
+<div style="flex:1;height:48px;display:flex;align-items:center;padding:0 14px;background:#dfe2dd;border:1px solid #868e97;border-radius:6px">
+<p style="font-family:'Atkinson Hyperlegible Mono', 'Courier New', monospace;font-size:24px;line-height:1.3;color:#3d4650">durable run</p>
+</div>
+</div>
+<div style="display:flex;gap:12px;align-items:center">
+<p style="width:124px;font-family:'Atkinson Hyperlegible Mono', 'Courier New', monospace;font-size:24px;line-height:1.3;letter-spacing:1px;text-transform:uppercase;color:#55606b">Agent 2</p>
+<div style="flex:1;height:48px;display:flex;align-items:center;padding:0 14px;background:#dfe2dd;border:1px solid #868e97;border-radius:6px">
+<p style="font-family:'Atkinson Hyperlegible Mono', 'Courier New', monospace;font-size:24px;line-height:1.3;color:#3d4650">durable run</p>
+</div>
+</div>
+<div style="display:flex;gap:12px;align-items:center">
+<p style="width:124px;font-family:'Atkinson Hyperlegible Mono', 'Courier New', monospace;font-size:24px;line-height:1.3;letter-spacing:1px;text-transform:uppercase;color:#55606b">Agent 3</p>
+<div style="flex:1;height:48px;display:flex;align-items:center;padding:0 14px;background:#dfe2dd;border:1px solid #868e97;border-radius:6px">
+<p style="font-family:'Atkinson Hyperlegible Mono', 'Courier New', monospace;font-size:24px;line-height:1.3;color:#3d4650">durable run</p>
+</div>
+</div>
+</div>
+</div>
+<x-connector data-build-in="fade 3" x1="740" y1="746" x2="668" y2="746" style="color:#868e97;border-width:4px"></x-connector>
+<div data-build-in="rise 4" style="position:absolute;left:1252px;top:592px;width:540px;height:308px;background:#fbfbfa;border:1px solid #d5d9d3;border-radius:12px;padding:28px 32px;display:flex;flex-direction:column;gap:20px">
+<div style="display:flex;gap:16px;align-items:center">
+<div style="display:flex;align-items:center;justify-content:center;width:56px;height:56px;background:#14181d;border-radius:12px">
+<x-icon name="Lightning" style="color:#f08a4b;width:32px;height:32px"></x-icon>
+</div>
+<h3 style="font-size:44px;font-weight:600;line-height:1.2">Dynamic Workers</h3>
+</div>
+<div style="flex:1;display:flex;flex-direction:column;justify-content:space-between;border:2px dashed #868e97;border-radius:12px;padding:16px 20px">
+<p style="font-family:'Atkinson Hyperlegible Mono', 'Courier New', monospace;font-size:24px;line-height:1.3;letter-spacing:2px;text-transform:uppercase;color:#55606b">Fresh isolate</p>
+<div style="display:flex;gap:10px;align-items:center">
+<p style="font-family:'Atkinson Hyperlegible Mono', 'Courier New', monospace;font-size:24px;line-height:1.3;color:#14181d;background:#fbfbfa;border:1px solid #d5d9d3;border-radius:8px;padding:6px 14px">test</p>
+<p style="font-family:'Atkinson Hyperlegible Mono', 'Courier New', monospace;font-size:24px;line-height:1.3;color:#14181d;background:#fbfbfa;border:1px solid #d5d9d3;border-radius:8px;padding:6px 14px">test</p>
+<p style="font-family:'Atkinson Hyperlegible Mono', 'Courier New', monospace;font-size:24px;line-height:1.3;color:#14181d;background:#fbfbfa;border:1px solid #d5d9d3;border-radius:8px;padding:6px 14px">test</p>
+</div>
+<div style="display:flex;gap:10px;align-items:center">
+<x-icon name="Lock" style="color:#55606b;width:28px;height:28px"></x-icon>
+<p style="font-family:'Atkinson Hyperlegible Mono', 'Courier New', monospace;font-size:24px;line-height:1.3;color:#55606b">no network</p>
+</div>
+</div>
+</div>
+<x-connector data-build-in="fade 4" x1="1180" y1="746" x2="1252" y2="746" style="color:#868e97;border-width:4px"></x-connector>
+<p data-build-in="pop 5" style="position:absolute;left:772px;top:784px;width:376px;height:84px;font-size:30px;line-height:1.3;color:#f08a4b;background:#14181d;border:2px dashed #f08a4b;border-radius:8px;padding:20px 20px">No containers</p>
+<div style="position:absolute;left:128px;right:128px;bottom:64px;display:flex;justify-content:space-between">
+<p style="font-family:'Atkinson Hyperlegible Mono', 'Courier New', monospace;font-size:24px;letter-spacing:3px;text-transform:uppercase;color:#55606b">Premise</p>
+<p style="font-family:'Atkinson Hyperlegible Mono', 'Courier New', monospace;font-size:24px;letter-spacing:1px;color:#55606b">premise.akshatdivekar.workers.dev</p>
+</div>
+<aside>It is one Worker on Cloudflare: the API, the page, and the TypeScript compiler. [→] Code lives in Artifacts: trunk, and a fork for every Intent. [→] State lives in Durable Objects: the ledger, each Intent, the gate, the event log. [→] Each agent is a Workflow. [→] Tests run in Dynamic Workers: a fresh isolate each time, with no network. [→] No containers. [NEXT SLIDE]</aside>
+</section>

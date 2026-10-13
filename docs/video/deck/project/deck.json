@@ -1,0 +1,61 @@
+{
+	"v": 4,
+	"createdOnFiles": {
+		"v": 1,
+		"at": "2026-10-13T01:31:17Z"
+	},
+	"lists": "css",
+	"title": "Premise: video deck",
+	"cover": "cover",
+	"order": [
+		"cover",
+		"problem",
+		"example",
+		"parts",
+		"agents",
+		"forks",
+		"ledger",
+		"answers",
+		"premises",
+		"break",
+		"rederive",
+		"gate",
+		"agent4",
+		"compared",
+		"scale",
+		"live",
+		"built",
+		"scaling",
+		"honest",
+		"try"
+	],
+	"sections": {
+		"s1": {
+			"description": "The problem: many agents changing one codebase, and the change that rebases cleanly, compiles, and is wrong.",
+			"start": "cover"
+		},
+		"s2": {
+			"description": "The six parts of Premise, one at a time: agents and their Intents, forks, the ledger, premises, what happens when a premise breaks, re-derive, and the gate.",
+			"start": "parts"
+		},
+		"s3": {
+			"description": "What it shows: the case tests miss, the three-rule comparison, a larger run, and live runs anyone can start and replay.",
+			"start": "agent4"
+		},
+		"s4": {
+			"description": "How it is built on Cloudflare, how it would scale up, the honest limits, and where to try it.",
+			"start": "built"
+		}
+	},
+	"faces": {
+		"atkinson-hyperlegible-next": {
+			"family": "Atkinson Hyperlegible Next",
+			"href": "https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Next:wght@300..700&display=swap"
+		},
+		"atkinson-hyperlegible-mono": {
+			"family": "Atkinson Hyperlegible Mono",
+			"href": "https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Mono:wght@400..600&display=swap"
+		}
+	},
+	"designSystems": []
+}

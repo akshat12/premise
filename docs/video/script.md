@@ -1,5 +1,7 @@
 # Video script (about 6 minutes)
 
+> **Recording with the slide deck?** Read `screen-recording-script.md` instead: it is written to be read aloud over the twenty slides and two short visits to the site, with every key press in brackets. This file is the older cut that uses the site alone; its "Rules for the read" still hold for both.
+
 Rewritten on Oct 11 after the review; corrected on Oct 12 for the new look and the second live-model run, and again that evening when the page became three tabs, **Demo**, **Live** and **Results**: the comparison and the larger run are the two panels of the Results tab, the comparison first. Read it with `docs/video/shot-list.md` open: the shot list has the address and keys for each row.
 
 **Two words, kept apart.** The *screen recording* is the video this script is for. The *demo recording* is the saved run from Cloudflare that the site replays; there are two, the front-page one (four agents, about a minute) and the larger one whose numbers are in the At scale panel under it (twelve agents and 294 scripted workload Intents).
