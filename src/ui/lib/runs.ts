@@ -30,6 +30,8 @@ export function when(at: number, now: number): string {
 
 export interface RunRow {
 	key: string;
+	/** The run's number in the Worker's record (0 for the run on the board). */
+	id: number;
 	/** The run on the board now. */
 	current: boolean;
 	when: string;
@@ -61,6 +63,7 @@ export const isClean = (run: RunSummary): boolean => run.complete && run.problem
 function row(run: RunSummary, current: boolean, now: number): RunRow {
 	return {
 		key: current ? "current" : String(run.id),
+		id: current ? 0 : run.id,
 		current,
 		when: when(run.startedAt, now),
 		by: run.origin === "visitor" ? "a visitor" : "the owner",

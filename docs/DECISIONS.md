@@ -1164,3 +1164,11 @@ Asked for by the user: slides that match what is built, approachable, organised 
 - **Cause:** last night's review fix made each status change a Workflow step. A step is run again when its reply is lost; the Intent had already moved, refused the same change, and the driver read that refusal as "stopped". (The risk was noted when the fix was made and not handled.)
 - **Fix:** a refusal is not a stop when the Intent is already where the change would have put it (`alreadyApplied`, pure, in `intent/machine.ts`). A test runs every status step twice and the agent still submits; without the fix that test fails.
 - This was on production from the evening of Oct 12; nine runs there and on staging had not hit it.
+
+### A past run opens beside the list (Oct 13; the user picked option A of three mocked on a design canvas)
+
+- **Why:** opening a past run meant going to the Demo player and pressing Next or Play through it. The user wanted to see it at once, without leaving Results.
+- **What:** "Open" on a row of the Live runs table opens `PastRunPanel`, a side panel three quarters of the window wide. It shows the run at its end, with the same `TapeView` as the board; the time axis seeks; a row opens the same `Drawer` (drag its height, drag its columns) at the foot of the panel, with the Intent's changes as they landed. Esc closes the details panel, then the side panel. "Play it as a story" keeps the old route, and the link still opens `/?run=<id>` in a new tab.
+- **Reused, not rebuilt:** `TapeView`, `Drawer`, `useIntentDiff`, `storyFor` (for the agents' names and the closing sentence), `reduceAll`, `buildTape`. `fetchPastRun` moved from `App.tsx` to `src/ui/lib/pastRun.ts`. The only new styles are the panel's own, and one rule that keeps the details panel inside it at every width.
+- **Tried** on the local Worker at 1440 wide: opened a kept run, opened Agent 2 ("2 files changed, +50 −11. As it landed on trunk."), dragged the details panel from 300 to 450 pixels, sought to an early moment and back. Not tried at tablet or phone width.
+

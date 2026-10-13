@@ -29,6 +29,7 @@ import { liveCaption, runOver, runSettled, startOffer } from "./lib/live";
 import { useLiveStatus } from "./lib/useLiveStatus";
 import { stepAt, storyFor } from "./lib/story";
 import { replayOffsets, timeAtClock } from "./lib/stream";
+import { fetchPastRun } from "./lib/pastRun";
 import { advanceTape, buildTape, positionAt } from "./lib/tape";
 import { callsign, lanesOf, layoutFor, OUTSIDE } from "./lib/view";
 
@@ -87,23 +88,6 @@ const WHAT_NEXT = "The Results tab has the numbers. The Live tab runs it for rea
 const PAST_RUN = /^[1-9]\d{0,8}$/.test(query.get("run") ?? "") ? Number(query.get("run")) : null;
 const DEMO = PAST_RUN !== null ? `run-${PAST_RUN}` : (query.get("demo") ?? DEFAULT_RUN);
 
-/** The whole log of a past run, asked for a page at a time. */
-async function fetchPastRun(id: number): Promise<PremiseEvent[]> {
-	const events: PremiseEvent[] = [];
-	for (let since = 0; ; ) {
-		const response = await fetch(`/api/runs/${id}/events?since=${since}`);
-		if (!response.ok) {
-			throw new Error(`run ${id}: ${response.status}`);
-		}
-		const page = (await response.json()) as PremiseEvent[];
-		events.push(...page);
-		const last = page.at(-1);
-		if (last === undefined || page.length < 5000) {
-			return events;
-		}
-		since = last.seq;
-	}
-}
 /**
  * `?admin` shows the owner's tools under "More": dispatching by hand, the workload, and reset. A
  * visitor never needs them (the Live tab's Start button is the whole of what a visitor can do) and

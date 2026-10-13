@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { RecentRuns as Runs } from "../../shared/runs";
-import { allScripted, runRows, runsHeadline } from "../lib/runs";
+import { allScripted, type RunRow, runRows, runsHeadline } from "../lib/runs";
+import { PastRunPanel } from "./PastRunPanel";
 
 /** How often the list is asked for while the Results tab is open. A run takes minutes, so this is plenty. */
 const REFRESH_MS = 15_000;
@@ -22,6 +23,8 @@ export function RecentRuns({ onWatch }: RecentRunsProps) {
 	const [unreachable, setUnreachable] = useState(false);
 	const [all, setAll] = useState(false);
 	const [now, setNow] = useState(() => Date.now());
+	// The past run open beside the list, if any.
+	const [open, setOpen] = useState<RunRow | null>(null);
 
 	useEffect(() => {
 		let current = true;
@@ -97,7 +100,7 @@ export function RecentRuns({ onWatch }: RecentRunsProps) {
 									Problems on trunk
 								</th>
 								<th scope="col" className="label runs-num">
-									<span className="tape-sr">Play it again</span>
+									<span className="tape-sr">Open it</span>
 								</th>
 							</tr>
 						</thead>
@@ -119,8 +122,19 @@ export function RecentRuns({ onWatch }: RecentRunsProps) {
 									</td>
 									<td className="runs-num">
 										{row.replay !== null ? (
-											<a className="plane-link" href={row.replay}>
-												Replay
+											// A link, so it can be opened in a tab of its own as the story; a plain click opens it here, at its end.
+											<a
+												className="plane-link"
+												href={row.replay}
+												onClick={(event) => {
+													if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) {
+														return;
+													}
+													event.preventDefault();
+													setOpen(row);
+												}}
+											>
+												Open
 											</a>
 										) : null}
 									</td>
@@ -135,6 +149,7 @@ export function RecentRuns({ onWatch }: RecentRunsProps) {
 					{all ? "Show fewer" : `Show all ${rows.length}`}
 				</button>
 			) : null}
+			{open !== null ? <PastRunPanel run={open} onClose={() => setOpen(null)} /> : null}
 		</section>
 	);
 }

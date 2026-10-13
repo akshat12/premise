@@ -2232,3 +2232,151 @@ button.tape-label:focus-visible {
 	outline-offset: -2px;
 }
 
+/* ---- A past run, opened beside the list on the Results tab ---- */
+.past-run-layer {
+	position: fixed;
+	inset: 0;
+	z-index: 40;
+}
+.past-run-scrim {
+	position: absolute;
+	inset: 0;
+	border: 0;
+	background: rgba(20, 24, 29, 0.22);
+	cursor: pointer;
+}
+.past-run {
+	position: absolute;
+	top: 0;
+	right: 0;
+	bottom: 0;
+	display: flex;
+	flex-direction: column;
+	width: 75vw;
+	min-width: min(100vw, 720px);
+	background: var(--board);
+	border-left: 2px solid var(--ink);
+	box-shadow: -18px 0 40px -8px rgba(20, 24, 29, 0.35);
+	outline: none;
+	animation: past-run-in 180ms ease-out both;
+}
+@keyframes past-run-in {
+	from {
+		transform: translateX(32px);
+		opacity: 0;
+	}
+	to {
+		transform: translateX(0);
+		opacity: 1;
+	}
+}
+@media (prefers-reduced-motion: reduce) {
+	.past-run {
+		animation: none;
+	}
+}
+.past-run-head {
+	display: flex;
+	align-items: center;
+	gap: 16px;
+	padding: 16px 24px;
+	background: var(--surface);
+	border-bottom: 1px solid var(--rule);
+}
+.past-run-title {
+	flex: 1;
+	min-width: 0;
+}
+.past-run-kicker {
+	margin: 0 0 4px;
+	color: var(--redpen);
+}
+.past-run-title h2 {
+	margin: 0;
+	font-size: 22px;
+	font-weight: 600;
+	line-height: 1.2;
+}
+.past-run-story {
+	padding: 10px 14px;
+	border: 1px solid var(--rule-strong);
+	border-radius: 6px;
+	color: var(--ink);
+	font-size: 14px;
+	text-decoration: none;
+	white-space: nowrap;
+}
+.past-run-story:hover {
+	border-color: var(--ink);
+}
+.past-run-close {
+	min-height: 40px;
+	padding: 0 16px;
+	border: 2px solid var(--ink);
+	border-radius: 6px;
+	background: #fff;
+	color: var(--ink);
+	cursor: pointer;
+}
+.past-run-figures {
+	display: grid;
+	grid-template-columns: repeat(5, minmax(0, 1fr));
+	margin: 0;
+	background: var(--surface);
+	border-bottom: 1px solid var(--rule);
+}
+.past-run-figures > div {
+	padding: 10px 24px;
+}
+.past-run-figures > div + div {
+	border-left: 1px solid var(--rule);
+}
+.past-run-figures dt {
+	color: var(--ink-soft);
+}
+.past-run-figures dd {
+	margin: 2px 0 0;
+	font-size: 22px;
+}
+.past-run-figures dd[data-tone="good"] {
+	color: var(--holds);
+}
+.past-run-figures dd[data-tone="accent"] {
+	color: var(--redpen);
+}
+.past-run-body {
+	flex: 1;
+	min-height: 0;
+	overflow: auto;
+	padding: 0 20px 12px;
+}
+.past-run-hint {
+	margin: 12px 4px;
+	color: var(--ink-soft);
+	font-size: 14px;
+}
+.past-run-end {
+	border: 0;
+	background: none;
+	cursor: pointer;
+	font: inherit;
+}
+/* The details panel sits at the foot of this panel, not of the window, at every width. */
+.past-run .drawer {
+	position: relative;
+	right: auto;
+	bottom: auto;
+	left: auto;
+	z-index: 20;
+	height: 300px;
+	max-height: 70%;
+}
+@media (max-width: 767px) {
+	.past-run {
+		width: 100vw;
+	}
+	.past-run-figures {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+	}
+}
+

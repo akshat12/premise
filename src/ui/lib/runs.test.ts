@@ -105,3 +105,13 @@ describe("a run whose agents were a model", () => {
 		expect(allScripted({ current: model, past: [run()] })).toBe(false);
 	});
 });
+
+describe("a row knows which run it is", () => {
+	it("carries the run's number, and 0 for the run on the board", () => {
+		const rows = runRows({ current: run({ id: 0 }), past: [run({ id: 12, events: 900 }), run({ id: 11 })] }, NOW);
+		expect(rows.map((row) => row.id)).toEqual([0, 12, 11]);
+		// Only a kept run with its events can be opened.
+		expect(rows.map((row) => row.replay)).toEqual([null, "/?run=12", null]);
+	});
+});
+
