@@ -1999,38 +1999,106 @@ button.tape-label:focus-visible {
 	font-size: 11px;
 	text-decoration: underline;
 }
-.runs-delete,
-.runs-keep {
-	margin-left: 12px;
+.runs tbody tr[data-opens="true"] {
+	cursor: pointer;
+}
+.runs tbody tr[data-opens="true"]:hover {
+	background: var(--surface-2, rgba(20, 24, 29, 0.05));
+}
+.runs tbody tr[data-opens="true"]:hover .runs-open {
+	text-decoration: underline;
+}
+.runs-open {
 	padding: 0;
 	border: 0;
 	background: none;
+	color: inherit;
 	cursor: pointer;
 	font: inherit;
-	text-decoration: underline;
-}
-.runs-delete {
-	color: var(--redpen);
-}
-.runs-keep {
-	color: var(--ink);
-}
-.runs-delete:disabled,
-.runs-keep:disabled {
-	cursor: default;
-	opacity: 0.6;
-}
-.runs-delete-ask {
-	margin-left: 12px;
-	color: var(--ink-soft);
 }
 .runs-said {
 	margin: 12px 0 0;
 	font-size: 13px;
 	color: var(--ink-soft);
 }
-.runs-delete:focus-visible,
-.runs-keep:focus-visible,
+.past-run-delete {
+	flex: none;
+	padding: 8px 12px;
+	border: 1px solid var(--redpen);
+	border-radius: 6px;
+	background: none;
+	color: var(--redpen);
+	cursor: pointer;
+}
+.past-run-delete:hover {
+	background: var(--redpen);
+	color: var(--surface);
+}
+.past-run-confirm-layer {
+	position: absolute;
+	inset: 0;
+	z-index: 5;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: rgba(20, 24, 29, 0.4);
+}
+.past-run-confirm {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+	width: min(440px, calc(100% - 32px));
+	box-sizing: border-box;
+	padding: 20px;
+	border: 2px solid var(--ink);
+	border-radius: 8px;
+	background: var(--surface);
+	box-shadow: 0 18px 40px -8px rgba(20, 24, 29, 0.45);
+}
+.past-run-confirm h3 {
+	margin: 0;
+	font-size: 18px;
+	font-weight: 600;
+}
+.past-run-confirm p {
+	margin: 0;
+	font-size: 14px;
+	line-height: 1.45;
+	color: var(--ink-soft);
+}
+.past-run-confirm .past-run-confirm-refused {
+	color: var(--redpen);
+}
+.past-run-confirm-actions {
+	display: flex;
+	justify-content: flex-end;
+	gap: 8px;
+	margin-top: 4px;
+}
+.past-run-confirm-actions button {
+	padding: 8px 14px;
+	border: 1px solid var(--ink);
+	border-radius: 6px;
+	font: inherit;
+	font-size: 14px;
+	cursor: pointer;
+}
+.past-run-confirm-actions button:disabled {
+	cursor: default;
+	opacity: 0.6;
+}
+.past-run-confirm-keep {
+	background: none;
+	color: var(--ink);
+}
+.past-run-confirm-delete {
+	border-color: var(--redpen) !important;
+	background: var(--redpen);
+	color: var(--surface);
+}
+.runs-open:focus-visible,
+.past-run-delete:focus-visible,
+.past-run-confirm-actions button:focus-visible,
 .runs-watch:focus-visible,
 .runs-more:focus-visible {
 	outline: 2px solid var(--bluestamp);

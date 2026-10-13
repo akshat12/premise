@@ -462,6 +462,14 @@ describe("GET /api/live and POST /api/live/start", () => {
 describe("removing a kept run", () => {
 	const main = hub(env);
 	const made = (id: string) => main.publish({ t: "intent.created", intent: { id, kind: "agent", taskId: "t01", status: "planning" } as never });
+	// Other test files use this hub too: it is left on the trunk it was on, with an empty board.
+	afterAll(async () => {
+		await main.setTrunk(env.TRUNK_REPO);
+		await main.reset(false);
+		for (const run of (await main.runs()).past) {
+			await main.deleteRun(run.id);
+		}
+	});
 
 	it("the owner removes a kept run: its line, its events, and its trunk copy when nothing else is on it", async () => {
 		const store = getRepoStore(env);

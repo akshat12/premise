@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { PremiseEvent } from "../../shared/events";
 import type { IntentId } from "../../shared/types";
+import { explain } from "../lib/api";
 import { captionAt } from "../lib/demo";
 import { fetchPastRun } from "../lib/pastRun";
 import { reduceAll } from "../lib/reduce";
@@ -16,6 +17,8 @@ interface PastRunPanelProps {
 	/** The run's line in the table: its number, and the figures already worked out for it. */
 	run: RunRow;
 	onClose: () => void;
+	/** The owner's: removes this run from the record for good. It rejects with what went wrong. Absent for a visitor. */
+	onDelete?: () => Promise<void>;
 }
 
 /**
@@ -24,12 +27,34 @@ interface PastRunPanelProps {
  * dragged back to any earlier moment. A row opens the same details panel as on the Demo tab, with
  * what that Intent changed as it landed on the run's trunk.
  */
-export function PastRunPanel({ run, onClose }: PastRunPanelProps) {
+export function PastRunPanel({ run, onClose, onDelete }: PastRunPanelProps) {
 	const [events, setEvents] = useState<PremiseEvent[] | null>(null);
 	const [failed, setFailed] = useState(false);
 	// How many of the run's events are on screen. null is "all of them": where it opens.
 	const [position, setPosition] = useState<number | null>(null);
 	const [selected, setSelected] = useState<IntentId | null>(null);
+	// The owner's Delete asks first: whether the question is up, whether it is being done, and what went wrong.
+	const [confirming, setConfirming] = useState(false);
+	const [deleting, setDeleting] = useState(false);
+	const [refused, setRefused] = useState<string | null>(null);
+	const keep = useRef<HTMLButtonElement | null>(null);
+	useEffect(() => {
+		if (confirming) {
+			keep.current?.focus();
+		}
+	}, [confirming]);
+	const doDelete = () => {
+		if (onDelete === undefined) {
+			return;
+		}
+		setDeleting(true);
+		setRefused(null);
+		onDelete().catch((error: unknown) => {
+			// On success this panel is closed by whoever opened it; only a refusal is left to say here.
+			setRefused(explain(error));
+			setDeleting(false);
+		});
+	};
 	const panel = useRef<HTMLDivElement | null>(null);
 	const [width, setWidth] = useState(0);
 
@@ -39,6 +64,14 @@ export function PastRunPanel({ run, onClose }: PastRunPanelProps) {
 		setFailed(false);
 		setPosition(null);
 		setSelected(null);
+		setConfirming(false);
+		setDeleting(false);
+		setRefused(null);
+		if (run.replay === null) {
+			// Only its line was kept. There is nothing to read, and nothing wrong.
+			setFailed(true);
+			return;
+		}
 		fetchPastRun(run.id).then(
 			(log) => current && (log.length > 0 ? setEvents(log) : setFailed(true)),
 			() => current && setFailed(true),
@@ -46,7 +79,7 @@ export function PastRunPanel({ run, onClose }: PastRunPanelProps) {
 		return () => {
 			current = false;
 		};
-	}, [run.id]);
+	}, [run.id, run.replay]);
 
 	useEffect(() => {
 		const element = panel.current;
@@ -66,7 +99,11 @@ export function PastRunPanel({ run, onClose }: PastRunPanelProps) {
 			return;
 		}
 		event.stopPropagation();
-		if (selected !== null) {
+		if (confirming) {
+			if (!deleting) {
+				setConfirming(false);
+			}
+		} else if (selected !== null) {
 			setSelected(null);
 		} else {
 			onClose();
@@ -100,11 +137,18 @@ export function PastRunPanel({ run, onClose }: PastRunPanelProps) {
 						<p className="label past-run-kicker">
 							A past live run · {run.when} · started by {run.by}
 						</p>
-						<h2>{events === null ? (failed ? "This run is not in the Worker's record any more." : "Reading the run…") : (ending?.title ?? "The run, as it ended.")}</h2>
+						<h2>{events === null ? (failed ? (run.replay === null ? "Only this run's line was kept, not its events." : "This run is not in the Worker's record any more.") : "Reading the run…") : (ending?.title ?? "The run, as it ended.")}</h2>
 					</div>
-					<a className="past-run-story" href={`/?run=${run.id}`}>
-						Play it as a story
-					</a>
+					{run.replay !== null ? (
+						<a className="past-run-story" href={`/?run=${run.id}`}>
+							Play it as a story
+						</a>
+					) : null}
+					{onDelete !== undefined ? (
+						<button type="button" className="past-run-delete label" onClick={() => setConfirming(true)}>
+							Delete
+						</button>
+					) : null}
 					<button type="button" className="past-run-close label" onClick={onClose}>
 						Close
 					</button>
@@ -139,6 +183,29 @@ export function PastRunPanel({ run, onClose }: PastRunPanelProps) {
 						</>
 					) : null}
 				</div>
+				{confirming ? (
+					<div className="past-run-confirm-layer">
+						<div className="past-run-confirm" role="alertdialog" aria-modal="true" aria-labelledby="past-run-confirm-title" aria-describedby="past-run-confirm-detail">
+							<h3 id="past-run-confirm-title">Delete this run?</h3>
+							<p id="past-run-confirm-detail">
+								The run from {run.when} ({run.agents} agents landed) is removed from the list for good, with its events and its copy of trunk. This cannot be undone.
+							</p>
+							{refused !== null ? (
+								<p role="alert" className="past-run-confirm-refused">
+									{refused}
+								</p>
+							) : null}
+							<div className="past-run-confirm-actions">
+								<button ref={keep} type="button" className="past-run-confirm-keep" disabled={deleting} onClick={() => setConfirming(false)}>
+									Keep it
+								</button>
+								<button type="button" className="past-run-confirm-delete" disabled={deleting} onClick={doDelete}>
+									{deleting ? "Deleting…" : "Delete"}
+								</button>
+							</div>
+						</div>
+					</div>
+				) : null}
 				{selectedIntent ? <Drawer intent={selectedIntent} events={shown} callsignOf={callsignOf} named={named} diff={diff} changesFrom="past-run" layout={layout} onSelect={setSelected} onClose={() => setSelected(null)} /> : null}
 			</div>
 		</div>
