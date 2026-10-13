@@ -14,7 +14,7 @@ Read this one when you record with the slide deck. (`script.md` is the older cut
 
 - Window 1: the deck, in Present mode, on slide 1.
 - Window 2: Chrome at `https://premise.akshatdivekar.workers.dev/`, page area 1440×900, on the **Demo** tab at "Step 01 / 07". (`shot-list.md` has the browser set-up, with one change: capture the whole screen, not the page area, because this take shows two windows. Put Chrome in full screen instead of using the DevTools device toolbar.) Switch between the two windows with `⌘Tab`.
-- Open `https://premise.akshatdivekar.workers.dev/?results` once beforehand. Check that the headline still says the last live runs each landed every agent, with nothing broken on trunk (slide 16 says "the recent live runs", so the number does not matter), and that a row under the top one has an **Open** link (the top row, the run on the board now, never has one).
+- Open `https://premise.akshatdivekar.workers.dev/?results` once beforehand. Check that the headline still says the last live runs each landed every agent, with nothing broken on trunk (slide 16 says "the recent live runs", so the number does not matter), and that a row under the top one that says "12 of 12" opens a panel when it is clicked (the top row, the run on the board now, does not open; some rows are runs of 5 or 7 agents).
 - In Present mode, check that slide 15 is "At scale" and slide 19 is "The honest part".
 - Do not press **Start a run** during the take: a run takes three to four minutes.
 
@@ -246,7 +246,7 @@ You can run it yourself. On the site's Live tab, anyone can start a run: twelve 
 
 **[SWITCH TO THE BROWSER, THEN CLICK THE "Results" TAB]**
 
-**[CLICK "Open" ON A ROW OF THE LIVE RUNS TABLE: A PANEL SLIDES IN FROM THE RIGHT]** Here is one of those runs, as it ended. Twelve agents this time.
+**[CLICK A ROW OF THE LIVE RUNS TABLE THAT SAYS "12 of 12": A PANEL SLIDES IN FROM THE RIGHT]** Here is one of those runs, as it ended. Twelve agents this time.
 
 **[CLICK AGENT 2'S ROW IN THE PANEL]** And for any agent: its changes, as they landed on trunk.
 
