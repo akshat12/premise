@@ -1172,3 +1172,5 @@ Asked for by the user: slides that match what is built, approachable, organised 
 - **Reused, not rebuilt:** `TapeView`, `Drawer`, `useIntentDiff`, `storyFor` (for the agents' names and the closing sentence), `reduceAll`, `buildTape`. `fetchPastRun` moved from `App.tsx` to `src/ui/lib/pastRun.ts`. The only new styles are the panel's own, and one rule that keeps the details panel inside it at every width.
 - **Tried** on the local Worker at 1440 wide: opened a kept run, opened Agent 2 ("2 files changed, +50 −11. As it landed on trunk."), dragged the details panel from 300 to 450 pixels, sought to an early moment and back. Not tried at tablet or phone width.
 
+
+- **Oct 13, afternoon:** the public cap is twenty a day for now (the user's call, for the day of the screen recording). At about 95 Dynamic Workers a first run and far fewer for repeats, that is a small bill. Put it back to ten afterwards.

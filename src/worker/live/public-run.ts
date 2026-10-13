@@ -14,7 +14,7 @@ export const PUBLIC_RUN = {
 	/** From one start to the next. */
 	cooldownMs: 3 * 60_000,
 	/** How many may start in any 24 hours. */
-	dailyCap: 10,
+	dailyCap: 20,
 	/** A start that has been taken counts as running for this long, whether or not its Intents are on the board yet. */
 	startingMs: 60_000,
 	/** A reset that has begun and not finished counts as running for this long. (It deletes forks and imports trunk, which takes a while.) */
