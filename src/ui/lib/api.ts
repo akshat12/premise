@@ -88,4 +88,7 @@ export async function dispatch(request: DispatchRequest, token: string): Promise
 }
 
 export const answerCard = (intentId: string, choice: string, token: string) => postAdmin<{ ok: boolean; status: string | null }>(`/api/human/${encodeURIComponent(intentId)}`, { choice }, token);
+/** Removes one kept run from the Results tab's list, for good. */
+export const deleteRun = (id: number, token: string) => postAdmin<{ ok: boolean; id: number }>(`/api/admin/runs/${id}/delete`, {}, token);
+
 export const resetDemo = (token: string) => postAdmin<{ ok: boolean; trunk: string }>("/api/admin/reset-demo", {}, token);

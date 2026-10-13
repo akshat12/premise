@@ -319,6 +319,22 @@ export class EventHub extends DurableObject<Env> {
 			.map(toEvent);
 	}
 
+	/**
+	 * Removes a kept run from the record: its line and its events. Returns the repo that was its
+	 * trunk (null if none was recorded), for the caller to remove if nothing else needs it; null
+	 * for a run that is not kept. The run on the board is not a kept run and cannot be removed here.
+	 */
+	async deleteRun(id: number): Promise<{ trunk: string | null } | null> {
+		const sql = this.ctx.storage.sql;
+		const run = sql.exec<{ summary: string }>("SELECT summary FROM runs WHERE id = ?", id).toArray()[0];
+		if (run === undefined) {
+			return null;
+		}
+		sql.exec("DELETE FROM run_events WHERE run_id = ?", id);
+		sql.exec("DELETE FROM runs WHERE id = ?", id);
+		return { trunk: (JSON.parse(run.summary) as RunSummary).trunk ?? null };
+	}
+
 	/** The repos that were trunk for the runs that are kept. A reset leaves these alone and removes other old copies. */
 	async keptTrunks(): Promise<string[]> {
 		const kept = this.ctx.storage.sql

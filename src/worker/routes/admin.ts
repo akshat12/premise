@@ -1,6 +1,6 @@
 import { isEventBody } from "../../shared/wire";
 import { isAdminRequest } from "../admin-auth";
-import { resetDemo } from "../dispatch";
+import { deleteRun, resetDemo } from "../dispatch";
 import { currentTrunk, hub, publish, withChosenLlm } from "../hub/publish";
 import { getRepoStore } from "../ports";
 import { ArtifactsRepoStore } from "../ports/artifacts-repo-store";
@@ -11,7 +11,7 @@ import { analyze } from "../surface";
 import type { Assertion } from "../../shared/types";
 import { importTrunk } from "./import-trunk";
 import { gateBusy } from "../live/start";
-import { forgetLiveStatus } from "./live";
+import { forgetLiveStatus, forgetRunLandings } from "./live";
 import { MAX_WORKLOAD, runWorkload } from "../workload/run";
 import { type AbOptions, collectAb, isQuiet, runAbMode, startAbMode } from "../ab/run";
 
@@ -58,6 +58,13 @@ export async function handleAdmin(request: Request, env: Env, url: URL): Promise
 	}
 	if (request.method !== "POST") {
 		return Response.json({ error: "method not allowed" }, { status: 405 });
+	}
+	const removed = /^\/api\/admin\/runs\/([1-9]\d{0,8})\/delete$/.exec(url.pathname);
+	if (removed !== null) {
+		// Takes one kept run out of the record of runs. The run on the board is not a kept run: a reset clears that.
+		const result = await deleteRun(env, Number(removed[1]));
+		forgetRunLandings();
+		return result === null ? Response.json({ error: "no such run" }, { status: 404 }) : Response.json({ ok: true, ...result });
 	}
 	switch (url.pathname) {
 		case "/api/admin/smoke":

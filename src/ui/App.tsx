@@ -554,7 +554,7 @@ export function App() {
 					{onResults ? null : humanCards}
 					{onResults ? (
 						<div className="results">
-							<RecentRuns onWatch={() => show("live")} />
+							<RecentRuns onWatch={() => show("live")} owner={ownerTools} token={token} onNeedToken={() => setDispatching(true)} />
 							<AbPanel results={AB_RESULTS} />
 							{scaleRun === null || scaleState === null ? (
 								scaleFromOtherRun || DEMO === SCALE_RUN ? <p style={{ fontSize: 13, color: "var(--ink-soft)" }}>Loading the larger run…</p> : null

@@ -4,7 +4,12 @@
 //   npm run demo -- --url https://premise.<account>.workers.dev
 //   npm run demo -- --replay                      # no backend work: plays the recorded run, /?demo=main
 //
-// Options: [--workload 40] [--seed 7] [--no-open]
+// Options: [--workload 40] [--seed 7] [--agents 12] [--tasks t05-tax-rounding,t06-discount-stacking] [--no-open]
+//
+// --agents 5 dispatches five of the tasks, not all of them: the four the premise break is about
+// first (the one that changes verifySession, and the three that rely on it), then the rest in order.
+// --tasks names the tasks to dispatch, for a run about something else (t05 and t06 both want
+// computeTotal, which is the ledger's case, not a broken premise).
 //
 // A live demo resets the Worker's demo state, dispatches every task (the one that changes what
 // verifySession does lands first, so the premise break happens while the others are in flight)
@@ -16,6 +21,10 @@ import { arg, flag, worker } from "./lib/admin";
 const url = (arg("url") ?? process.env.URL ?? "http://localhost:5173").replace(/\/$/, "");
 const workload = Number(arg("workload", "40"));
 const seed = Number(arg("seed", "7"));
+const named = arg("tasks")?.split(",").map((id) => id.trim()).filter((id) => id !== "") ?? null;
+const agents = arg("agents") === undefined ? null : Number(arg("agents"));
+/** The tasks the premise break is about: T01 changes what verifySession does, and these three rely on it. */
+const STORY = ["t01-null-expired", "t02-audit-expired", "t03-expired-metrics", "t11-expired-rate-limit"];
 
 function open(page: string): void {
 	console.log(`Open ${page}`);
@@ -40,9 +49,17 @@ async function start(api: ReturnType<typeof worker>, show: boolean): Promise<voi
 		// With the owner's tools under "More" (dispatching by hand, reset): whoever runs this script is the owner.
 		open(`${url}/?live&admin`);
 	}
-	const tasks = await api.get<TaskDef[]>("/api/tasks");
-	await api.post("/api/dispatch", { taskIds: tasks.map((task) => task.id), landFirst: ["t01-null-expired"] });
-	console.log(`Dispatched ${tasks.length} tasks. T01 lands first, and breaks what T02, T03 and T11 rely on.`);
+	const every = (await api.get<TaskDef[]>("/api/tasks")).map((task) => task.id);
+	// Fewer agents than tasks: the story's four first, then the others, and dispatched in the repo's own order.
+	const unknown = (named ?? []).filter((id) => !every.includes(id));
+	if (unknown.length > 0) {
+		throw new Error(`No such task: ${unknown.join(", ")}. The tasks are ${every.join(", ")}.`);
+	}
+	const wanted = named !== null ? named : agents === null ? every : [...STORY.filter((id) => every.includes(id)), ...every.filter((id) => !STORY.includes(id))].slice(0, agents);
+	const taskIds = every.filter((id) => wanted.includes(id));
+	const story = taskIds.includes("t01-null-expired");
+	await api.post("/api/dispatch", { taskIds, ...(story ? { landFirst: ["t01-null-expired"] } : {}) });
+	console.log(`Dispatched ${taskIds.length} of ${every.length} tasks.${story ? " T01 lands first, and breaks what T02, T03 and T11 rely on." : ""}`);
 	if (workload > 0) {
 		await api.post("/api/admin/workload", { n: workload, seed });
 		console.log(`Started ${workload} scripted workload Intents (seed ${seed}).`);
@@ -52,6 +69,9 @@ async function start(api: ReturnType<typeof worker>, show: boolean): Promise<voi
 if (flag("replay")) {
 	open(`${url}/?demo=main`);
 } else {
+	if (agents !== null && !(Number.isInteger(agents) && agents >= 1)) {
+		throw new Error("--agents takes a whole number, 1 or more");
+	}
 	const api = worker(url);
 	try {
 		await api.get("/api/tasks");
@@ -91,6 +111,6 @@ if (flag("replay")) {
 		}
 		await start(api, false);
 	}
-	console.log(`The board is live at ${url}/?live. Locally the run takes about fifteen seconds; it is over when the twelve agents' rows say "landed".`);
+	console.log(`The board is live at ${url}/?live. Locally the run takes about fifteen seconds; it is over when every agent's row says "landed".`);
 	console.log("Press ⌘K on the page for commands, ? for keys.");
 }

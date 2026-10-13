@@ -152,6 +152,28 @@ export function staleTrunks(names: readonly string[], inUse: string, kept: reado
 	return names.filter((name) => isTrunkCopy(name) && name !== inUse && !kept.includes(name));
 }
 
+/**
+ * Removes one kept run from the record of runs (the owner's doing, from the Results tab), and the
+ * copy of trunk it was on when nothing else needs that: not the trunk in use, not the original, and
+ * not the trunk of another kept run. null for a run that is not kept.
+ */
+export async function deleteRun(env: Env, id: number, store: RepoStore = getRepoStore(env)): Promise<{ id: number; trunkRemoved: string | null } | null> {
+	const gone = await hub(env).deleteRun(id);
+	if (gone === null) {
+		return null;
+	}
+	const [stale] = gone.trunk === null ? [] : staleTrunks([gone.trunk], await currentTrunk(env), [...(await hub(env).keptTrunks()), env.TRUNK_REPO]);
+	if (stale === undefined) {
+		return { id, trunkRemoved: null };
+	}
+	// The run is gone from the record either way. A copy that could not be removed is only left over.
+	const removed = await store.remove(stale).then(
+		() => true,
+		() => false,
+	);
+	return { id, trunkRemoved: removed ? stale : null };
+}
+
 /** True for a repo that belongs to an Intent: "i" plus 8 base36 characters, optionally "-r<n>" for a re-derive. */
 export function isIntentRepo(name: string): boolean {
 	return /^i[0-9a-z]{8}(-r\d+)?$/.test(name);

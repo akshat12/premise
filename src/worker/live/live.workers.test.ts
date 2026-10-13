@@ -457,3 +457,67 @@ describe("GET /api/live and POST /api/live/start", () => {
 		void introspector;
 	}, 320_000);
 });
+
+// The route works on the Worker's own hub (the one the Results tab reads), so these do too.
+describe("removing a kept run", () => {
+	const main = hub(env);
+	const made = (id: string) => main.publish({ t: "intent.created", intent: { id, kind: "agent", taskId: "t01", status: "planning" } as never });
+
+	it("the owner removes a kept run: its line, its events, and its trunk copy when nothing else is on it", async () => {
+		const store = getRepoStore(env);
+		const keep = async (intentId: string, trunk: string) => {
+			await main.setTrunk(trunk);
+			await made(intentId);
+			await main.reset(true, "owner", trunk);
+			return (await main.runs()).past[0]?.id ?? 0;
+		};
+		for (const name of ["trunk-delete01", "trunk-shared01"]) {
+			await store.ensureRepo(name);
+		}
+		const alone = await keep("i000000d1", "trunk-delete01");
+		const sharedA = await keep("i000000d2", "trunk-shared01");
+		const sharedB = await keep("i000000d3", "trunk-shared01");
+		await main.setTrunk("trunk-inuse001");
+		// The copies of the runs that were already kept (other tests' runs) are not this test's to count.
+		const remove = (id: number | string, headers: Record<string, string> = ADMIN) => call(`/api/admin/runs/${id}/delete`, { method: "POST", headers, body: "{}" });
+
+		// Not without the token, and not by a GET.
+		expect((await remove(alone, { "content-type": "application/json" })).status).toBe(401);
+		expect((await call(`/api/admin/runs/${alone}/delete`, { headers: ADMIN })).status).toBe(405);
+		expect((await main.runs()).past.map((run) => run.id)).toContain(alone);
+
+		// A run that had its trunk copy to itself: the line, the events and the copy all go.
+		expect((await main.runEvents(alone)).length).toBeGreaterThan(0);
+		expect(await (await remove(alone)).json()).toEqual({ ok: true, id: alone, trunkRemoved: "trunk-delete01" });
+		expect((await main.runs()).past.map((run) => run.id)).not.toContain(alone);
+		expect(await main.runEvents(alone)).toEqual([]);
+		expect(await main.runLanding(alone, "i000000d1")).toBeNull();
+		expect(await store.list()).not.toContain("trunk-delete01");
+		expect((await call(`/api/runs/${alone}/events`)).status).toBe(404);
+
+		// Two runs on one trunk: removing the first leaves the copy for the second, which is untouched.
+		expect(await (await remove(sharedA)).json()).toEqual({ ok: true, id: sharedA, trunkRemoved: null });
+		expect(await store.list()).toContain("trunk-shared01");
+		expect((await main.runs()).past.map((run) => run.id)).toContain(sharedB);
+		expect((await main.runEvents(sharedB)).length).toBeGreaterThan(0);
+		expect(await (await remove(sharedB)).json()).toEqual({ ok: true, id: sharedB, trunkRemoved: "trunk-shared01" });
+
+		// Gone is gone, and the run on the board (0) is not a kept run.
+		expect((await remove(alone)).status).toBe(404);
+		expect((await remove(0)).status).toBe(404);
+		expect((await remove("abc")).status).toBe(404);
+	});
+
+	it("removing a run never removes the trunk in use", async () => {
+		const store = getRepoStore(env);
+		await store.ensureRepo("trunk-current1");
+		await main.setTrunk("trunk-current1");
+		await made("i000000e1");
+		// A board cleared without a new trunk: the kept run was on the trunk that is still in use.
+		await main.reset();
+		const id = (await main.runs()).past[0]?.id ?? 0;
+		const response = await call(`/api/admin/runs/${id}/delete`, { method: "POST", headers: ADMIN, body: "{}" });
+		expect(await response.json()).toEqual({ ok: true, id, trunkRemoved: null });
+		expect(await store.list()).toContain("trunk-current1");
+	});
+});

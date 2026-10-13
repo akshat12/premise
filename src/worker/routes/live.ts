@@ -24,6 +24,11 @@ export function forgetLiveStatus(): void {
 	statuses.clear();
 }
 
+/** Called when a kept run has been removed: where its Intents landed is no longer worth remembering. */
+export function forgetRunLandings(): void {
+	landings.clear();
+}
+
 const noStore = (body: unknown, status = 200) => Response.json(body, { status, headers: { "Cache-Control": "no-store" } });
 
 export async function handleLive(request: Request, env: Env, url: URL): Promise<Response | null> {

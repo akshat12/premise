@@ -27,6 +27,7 @@ export interface HubApi {
 	runs(): Promise<RecentRuns>;
 	runEvents(id: number, seq?: number, limit?: number): Promise<PremiseEvent[]>;
 	keptTrunks(): Promise<string[]>;
+	deleteRun(id: number): Promise<{ trunk: string | null } | null>;
 	runLanding(id: number, intentId: string): Promise<{ trunk: string | null; landing: Landing | null } | null>;
 	registry(): Promise<RegistryRow[]>;
 	knows(id: string): Promise<boolean>;
