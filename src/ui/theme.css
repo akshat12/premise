@@ -723,7 +723,7 @@ kbd {
 	/* A row's height, and how far down it its bars sit. Roomier rows change these two. */
 	--tape-row: 40px;
 	--tape-pad: 10px;
-	--tape-gap: 3px;
+	--tape-gap: 6px;
 	--tape-line: #eceeea;
 	--tape-edge: #868e97; /* 3.2:1 on the panel: the least a bar's outline may be */
 	position: relative;
@@ -1504,14 +1504,14 @@ button.tape-label:focus-visible {
 	--tape-label: 400px;
 	--tape-row: 94px;
 	--tape-pad: 37px;
-	--tape-gap: 8px;
+	--tape-gap: 14px;
 	font-size: 14px;
 }
 .tape[data-density="medium"] {
 	--tape-label: 300px;
 	--tape-row: 50px;
 	--tape-pad: 15px;
-	--tape-gap: 5px;
+	--tape-gap: 10px;
 }
 /* A row a step is about shows what it relies on as well, so it needs a third line. */
 .tape[data-density="medium"] .tape-row[data-focus="true"] {
