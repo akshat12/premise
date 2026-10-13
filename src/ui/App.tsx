@@ -15,6 +15,7 @@ import { BuiltOn } from "./components/BuiltOn";
 import { type Command, MoreSheet, Palette, Shortcuts } from "./components/Palette";
 import { ScaleView } from "./components/ScaleView";
 import { type RunKind, SimpleBar } from "./components/SimpleBar";
+import { RecentRuns } from "./components/RecentRuns";
 import { RunFigures } from "./components/RunFigures";
 import { figuresFor } from "./lib/figures";
 import { StoryBar } from "./components/StoryBar";
@@ -505,6 +506,7 @@ export function App() {
 					{onResults ? null : humanCards}
 					{onResults ? (
 						<div className="results">
+							<RecentRuns onWatch={() => show("live")} />
 							<AbPanel results={AB_RESULTS} />
 							{scaleRun === null || scaleState === null ? (
 								scaleFromOtherRun || DEMO === SCALE_RUN ? <p style={{ fontSize: 13, color: "var(--ink-soft)" }}>Loading the larger run…</p> : null

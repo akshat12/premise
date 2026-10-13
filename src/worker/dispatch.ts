@@ -1,5 +1,6 @@
 // Turning tasks into running Intents, and resetting everything for another demo run.
 import { newIntentId } from "../shared/ids";
+import type { RunSummary } from "../shared/runs";
 import type { Intent, IntentId, TaskDef, TaskId } from "../shared/types";
 import { DEFAULT_PRIORITY } from "./agent/run";
 import { landing } from "./gate/client";
@@ -143,8 +144,9 @@ export function isIntentRepo(name: string): boolean {
  * Puts everything back to the start for another demo run: deletes every Intent fork, makes a
  * fresh copy of the demo repo as trunk under a new name, and clears the event log and the ledger.
  * `asked: false` is for a reset nobody requested and no run follows (see `EventHub.reset`).
+ * `origin` says who is starting the run that follows, for the record of runs.
  */
-export async function resetDemo(env: Env, options: { asked?: boolean } = {}): Promise<ResetResult> {
+export async function resetDemo(env: Env, options: { asked?: boolean; origin?: RunSummary["origin"] } = {}): Promise<ResetResult> {
 	const asked = options.asked ?? true;
 	const store = getRepoStore(env);
 	// Said before anything else: until the hub's own reset below, the board still shows the run before,
@@ -184,7 +186,7 @@ export async function resetDemo(env: Env, options: { asked?: boolean } = {}): Pr
 		await landing(env).clear();
 		await hub(env).setTrunk(trunk);
 		unadopted = undefined;
-		await hub(env).reset(asked);
+		await hub(env).reset(asked, options.origin ?? "owner");
 		// Earlier reset copies are no longer needed. The original trunk repo is left alone.
 		if (previousTrunk !== trunk && previousTrunk !== env.TRUNK_REPO) {
 			await store.remove(previousTrunk).catch(() => undefined);

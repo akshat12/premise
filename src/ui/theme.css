@@ -1913,6 +1913,84 @@ button.tape-label:focus-visible {
 .results > .plane {
 	max-width: none;
 }
+/* The list of live runs: a plain table of words and numbers, one run to a line. */
+.runs-scroll {
+	margin-top: 20px;
+	overflow-x: auto;
+}
+.runs {
+	width: 100%;
+	min-width: 760px;
+	border-collapse: collapse;
+	font-size: 14px;
+	font-variant-numeric: tabular-nums;
+}
+.runs th,
+.runs td {
+	padding: 9px 16px 9px 0;
+	border-top: 1px solid var(--rule);
+	text-align: left;
+	white-space: nowrap;
+}
+.runs thead th {
+	padding-top: 0;
+	border-top: 0;
+	white-space: normal;
+}
+.runs tbody th {
+	font-weight: 500;
+}
+.runs .runs-num {
+	text-align: right;
+}
+.runs th:last-child,
+.runs td:last-child {
+	padding-right: 0;
+}
+.runs-note {
+	margin-left: 8px;
+	padding: 1px 6px;
+	border: 1px solid var(--rule-strong);
+	border-radius: 2px;
+}
+.runs tr[data-current="true"] .runs-note {
+	border-color: var(--holds);
+	color: var(--holds);
+}
+.runs-problems {
+	font-weight: 600;
+}
+.runs-problems[data-tone="good"] {
+	color: var(--holds);
+}
+.runs-problems[data-tone="accent"] {
+	color: var(--redpen);
+}
+.runs-watch,
+.runs-more {
+	padding: 0;
+	border: 0;
+	background: none;
+	cursor: pointer;
+	font: inherit;
+}
+.runs-watch {
+	color: var(--bluestamp);
+	font-weight: 600;
+	text-decoration: underline;
+}
+.runs-more {
+	margin-top: 12px;
+	color: var(--ink);
+	font-family: var(--font-label);
+	font-size: 11px;
+	text-decoration: underline;
+}
+.runs-watch:focus-visible,
+.runs-more:focus-visible {
+	outline: 2px solid var(--bluestamp);
+	outline-offset: 2px;
+}
 @media (max-width: 767px) {
 	.live-controls {
 		align-items: flex-start;

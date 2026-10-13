@@ -5,6 +5,8 @@ import type { IntentKind, IntentStatus, Metrics } from "../../shared/types";
 import { parseSince, PING, PONG } from "../../shared/wire";
 import { computeMetrics, countEvent, type Counters, emptyCounters, type RegistryRow } from "../metrics";
 import { AT_REST, type BoardFacts, claimPublicRun, clearPublicRuns, failPublicRun, isScripted, newPublicRunState, type PublicRunState, type PublicRunStatus, publicRunStatus, refusePublicRun } from "../live/public-run";
+import type { RecentRuns, RunSummary } from "../../shared/runs";
+import { RUNS_KEPT, summariseRun } from "../live/runs";
 import { atCapacity, capacityMessage, RETRY_AFTER_S } from "./limits";
 
 const BACKLOG_PAGE = 2000;
@@ -39,6 +41,8 @@ export class EventHub extends DurableObject<Env> {
 			sql.exec("CREATE TABLE IF NOT EXISTS processed_commits(commit_sha TEXT PRIMARY KEY, ts INTEGER)");
 			// Intents that have recorded at least one asserted premise: the only ones invalidation has to open.
 			sql.exec("CREATE TABLE IF NOT EXISTS asserters(id TEXT PRIMARY KEY)");
+			// Past runs, one line each (shared/runs.ts): written when the board is cleared, and kept across resets.
+			sql.exec("CREATE TABLE IF NOT EXISTS runs(id INTEGER PRIMARY KEY AUTOINCREMENT, summary TEXT)");
 			// What a real model answered, turn by turn, so a live run can be saved and replayed as a script.
 			sql.exec("CREATE TABLE IF NOT EXISTS llm_turns(script TEXT, idx INTEGER, turn TEXT, PRIMARY KEY (script, idx))");
 		});
@@ -146,8 +150,16 @@ export class EventHub extends DurableObject<Env> {
 	 * Connected clients are told to drop what they have. The current trunk name is kept, and so are
 	 * the model choice and the public run's record (its switch and its starts are not part of a run).
 	 */
-	async reset(asked = true): Promise<void> {
+	async reset(asked = true, origin: RunSummary["origin"] = "owner"): Promise<void> {
 		const sql = this.ctx.storage.sql;
+		// The run that is about to be cleared is kept as one line. (Not a comparison run: the other two
+		// rules are not Premise, and their results belong in the comparison, not in a list of its runs.)
+		const leaving = this.getMeta<string>("mode", "premise") === "premise" ? this.runOnBoard(0) : null;
+		if (leaving !== null) {
+			const kept = sql.exec<{ id: number }>("INSERT INTO runs (summary) VALUES (?) RETURNING id", JSON.stringify(leaving)).one();
+			sql.exec("UPDATE runs SET summary = ? WHERE id = ?", JSON.stringify({ ...leaving, id: kept.id }), kept.id);
+			sql.exec("DELETE FROM runs WHERE id <= ?", kept.id - RUNS_KEPT);
+		}
 		sql.exec("DELETE FROM events");
 		sql.exec("DELETE FROM sqlite_sequence WHERE name = 'events'");
 		sql.exec("DELETE FROM registry");
@@ -162,6 +174,8 @@ export class EventHub extends DurableObject<Env> {
 		if (asked) {
 			this.setMeta("reset_at", Date.now());
 		}
+		// Who is starting the run that follows, for its own line later.
+		this.setMeta("run_origin", origin);
 		this.broadcast(JSON.stringify({ reset: true }));
 	}
 
@@ -243,6 +257,40 @@ export class EventHub extends DurableObject<Env> {
 
 	async setLlm(choice: { provider: string; model?: string } | null): Promise<void> {
 		this.setMeta("llm", choice);
+	}
+
+	// ---- the record of runs (live/runs.ts) ----
+
+	/** The run on the board now as one line, or null if there are no agents on it. */
+	private runOnBoard(id: number): RunSummary | null {
+		const sql = this.ctx.storage.sql;
+		const first = sql.exec<{ ts: number }>("SELECT ts FROM events ORDER BY seq LIMIT 1").toArray()[0];
+		const last = sql.exec<{ ts: number }>("SELECT ts FROM events ORDER BY seq DESC LIMIT 1").toArray()[0];
+		if (first === undefined || last === undefined) {
+			return null;
+		}
+		const registry = sql
+			.exec<{ kind: string; status: string }>("SELECT kind, status FROM registry")
+			.toArray()
+			.map((row) => ({ kind: row.kind as IntentKind, status: row.status as IntentStatus }));
+		return summariseRun({
+			id,
+			origin: this.getMeta<RunSummary["origin"]>("run_origin", "owner"),
+			registry,
+			counters: this.getMeta<Counters>("counters", emptyCounters()),
+			firstTs: first.ts,
+			lastTs: last.ts,
+			scripted: isScripted(this.getMeta<{ provider: string } | null>("llm", null), this.env.LLM),
+		});
+	}
+
+	/** The run on the board, and the ones before it, newest first. */
+	async runs(): Promise<RecentRuns> {
+		const past = this.ctx.storage.sql
+			.exec<{ summary: string }>("SELECT summary FROM runs ORDER BY id DESC LIMIT ?", RUNS_KEPT)
+			.toArray()
+			.map((row) => JSON.parse(row.summary) as RunSummary);
+		return { current: this.getMeta<string>("mode", "premise") === "premise" ? this.runOnBoard(0) : null, past };
 	}
 
 	// ---- the run anyone can start (see live/public-run.ts for the rules) ----

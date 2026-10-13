@@ -1,5 +1,6 @@
 import type { PremiseEvent, PremiseEventBody } from "../../shared/events";
 import type { Metrics } from "../../shared/types";
+import type { RecentRuns, RunSummary } from "../../shared/runs";
 import type { PublicRunStatus } from "../live/public-run";
 import type { RegistryRow } from "../metrics";
 
@@ -21,7 +22,8 @@ export interface HubApi {
 	publish(body: PremiseEventBody): Promise<PremiseEvent>;
 	publishMany(bodies: PremiseEventBody[]): Promise<PremiseEvent[]>;
 	since(seq: number, limit?: number): Promise<PremiseEvent[]>;
-	reset(asked?: boolean): Promise<void>;
+	reset(asked?: boolean, origin?: RunSummary["origin"]): Promise<void>;
+	runs(): Promise<RecentRuns>;
 	registry(): Promise<RegistryRow[]>;
 	knows(id: string): Promise<boolean>;
 	asserters(): Promise<string[]>;

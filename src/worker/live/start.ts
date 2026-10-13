@@ -51,7 +51,7 @@ export async function runPublicRun(env: Env, params: PublicRunParams, once: Once
 			if (resolveLlmConfig(await withChosenLlm(env)).provider !== "scripted") {
 				throw new Error("the agents are set to use a model; public runs are scripted only");
 			}
-			await resetDemo(env);
+			await resetDemo(env, { origin: "visitor" });
 			return true;
 		});
 		agents = await once("dispatch", async () => {

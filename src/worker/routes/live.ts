@@ -6,7 +6,7 @@ import type { PublicRunStatus } from "../live/public-run";
 import { PUBLIC_RUN } from "../live/public-run";
 import { gateBusy, type PublicRunParams, publicRunInstanceId } from "../live/start";
 import { release } from "../ports/release";
-import { Memo } from "./memo";
+import { cachedJson, Memo } from "./memo";
 
 // The page asks every few seconds while the Live tab is open. One answer serves everyone for a moment.
 const STATUS_TTL_MS = 2000;
@@ -25,6 +25,10 @@ export async function handleLive(request: Request, env: Env, url: URL): Promise<
 			return Response.json({ error: "method not allowed" }, { status: 405 });
 		}
 		return noStore(await statuses.get("status", async () => hub(env).publicRun(await gateBusy(env))));
+	}
+	if (url.pathname === "/api/runs") {
+		// The run on the board and the ones before it, a line each. Read-only, and the same for everyone for a few seconds.
+		return request.method === "GET" ? cachedJson(await hub(env).runs()) : Response.json({ error: "method not allowed" }, { status: 405 });
 	}
 	if (url.pathname !== "/api/live/start") {
 		return null;

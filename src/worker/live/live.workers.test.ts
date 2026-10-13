@@ -137,6 +137,65 @@ describe("the hub's record of public runs", () => {
 	});
 });
 
+describe("the hub's record of runs", () => {
+	const own = hub(env, "run-record-test");
+	const created = (id: string, kind: "agent" | "workload") => own.publish({ t: "intent.created", intent: { id, kind, taskId: kind === "agent" ? "t01" : "workload", status: "planning" } as never });
+	const status = (id: string, to: string) => own.publish({ t: "intent.status", id, status: to } as never);
+
+	it("has nothing to list on a board nothing has run on", async () => {
+		expect(await own.runs()).toEqual({ current: null, past: [] });
+	});
+
+	it("lists the run on the board, and keeps it as a line when the board is cleared", async () => {
+		await created("i000000a1", "agent");
+		await created("i000000a2", "agent");
+		await created("i000000w1", "workload");
+		expect((await own.runs()).current).toMatchObject({ id: 0, origin: "owner", complete: false, agents: { total: 2, landed: 0 }, workload: { total: 1, landed: 0 } });
+		await status("i000000a1", "landed");
+		await status("i000000a2", "landed");
+		await status("i000000w1", "failed");
+		expect((await own.runs()).current).toMatchObject({ complete: true, agents: { total: 2, landed: 2 }, workload: { total: 1, landed: 0 }, problems: 0 });
+
+		// Cleared by a visitor's start: the run that was there is kept, and the next one is the visitor's.
+		await own.reset(true, "visitor");
+		const after = await own.runs();
+		expect(after.current).toBeNull();
+		expect(after.past).toHaveLength(1);
+		expect(after.past[0]).toMatchObject({ origin: "owner", complete: true, agents: { total: 2, landed: 2 } });
+		expect(after.past[0]?.id).toBeGreaterThan(0);
+
+		await created("i000000b1", "agent");
+		expect((await own.runs()).current).toMatchObject({ origin: "visitor", complete: false });
+		await own.reset();
+		const later = await own.runs();
+		expect(later.past.map((run) => run.origin)).toEqual(["visitor", "owner"]);
+		expect(later.past[0]).toMatchObject({ complete: false, agents: { total: 1, landed: 0 } });
+		expect(later.past[0]?.id).toBeGreaterThan(later.past[1]?.id ?? 0);
+	});
+
+	it("does not keep a comparison run, or an empty board", async () => {
+		const before = (await own.runs()).past.length;
+		await own.reset();
+		expect((await own.runs()).past).toHaveLength(before);
+		// A run under one of the other two rules is not one of Premise's runs.
+		await own.setMode("baseline");
+		await created("i000000c1", "agent");
+		expect((await own.runs()).current).toBeNull();
+		await own.reset();
+		expect((await own.runs()).past).toHaveLength(before);
+	});
+
+	it("keeps only the most recent runs", async () => {
+		for (let run = 0; run < 34; run++) {
+			await created(`i00000d${run.toString(36).padStart(2, "0")}`, "agent");
+			await own.reset();
+		}
+		const { past } = await own.runs();
+		expect(past).toHaveLength(30);
+		expect(past[0]?.id).toBe((past[29]?.id ?? 0) + 29);
+	});
+});
+
 describe("GET /api/live and POST /api/live/start", () => {
 	afterAll(async () => {
 		await hub(env).setLlm(null);
@@ -241,6 +300,21 @@ describe("GET /api/live and POST /api/live/start", () => {
 		// The owner can give the wait back.
 		expect((await call("/api/admin/public-runs", { method: "POST", headers: ADMIN, body: JSON.stringify({ enabled: true, clear: true }) })).status).toBe(200);
 		expect(await get<PublicRunStatus>("/api/live")).toMatchObject({ canStart: true, startsToday: 0 });
+
+		// The run is on the list as the one on the board, started by a visitor; cleared, it is the first of the past ones.
+		const listed = await hub(env).runs();
+		expect(listed.current).toMatchObject({ id: 0, origin: "visitor", complete: true, agents: { total: 12, landed: 12 }, workload: { total: PUBLIC_RUN.workload }, problems: 0, scripted: true });
+		expect(listed.current?.premisesBroken).toBeGreaterThan(0);
+		const route = await call("/api/runs");
+		expect(route.status).toBe(200);
+		expect(((await route.json()) as { current: unknown }).current).toMatchObject({ origin: "visitor", agents: { total: 12, landed: 12 } });
+		expect((await call("/api/runs", { method: "POST" })).status).toBe(405);
+		const pastBefore = listed.past.length;
+		await resetDemo(env);
+		const cleared = await hub(env).runs();
+		expect(cleared.current).toBeNull();
+		expect(cleared.past).toHaveLength(Math.min(30, pastBefore + 1));
+		expect(cleared.past[0]).toMatchObject({ origin: "visitor", complete: true, agents: { total: 12, landed: 12 }, problems: 0 });
 		void introspector;
 	}, 320_000);
 });
