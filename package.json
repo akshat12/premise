@@ -21,6 +21,7 @@
     "demo:record": "tsx scripts/record-run.ts",
     "demo:compress": "tsx scripts/compress-run.ts",
     "demo": "tsx scripts/demo.ts",
+    "slides": "python3 -I docs/video/deck/tools/build_player.py docs/video/deck public/slides/index.html",
     "demo:offline": "vite build && tsx scripts/serve-offline.ts"
   },
   "license": "MIT",

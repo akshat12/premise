@@ -30,6 +30,8 @@ interface SimpleBarProps {
 	views: React.ReactNode;
 	/** Opens the list of everything else the app can do (the command palette). */
 	onMore: () => void;
+	/** Opens the slides that explain Premise, over the page. */
+	onHow: () => void;
 	kind?: RunKind;
 }
 
@@ -38,7 +40,7 @@ interface SimpleBarProps {
  * two tabs. What a newcomer does not need is one click away under "More", not in front of the story:
  * the shortcuts, and, for the owner only (see ADMIN in App.tsx), dispatching by hand and resetting.
  */
-export function SimpleBar({ layout, views, onMore, kind }: SimpleBarProps) {
+export function SimpleBar({ layout, views, onMore, onHow, kind }: SimpleBarProps) {
 	return (
 		<header className="simplebar" data-layout={layout}>
 			<span className="callsign simplebar-name">Premise</span>
@@ -58,6 +60,19 @@ export function SimpleBar({ layout, views, onMore, kind }: SimpleBarProps) {
 			<div className="simplebar-views" onPointerUp={releaseFocus}>
 				{views}
 			</div>
+			{/* A link to the same deck at /slides/: a plain click opens it over this page instead. */}
+			<a
+				className="label-button simplebar-how"
+				href="/slides/"
+				onClick={(event) => {
+					if (!event.metaKey && !event.ctrlKey && !event.shiftKey && event.button === 0) {
+						event.preventDefault();
+						onHow();
+					}
+				}}
+			>
+				{layout === "phone" ? "How?" : "How does it work?"}
+			</a>
 			<Button variant="ghost" size="sm" shape="square" aria-label="More" title="More (⌘K)" onClick={onMore}>
 				<DotsThree size={20} weight="bold" />
 			</Button>

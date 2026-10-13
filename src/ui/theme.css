@@ -2380,3 +2380,111 @@ button.tape-label:focus-visible {
 	}
 }
 
+
+/* ---- The slides: a link in the top bar, the deck opened over the page, and the first-visit card ---- */
+.simplebar-how {
+	flex: none;
+	padding: 6px 2px;
+	border: 0;
+	background: none;
+	color: var(--ink);
+	cursor: pointer;
+	text-decoration: underline;
+	text-decoration-color: var(--accent-line);
+	text-underline-offset: 4px;
+	white-space: nowrap;
+}
+.simplebar-how:hover {
+	color: var(--redpen);
+}
+.simplebar-how:focus-visible {
+	outline: 2px solid var(--accent-line);
+	outline-offset: 2px;
+}
+.slides-layer {
+	position: fixed;
+	inset: 0;
+	z-index: 60;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+.slides-scrim {
+	position: absolute;
+	inset: 0;
+	border: 0;
+	background: rgba(20, 24, 29, 0.55);
+	cursor: pointer;
+}
+.slides-frame {
+	position: relative;
+	width: min(94vw, calc((90vh - 60px) * 16 / 9));
+	height: min(90vh, calc(94vw * 9 / 16 + 60px));
+	border: 2px solid var(--ink);
+	border-radius: 8px;
+	background: #14181d;
+	box-shadow: 0 24px 60px -12px rgba(20, 24, 29, 0.6);
+}
+.slides-card {
+	position: fixed;
+	right: 24px;
+	bottom: 24px;
+	z-index: 30;
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	width: min(320px, calc(100vw - 32px));
+	box-sizing: border-box;
+	padding: 16px;
+	border: 2px solid var(--ink);
+	border-radius: 8px;
+	background: var(--surface);
+	box-shadow: 0 14px 32px -8px rgba(20, 24, 29, 0.35);
+	animation: slides-card-in 220ms ease-out both;
+}
+@keyframes slides-card-in {
+	from {
+		opacity: 0;
+		transform: translateY(12px);
+	}
+}
+@media (prefers-reduced-motion: reduce) {
+	.slides-card {
+		animation: none;
+	}
+}
+.slides-card-kicker {
+	margin: 0;
+	color: var(--redpen);
+}
+.slides-card-line {
+	margin: 0;
+	font-size: 15px;
+	line-height: 1.4;
+}
+.slides-card-actions {
+	display: flex;
+	gap: 8px;
+	margin-top: 4px;
+}
+.slides-card-actions button {
+	padding: 8px 12px;
+	border: 1px solid var(--ink);
+	border-radius: 6px;
+	font: inherit;
+	font-size: 14px;
+	cursor: pointer;
+}
+.slides-card-open {
+	background: var(--ink);
+	color: var(--surface);
+}
+.slides-card-dismiss {
+	background: none;
+	color: var(--ink);
+	border-color: var(--rule) !important;
+}
+.slides-card-actions button:focus-visible {
+	outline: 2px solid var(--accent-line);
+	outline-offset: 2px;
+}

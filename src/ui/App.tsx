@@ -7,6 +7,8 @@ import { readRecording } from "./lib/recording";
 import { reduceAll } from "./lib/reduce";
 import { useIntentDiff } from "./lib/useIntentDiff";
 import { AbPanel, type AbResults } from "./components/AbPanel";
+import { SlidesCard, SlidesOverlay } from "./components/Slides";
+import { browserMemory, isFirstVisit, rememberVisit } from "./lib/firstVisit";
 import { DispatchPanel } from "./components/DispatchPanel";
 import { Drawer } from "./components/Drawer";
 import { HumanCards } from "./components/HumanCards";
@@ -121,6 +123,20 @@ const AB_RESULTS: AbResults | null = Object.values(import.meta.glob<AbResults>("
 
 export function App() {
 	const [tab, setTab] = useState<Tab>(startTab);
+	// The slides that explain Premise, opened over the page; and the card that offers them, once, on a first visit.
+	const [slidesOpen, setSlidesOpen] = useState(false);
+	const [slidesCard, setSlidesCard] = useState(() => isFirstVisit(browserMemory(), window.location.search));
+	useEffect(() => {
+		// Shown is shown: the next visit does not get the card, whether or not this one answered it.
+		if (slidesCard && !rememberVisit(browserMemory())) {
+			setSlidesCard(false);
+		}
+	}, [slidesCard]);
+	const openSlides = useCallback(() => {
+		setSlidesCard(false);
+		setSlidesOpen(true);
+	}, []);
+	const closeSlides = useCallback(() => setSlidesOpen(false), []);
 	const mode: Mode = tab === "live" ? "live" : "replay";
 	const onResults = tab === "results";
 	// A replay opens held on the story's first step. "Play" lets it run by itself.
@@ -518,7 +534,7 @@ export function App() {
 	const storied = story !== null && story.steps.length > 0 && still === null && !onResults;
 	return (
 		<div className="flex h-full flex-col" style={wide ? { minWidth: 1280 } : undefined}>
-			<SimpleBar layout={layout} views={tabs} onMore={() => setPaletteOpen(true)} {...(runKind === undefined ? {} : { kind: runKind })} />
+			<SimpleBar layout={layout} views={tabs} onMore={() => setPaletteOpen(true)} onHow={openSlides} {...(runKind === undefined ? {} : { kind: runKind })} />
 			{storied && story !== null ? (
 				<StoryBar steps={story.steps} index={stepIndex} playing={!paused && chase === null} moving={chase !== null} onStep={goToStep} onPlay={playThrough} onPause={() => setPaused(true)} onRestart={() => goToStep(0)} />
 			) : null}
@@ -597,6 +613,8 @@ export function App() {
 			{/* A keyboard gets the palette (⌘K). A touch screen, or a narrow window, gets the same actions as buttons. */}
 			{plainMenu ? <MoreSheet open={paletteOpen} onOpenChange={setPaletteOpen} actions={menuActions} /> : <Palette open={paletteOpen} onOpenChange={setPaletteOpen} actions={offered} />}
 			<Shortcuts open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
+			{slidesCard && tab === "demo" && !slidesOpen ? <SlidesCard onOpen={openSlides} onDismiss={() => setSlidesCard(false)} /> : null}
+			{slidesOpen ? <SlidesOverlay onClose={closeSlides} /> : null}
 			{selectedIntent && !onResults ? <Drawer intent={selectedIntent} events={events} callsignOf={callsignOf} named={named} diff={diff} changesFrom={mode === "live" ? "live" : pastRun !== null ? "past-run" : "recording"} layout={layout} onSelect={setSelected} onClose={() => setSelected(null)} /> : null}
 		</div>
 	);

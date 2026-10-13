@@ -1174,3 +1174,11 @@ Asked for by the user: slides that match what is built, approachable, organised 
 
 
 - **Oct 13, afternoon:** the public cap is twenty a day for now (the user's call, for the day of the screen recording). At about 95 Dynamic Workers a first run and far fewer for repeats, that is a small bill. Put it back to ten afterwards.
+
+### The deck on the site, at /slides/ (Oct 13; the user asked for a "How does it work" link and a first-visit card)
+
+- **What:** `docs/video/deck/tools/build_player.py` turns the deck's slide files into one static page, `public/slides/index.html`, which the Worker's assets serve at `/slides/`. It is our own renderer of the slide format (the same one `preview.py` uses, plus stepping through the builds), not the Slides page on claude.ai, so the icons are stand-ins. Under each step it shows what the read-aloud script says there, cut from the slide's `<aside>` at each `[→]`; what is said while the browser is on screen is left out.
+- **The generated page is committed.** `npm run build` does not run Python. After any slide changes: `npm run slides`, then commit.
+- **On the site:** "How does it work?" in the top bar opens the deck over the page in a frame (`SlidesOverlay`); a modified click follows the link to `/slides/`. A card offers the slides once: on the first visit to the plain Demo page, never on a link with a query (`?run=`, `?live`, …), and it is recorded as shown the moment it appears (`src/ui/lib/firstVisit.ts`, tested). Where the browser refuses storage, the card is not shown at all.
+- **Fonts** on the slides page come from Google Fonts (the deck's own `faces`), not the site's bundled files.
+- **Tried** locally at 1280 wide and at phone width: all builds of the ledger slide, its moving dots, Back across a slide boundary, the overlay's Close, the card on a first visit and its absence on the second.
