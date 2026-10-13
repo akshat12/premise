@@ -77,7 +77,7 @@ const OPENING_NOTES: Record<string, string> = {
 };
 /** The same, for a past run of the live board, whatever its number. */
 const PAST_RUN_NOTE = "This is a past run of the live board, played back from the Worker's record of it.";
-const PAST_RUN_KIND: RunKind = { label: "Replay · a past live run", extra: "scripted agents", detail: "A run of the live board that the Worker kept when the board was cleared, played back from its event log. What each Intent changed is read from the trunk the run left behind, as it landed there." };
+const PAST_RUN_KIND: RunKind = { label: "Replay · a past live run", extra: "from the Worker's record", detail: "A run of the live board that the Worker kept when the board was cleared, played back from its event log. What each Intent changed is read from the trunk the run left behind, as it landed there." };
 /** Added to the last step of the front-page run. */
 const WHAT_NEXT = "The Results tab has the numbers. The Live tab runs it for real.";
 /**
@@ -374,7 +374,9 @@ export function App() {
 			return;
 		}
 		let current = true;
-		void RUNS[`../../demo/runs/${SCALE_RUN}.json`]?.().then((data) => current && setOtherRun(readRecording(data).events));
+		void RUNS[`../../demo/runs/${SCALE_RUN}.json`]?.()
+			.then((data) => current && setOtherRun(readRecording(data).events))
+			.catch(() => current && setNotice("The larger run could not be loaded. Reload the page to try again."));
 		return () => {
 			current = false;
 		};
@@ -402,6 +404,10 @@ export function App() {
 			}
 			// The player's keys. They belong to a replay, and stay out of the way of a dialog.
 			if (tab === "demo" && FRAME === null && !event.metaKey && !event.ctrlKey && !event.altKey && target?.closest("[role=dialog]") == null) {
+				// Space on a control reached with the keyboard presses that control, as it does anywhere else.
+				if (event.key === " " && target?.matches("button:focus-visible, a:focus-visible, summary:focus-visible, [role=tab]:focus-visible")) {
+					return;
+				}
 				if (event.key === " ") {
 					event.preventDefault();
 					if (paused && chase === null) {
@@ -442,6 +448,8 @@ export function App() {
 	const show = useCallback((next: Tab) => {
 		setSelected(null);
 		setChase(null);
+		// A replay left playing would go on playing behind the tab that covers it.
+		setPaused(true);
 		setTab(next);
 	}, []);
 	const tabs = (

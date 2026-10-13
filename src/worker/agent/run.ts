@@ -1,6 +1,6 @@
 // Drives one agent through plan, claim, work and submit. This is the whole of the agent's
 // control flow; the Workflow class in workflow.ts only supplies durable steps.
-import type { Assertion, Claim, CommitSha, Intent, IntentId, LedgerDecision, Premise, TaskDef } from "../../shared/types";
+import type { Assertion, Claim, CommitSha, Intent, IntentId, IntentStatus, LedgerDecision, Premise, TaskDef } from "../../shared/types";
 import { currentMode, hub, publish, waitTopic } from "../hub/publish";
 import type { IntentApi } from "../intent/client";
 import { IllegalTransition, type IntentAction } from "../intent/machine";
@@ -187,17 +187,26 @@ export async function runAgent(deps: AgentDeps, params: AgentParams, steps: Step
 	let turns = 0;
 
 	/** Status changes only apply to a fresh run. A re-derive stays "rederiving" until the gate decides. */
+	// Each change is a step of its own. Made outside one, it would be made again whenever the Workflow is
+	// replayed (after a wait, or a restart), on an Intent that has moved on, and the run would stop there.
+	let changes = 0;
 	const act = async (action: IntentAction, note?: string): Promise<void> => {
 		if (!fresh) {
 			return;
 		}
-		try {
-			await api.act(action, note);
-		} catch (error) {
-			if (error instanceof IllegalTransition) {
-				throw new Stopped(`the Intent is ${error.from}`);
+		const from = await steps.do(`status-${++changes}-${action.a}`, async (): Promise<IntentStatus | null> => {
+			try {
+				await api.act(action, note);
+				return null;
+			} catch (error) {
+				if (error instanceof IllegalTransition) {
+					return error.from;
+				}
+				throw error;
 			}
-			throw error;
+		});
+		if (from !== null) {
+			throw new Stopped(`the Intent is ${from}`);
 		}
 	};
 	/** Pauses until `type` arrives, having first noted in the hub what would wake this run. */

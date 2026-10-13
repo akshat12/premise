@@ -80,7 +80,7 @@ describe("what the Changes column says about where a diff comes from", () => {
 		expect(emptyReason(null, "live")).toBe("Nothing pushed yet.");
 		expect(emptyReason(null, "recording")).toMatch(/recording does not include/);
 		// A past run keeps only trunk, so an Intent that never landed has nothing to show.
-		expect(emptyReason(null, "past-run")).toMatch(/did not land in this run/);
+		expect(emptyReason(null, "past-run")).toMatch(/Nothing of it landed on trunk in this run/);
 		expect(emptyReason(unreadable("i3k9x0a2q"), "live")).toMatch(/fork can no longer be read/);
 		expect(emptyReason(unreadable("i3k9x0a2q"), "past-run")).toMatch(/trunk of this run can no longer be read/);
 		expect(emptyReason({ ...empty, head: null }, "recording")).toMatch(/pushed nothing when the recording ended/);

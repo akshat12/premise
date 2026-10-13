@@ -116,10 +116,16 @@ export class EventHub extends DurableObject<Env> {
 	 * passes of the run before can still be finishing; what they say belongs to a log that is gone.
 	 */
 	private fromBefore(body: PremiseEventBody): boolean {
-		if (body.t === "intent.created" || !("id" in body) || typeof body.id !== "string") {
+		if (body.t === "intent.created") {
 			return false;
 		}
-		return this.ctx.storage.sql.exec("SELECT 1 FROM registry WHERE id = ?", body.id).toArray().length === 0;
+		// The Intent an event is about, wherever the event names it. A fork's own events name none, and are kept.
+		const detail = body.t === "artifacts" ? body.detail?.intent : undefined;
+		const id = "id" in body ? body.id : body.t === "gate.result" ? body.report.intentId : body.t === "trunk.advanced" ? body.byIntent : typeof detail === "string" ? detail : null;
+		if (typeof id !== "string") {
+			return false;
+		}
+		return this.ctx.storage.sql.exec("SELECT 1 FROM registry WHERE id = ?", id).toArray().length === 0;
 	}
 
 	async publish(body: PremiseEventBody): Promise<PremiseEvent> {

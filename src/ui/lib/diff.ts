@@ -73,7 +73,7 @@ export type ChangesFrom = "live" | "recording" | "past-run";
 /** Why there is no diff to show, in a sentence. null when there is one. Pure. */
 export function emptyReason(diff: IntentDiff | null, from: ChangesFrom): string | null {
 	if (diff === null) {
-		return from === "past-run" ? "It did not land in this run. Only what landed on trunk is kept after a run, so its changes cannot be shown." : from === "recording" ? "The recording does not include this Intent's changes." : "Nothing pushed yet.";
+		return from === "past-run" ? "Nothing of it landed on trunk in this run, as far as the Worker's record says. Only what landed is kept after a run, so its changes cannot be shown." : from === "recording" ? "The recording does not include this Intent's changes." : "Nothing pushed yet.";
 	}
 	if (diff.unavailable) {
 		return from === "past-run" ? "The trunk of this run can no longer be read, so its changes cannot be shown." : "Its fork can no longer be read, so its changes cannot be shown.";

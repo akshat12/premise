@@ -235,6 +235,7 @@ describe("startOffer", () => {
 		expect(startOffer(status({ canStart: false, reason: "model" }), NOW, quiet).note).toMatch(/live model/);
 		expect(startOffer(status({ canStart: false, reason: "cap", nextAt: NOW + 5 * 3_600_000 }), NOW, quiet).note).toBe("Today's 40 runs have been used. The next can start in about 5 hours.");
 		expect(startOffer(status({ canStart: false, reason: "cap", nextAt: NOW + 12 * 60_000 }), NOW, quiet).note).toMatch(/in 12 minutes\.$/);
+		expect(startOffer(status({ canStart: false, reason: "cap", nextAt: NOW + 20_000 }), NOW, quiet).note).toMatch(/in 1 minute\.$/);
 	});
 
 	it("mentions a start that failed, while it is the latest news", () => {

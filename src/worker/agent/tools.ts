@@ -183,8 +183,9 @@ async function recordObserved(ctx: ToolContext, symbols: readonly SymbolId[]): P
 	const base = await ctx.base();
 	const fresh = symbols.filter((symbol) => !ctx.recorded.has(symbol));
 	const premises = fresh.map((symbol) => observedPremise(base, symbol)).filter((premise): premise is Premise => premise !== null);
-	fresh.forEach((symbol) => ctx.recorded.add(symbol));
 	await ctx.intent.recordPremises(premises);
+	// Only once the write has succeeded: a symbol marked before a failed write would never be recorded.
+	fresh.forEach((symbol) => ctx.recorded.add(symbol));
 }
 
 function requirePhase(ctx: ToolContext, phase: Phase, tool: string): void {
@@ -415,7 +416,9 @@ async function declareChanges(ctx: ToolContext, input: Record<string, unknown>):
 async function writeFile(ctx: ToolContext, input: Record<string, unknown>): Promise<ToolOutcome> {
 	requirePhase(ctx, "work", "write_file");
 	const path = cleanPath(input.path);
-	if (isHidden(path)) {
+	// The assertion helper can be read, never written: every check in the repo imports it, and a helper that
+	// asserts nothing would make them all pass.
+	if (isHidden(path) || path === READABLE_PREMISE_FILE) {
 		throw new ToolError(`${path} cannot be written.`);
 	}
 	if (typeof input.content !== "string") {

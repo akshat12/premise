@@ -1076,9 +1076,30 @@ Started without a token: two with a bare POST, the third with the button on the 
 - **How a diff is found.** `landingOf` (pure, `src/worker/live/runs.ts`) reads the kept log: the gate's result for the Intent names the commit it landed at, and the commit trunk was announced at before that one is its parent (for the first landing, the commit the first Intents were forked from). `GET /api/runs/:id/intents/:intentId/diff` compares the two on the kept trunk with the same code the live diff uses (`landedDiff` in `routes/diff.ts`). The answer never changes, so it is cached for an hour.
 - **The reset.** `resetDemo` used to delete the trunk it was replacing. It now tells the hub which trunk the leaving run was on, and afterwards removes every `trunk-*` copy that is neither in use nor the trunk of a kept run (`staleTrunks`, pure). That also clears copies left by a reset that stopped half way, which nothing removed before. At most thirty small repos stay in the namespace, and each goes when its run drops off the list.
 - **What it cannot show, and says so.**
-  - An Intent that did not land has no changes to show: its fork is gone and it has no commit on trunk. The panel says "It did not land in this run."
+  - An Intent that did not land has no changes to show: its fork is gone and it has no commit on trunk. The panel says nothing of it landed on trunk in this run.
   - Scripted workload Intents land several to a commit, and the commit is all there is to compare. The diff carries `together` and the panel says "in one commit with N other workload Intents: these are the changes of all of them."
   - What is shown is the work as it landed (after a rebase or a re-derive), not the attempt that was stopped.
   - A run kept before this change has no trunk named, and a trunk that has been removed cannot be read. Both say "The trunk of this run can no longer be read". On the local Worker (memory repos) that happens to every kept run when the Worker's code is loaded again.
 - **Types.** `IntentDiff` gained an optional `together`, and `RunSummary` an optional `trunk`. Neither is in `src/shared/types.ts`.
 - **Tried** on the local Worker: two runs from the Start button, then `/?run=6`. All twelve agents' panels show their own diff ("2 files changed, +19 −1. As it landed on trunk."); twenty-six workload Intents show their commit's; the four that did not land say so. The same is asserted in `live.workers.test.ts` against a full run.
+
+### Three reviews, and what was changed because of them (Oct 12, night)
+
+Three independent reviewers read the code: the UI and the Worker at `ef764e5`, and the replay line before it was merged. None found a blocker.
+
+- **Replay line.**
+  - The commit before a landing is now read from the repo (`RepoStore.parentOf`, a new port method over the binding's `readCommit().parents`), not worked out from the log. An announcement of trunk moving can be lost, and the log's "before" would then have shown one Intent another's changes as its own.
+  - A reset deletes only trunks this hub can vouch for: the one it just replaced, if its run was not kept, and the trunk of a run that has just dropped off the list. The first version swept up every `trunk-xxxxxxxx` it did not know, which would have deleted another Worker's trunk on a shared namespace. A copy left by a reset that stopped half way is, as before, removed by that reset itself.
+  - Where an Intent landed is asked of the hub once per run and Intent and remembered in the isolate; `together` counts only the Intents a commit carried; landings have a memo of their own.
+- **Worker.**
+  - An agent's status changes are Workflow steps (`status-<n>-<action>`). Made outside a step they were made again on every replay of the Workflow, and stopped the run.
+  - A push to trunk whose reply was lost is a landing, not a failure. Before, the retry found nothing to commit and landed the work without announcing that trunk had moved.
+  - `premise/assert.ts` can be read by an agent and not written.
+  - A public start checks the provider again when it dispatches; a model that cannot be set up fails the Intent with the reason; one failed read of the task list is not remembered for the run; `scripts/ab.ts` puts public runs back on if its wait fails; an observed premise is marked recorded only after the write.
+  - Events of the run before that name their Intent in `report.intentId`, `byIntent` or `detail.intent` are dropped like the others.
+- **UI.** A reconnect that finds the board was reset keeps the whole log; the details panel no longer plays its entrance again after a drag; the "Live" label goes off when polling fails; and eleven smaller ones (focus on Next, Space on a focused control, phone loading state, lane outline contrast, the countdown not stepping back, a live-model run saying so in the runs table).
+- **Left for later, on purpose** (none is reached by the scripted public run):
+  - A claim across ledger shards that a later shard refuses loses the requester's readers and earlier claims there (the reviewer's finding 4). The fix is a new `unclaim` and a change to Split; too large to make safely two days before the deadline.
+  - A run's line takes `scripted` from the provider at the reset, not the one the run used; `endedAt` follows any late event; a re-derive whose start is retried counts twice; a quarantined Intent's wake-up is not retried; a public start does not check that the board is still the one it reset; dead CSS.
+- **A mistake of mine while doing this:** a link named `node_modules`, made for a second checkout, was committed there (`node_modules/` in `.gitignore` does not match a link), and merging it replaced the real directory. It was taken out of the merge and the packages reinstalled from the lockfile. Nothing else was touched.
+- `npm test`: 1,059 passed, 4 skipped. `scripts/check-scenario.ts`: 43 of 43.

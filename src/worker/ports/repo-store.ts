@@ -20,6 +20,8 @@ export interface RepoStore {
   commit(repo: string, expectedHead: CommitSha, changes: FileChanges, message: string, author?: { name: string; email: string }): Promise<CommitSha>;
   /** Files changed between two commits (paths only), sorted. `from` may be `ZERO_SHA`. */
   changedPaths(repo: string, from: CommitSha, to: CommitSha): Promise<string[]>;
+  /** The commit before `commit` in the repo's history. null for the first commit, or one the repo does not have. */
+  parentOf(repo: string, commit: CommitSha): Promise<CommitSha | null>;
   /** Delete repo (cleanup). */
   remove(repo: string): Promise<void>;
   /** Names of every repo, sorted. Used to find Intent forks when the demo is reset. */

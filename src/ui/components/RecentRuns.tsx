@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import type { RecentRuns as Runs } from "../../shared/runs";
-import { runRows, runsHeadline } from "../lib/runs";
+import { allScripted, runRows, runsHeadline } from "../lib/runs";
 
 /** How often the list is asked for while the Results tab is open. A run takes minutes, so this is plenty. */
 const REFRESH_MS = 15_000;
@@ -60,7 +60,7 @@ export function RecentRuns({ onWatch }: RecentRunsProps) {
 			<p className="plane-lede">
 				{runs === null && unreachable
 					? "It is kept by the deployed Worker, and this page cannot reach one."
-					: "Every run of the live board, whoever started it, is kept as one line when the next run clears the board. None is left out, so a run that went wrong would be listed with the rest. The agents in them are scripted."}{" "}
+					: `Every run of the live board, whoever started it, is kept as one line when the next run clears the board. None is left out, so a run that went wrong would be listed with the rest.${runs === null || allScripted(runs) ? " The agents in them are scripted." : " The agents are scripted unless a row says live model."}`}{" "}
 				{runs !== null ? (
 					<button type="button" className="plane-link runs-watch" onClick={onWatch}>
 						{runs.current === null ? "Start one on the Live tab" : "See it on the Live tab"}

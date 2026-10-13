@@ -1,4 +1,4 @@
-import { Button } from "@cloudflare/kumo";
+import { Button, Loader } from "@cloudflare/kumo";
 import { ArrowCounterClockwise, ArrowLeft, ArrowRight, Pause, Play } from "@phosphor-icons/react";
 import type { StoryStep } from "../lib/story";
 
@@ -65,9 +65,10 @@ export function StoryBar({ steps, index, playing, moving, onStep, onPlay, onPaus
 						Start again
 					</Button>
 				) : (
-					<Button variant="primary" size="lg" loading={moving} onClick={() => onStep(at + 1)}>
+					<Button variant="primary" size="lg" aria-busy={moving} onClick={() => onStep(at + 1)}>
 						Next
-						<ArrowRight size={16} aria-hidden="true" />
+						{/* Busy, not disabled: a disabled button drops the keyboard's focus at every step. */}
+						{moving ? <Loader size={16} aria-hidden="true" /> : <ArrowRight size={16} aria-hidden="true" />}
 					</Button>
 				)}
 				<Button variant="ghost" size="lg" aria-label={playing ? "Pause" : "Play it through"} title={playing ? "Pause (Space)" : "Play it through at normal speed (Space)"} onClick={playing ? onPause : onPlay}>

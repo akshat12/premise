@@ -115,9 +115,19 @@ export function useEventStream(source: StreamSource): EventStream {
 					// Back after a gap: the socket only sends what came after the last event held, which is nothing if the log was restarted.
 					void checkRestart()
 						.then(async () => {
-							if (current() && lastSeq === 0) {
-								take((await json(httpUrl(liveTarget, 0))) ?? []);
+							if (!current() || lastSeq !== 0) {
+								return;
 							}
+							const all = (await json(httpUrl(liveTarget, 0))) ?? [];
+							if (!current() || all.length === 0) {
+								return;
+							}
+							// The socket may have sent newer events while the log was on its way. The log goes in front of
+							// them: taken the usual way it would all be dropped as older than what is held.
+							heldFirst = all.reduce((first, event) => (event.seq < first.seq ? event : first)).ts;
+							lastSeq = Math.max(lastSeq, ...all.map((event) => event.seq));
+							const log = [...all].sort((a, b) => a.seq - b.seq);
+							setEvents((held) => appendEvents(log, held));
 						})
 						.catch(() => undefined);
 				}
@@ -162,18 +172,35 @@ export function useEventStream(source: StreamSource): EventStream {
 			asking = true;
 			void (async () => {
 				try {
-					if (!(await checkRestart()) || stopped || open) {
+					// A poll that gets no answer means nothing is being followed any more, and the label says so.
+					const lost = () => {
+						if (!stopped && !open) {
+							setConnected(false);
+						}
+					};
+					if (!(await checkRestart())) {
+						lost();
+						return;
+					}
+					if (stopped || open) {
 						return;
 					}
 					const page = await json(httpUrl(liveTarget, lastSeq));
-					if (page === null || stopped || open) {
+					if (page === null) {
+						lost();
+						return;
+					}
+					if (stopped || open) {
 						return;
 					}
 					take(page);
 					// Following, if not by the socket.
 					setConnected(true);
 				} catch {
-					// No Worker to ask either. The label goes on saying so.
+					// No Worker to ask either. The label says so.
+					if (!stopped && !open) {
+						setConnected(false);
+					}
 				} finally {
 					asking = false;
 				}

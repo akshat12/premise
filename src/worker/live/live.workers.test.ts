@@ -384,9 +384,8 @@ describe("GET /api/live and POST /api/live/start", () => {
 		const pastBefore = listed.past.length;
 		const store = getRepoStore(env);
 		const ranOn = await currentTrunk(env);
-		// A copy of trunk that no run was on, as a reset that stopped half way could leave behind.
+		// Copies of trunk this hub knows nothing about, as another Worker on the same namespace would have. A reset leaves them alone.
 		await store.ensureRepo("trunk-stray000");
-		// And one with a name of somebody's own choosing, which a reset must leave alone.
 		await store.ensureRepo("trunk-v2");
 		await resetDemo(env);
 		const cleared = await hub(env).runs();
@@ -412,7 +411,7 @@ describe("GET /api/live and POST /api/live/start", () => {
 		expect(repos).toContain(ranOn);
 		expect(repos).toContain(await currentTrunk(env));
 		expect(await currentTrunk(env)).not.toBe(ranOn);
-		expect(repos).not.toContain("trunk-stray000");
+		expect(repos).toContain("trunk-stray000");
 		expect(repos).toContain("trunk-v2");
 		expect(repos.some((name) => /^i[0-9a-z]{8}/.test(name))).toBe(false);
 		for (const agent of agents) {
@@ -437,8 +436,13 @@ describe("GET /api/live and POST /api/live/start", () => {
 		for (const row of landedWork) {
 			const diff = await get<IntentDiff>(`/api/runs/${id}/intents/${row.id}/diff`);
 			expect(diff.unavailable, row.id).toBeUndefined();
-			expect(diff.together === undefined || diff.together > 1, row.id).toBe(true);
+			expect(diff.files.length, row.id).toBeGreaterThan(0);
 		}
+		// Each agent's diff is its own work and nobody else's: the test file its task adds is in it, and no other agent's is.
+		const all = await Promise.all(agents.map((agent) => get<IntentDiff>(`/api/runs/${id}/intents/${agent.id}/diff`)));
+		const tests = all.map((diff) => diff.files.map((file) => file.path).filter((path) => path.startsWith("tests/")));
+		expect(tests.every((paths) => paths.length === 1)).toBe(true);
+		expect(new Set(tests.flat()).size).toBe(agents.length);
 		for (const row of workload.filter((entry) => entry.status !== "landed")) {
 			expect((await call(`/api/runs/${id}/intents/${row.id}/diff`)).status, row.id).toBe(404);
 		}

@@ -102,7 +102,10 @@ export function Drawer({ intent, events, callsignOf, named, onSelect, onClose, d
 		setHeight(rememberedHeight);
 	};
 	// The drawer sits at the bottom of the window, so its height is the distance from the pointer to the bottom.
-	const follow = (event: React.PointerEvent) => resize((section.current?.getBoundingClientRect().bottom ?? window.innerHeight) - event.clientY);
+	// Measured from where it was taken hold of: the grip stands above the edge, and the edge must not jump to the pointer.
+	const grabbed = useRef(0);
+	const fromBottom = (event: React.PointerEvent) => (section.current?.getBoundingClientRect().bottom ?? window.innerHeight) - event.clientY;
+	const follow = (event: React.PointerEvent) => resize(fromBottom(event) - grabbed.current);
 	const current = () => height ?? section.current?.getBoundingClientRect().height ?? 280;
 	const onHandleKey = (event: React.KeyboardEvent) => {
 		const to = event.key === "ArrowUp" ? current() + DRAWER_STEP : event.key === "ArrowDown" ? current() - DRAWER_STEP : event.key === "Home" ? window.innerHeight : event.key === "End" ? 0 : null;
@@ -125,6 +128,7 @@ export function Drawer({ intent, events, callsignOf, named, onSelect, onClose, d
 				return;
 			}
 			event.currentTarget.setPointerCapture(event.pointerId);
+			grabbed.current = fromBottom(event) - (section.current?.getBoundingClientRect().height ?? fromBottom(event));
 			drag(true);
 			event.preventDefault();
 		},
@@ -228,7 +232,7 @@ export function Drawer({ intent, events, callsignOf, named, onSelect, onClose, d
 	});
 
 	return (
-		<section ref={section} className="drawer flex flex-col" data-review={review} data-dragging={dragging} style={height === null ? undefined : { height }} aria-label={`${callsignOf(intent.id)} details`}>
+		<section ref={section} className="drawer flex flex-col" data-review={review} data-dragging={dragging} style={height === null ? undefined : { height, maxHeight: "max(140px, calc(100dvh - 150px))" }} aria-label={`${callsignOf(intent.id)} details`}>
 			<div
 				className="drawer-handle"
 				role="separator"

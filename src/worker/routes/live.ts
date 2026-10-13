@@ -16,6 +16,9 @@ import { cachedJson, Memo } from "./memo";
 const STATUS_TTL_MS = 2000;
 const statuses = new Memo<PublicRunStatus>(STATUS_TTL_MS, 1);
 
+// Where an Intent landed in a past run. A kept run does not change; a few minutes covers one that is not kept yet.
+const landings = new Memo<Awaited<ReturnType<ReturnType<typeof hub>["runLanding"]>>>(5 * 60_000, 256);
+
 /** Called when something this isolate did has changed the answer (the switch, a start), so the next GET asks afresh. */
 export function forgetLiveStatus(): void {
 	statuses.clear();
@@ -52,7 +55,8 @@ export async function handleLive(request: Request, env: Env, url: URL): Promise<
 			return Response.json({ error: "method not allowed" }, { status: 405 });
 		}
 		const intentId = changed[2] as string;
-		const found = await hub(env).runLanding(Number(changed[1]), intentId);
+		// Asked of the hub once per run and Intent: finding it reads the whole of the run's log there.
+		const found = await landings.get(`${changed[1]}:${intentId}`, () => hub(env).runLanding(Number(changed[1]), intentId));
 		if (found === null) {
 			return Response.json({ error: "no such run" }, { status: 404 });
 		}

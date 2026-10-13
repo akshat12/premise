@@ -607,10 +607,10 @@ kbd {
 		font-size: 12px;
 	}
 }
-/* While it is being dragged nothing in it should be selected, and it should not ease towards the pointer. */
+/* While it is being dragged nothing in it should be selected. (Its entrance animation is left alone:
+   switching it off here made it play again at the end of every drag.) */
 .drawer[data-dragging="true"] {
 	user-select: none;
-	animation: none;
 }
 .drawer-head {
 	padding: 12px 24px 8px;
@@ -752,6 +752,12 @@ kbd {
 	align-items: center;
 	padding-left: 24px;
 	cursor: default;
+}
+/* On a phone a label is a grid sized by its content, and a loading line has none: give it a width. */
+.tape[data-layout="phone"].tape-loading .tape-label {
+	display: flex;
+	width: 38%;
+	min-height: 40px;
 }
 .tape-loading-bar {
 	height: 20px;
@@ -1631,8 +1637,15 @@ button.tape-label:focus-visible {
 .tape-row[data-wash] .tape-label {
 	background: var(--wash);
 }
+/* On a coloured lane a bar's outline has to be darker to stay at 3:1 (3.15 to 3.39:1 on the three washes). */
+.tape-row[data-wash] {
+	--tape-edge: #7b838c;
+}
+/* Hover keeps the wash, so the words on it keep their contrast, and is shown by an outline. */
 .tape-row[data-wash] button.tape-label:hover {
-	background: color-mix(in srgb, var(--wash) 90%, var(--ink));
+	background: var(--wash);
+	outline: 1px solid var(--ink-soft);
+	outline-offset: -1px;
 }
 /* A lane the step is not about steps back with its marks: half the colour. */
 .tape-row[data-wash][data-dimmed="true"],

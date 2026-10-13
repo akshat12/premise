@@ -55,6 +55,10 @@ export async function runPublicRun(env: Env, params: PublicRunParams, once: Once
 			return true;
 		});
 		agents = await once("dispatch", async () => {
+			// Once more: the owner can change the provider while the reset above is under way.
+			if (resolveLlmConfig(await withChosenLlm(env)).provider !== "scripted") {
+				throw new Error("the agents are set to use a model; public runs are scripted only");
+			}
 			const tasks = (await loadTasks(env)).map((task) => task.id);
 			try {
 				return (await dispatchTasks(env, tasks, undefined, undefined, { landFirst: AB_LAND_FIRST })).length;

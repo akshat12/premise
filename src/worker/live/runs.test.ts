@@ -97,6 +97,10 @@ describe("landingOf", () => {
 		expect(landingOf([...run, created("w1", "c3"), gated("w1", "c3")], "w1")).toEqual({ commit: "c3", parent: "c3", together: 1 });
 	});
 
+	it("does not count an Intent that landed later with nothing of its own as carried by the commit", () => {
+		expect(landingOf([...run, created("y", "c3"), gated("y", "c3")], "a3")).toEqual({ commit: "c3", parent: "c2", together: 1 });
+	});
+
 	it("counts trunk moving by something that was not an Intent", () => {
 		const pushed = [created("a1", "c0"), advanced("cx", null), gated("a1", "c1"), advanced("c1", "a1")];
 		expect(landingOf(pushed, "a1")).toEqual({ commit: "c1", parent: "cx", together: 1 });

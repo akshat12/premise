@@ -46,7 +46,12 @@ export interface RunRow {
 	clean: boolean;
 	/** Where to play it again, when the Worker kept its events. Never for the run on the board: that one is on the Live tab. */
 	replay: string | null;
+	/** Its agents were scripted, not a model. */
+	scripted: boolean;
 }
+
+/** True when every listed run's agents were scripted, which is when the page may say so of them all. */
+export const allScripted = (runs: RecentRuns): boolean => [runs.current, ...runs.past].every((run) => run === null || run.scripted);
 
 const of = (part: number, whole: number) => (whole === 0 ? "none" : `${part} of ${whole}`);
 
@@ -65,9 +70,10 @@ function row(run: RunSummary, current: boolean, now: number): RunRow {
 		premisesBroken: run.premisesBroken,
 		rederived: of(run.rederives.succeeded, run.rederives.started),
 		problems: run.problems,
-		note: current ? (run.complete ? "on the board now" : "running now") : run.complete ? null : "cleared before it finished",
+		note: [current ? (run.complete ? "on the board now" : "running now") : run.complete ? null : "cleared before it finished", run.scripted ? null : "live model"].filter((part) => part !== null).join(" · ") || null,
 		clean: isClean(run),
 		replay: !current && (run.events ?? 0) > 0 ? `/?run=${run.id}` : null,
+		scripted: run.scripted,
 	};
 }
 

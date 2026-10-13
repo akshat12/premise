@@ -77,6 +77,11 @@ export class MemoryRepoStore implements RepoStore {
 		return repo;
 	}
 
+	async parentOf(name: string, commit: CommitSha): Promise<CommitSha | null> {
+		const parent = (await this.repo(name)).commits.get(commit)?.parent;
+		return parent === undefined || parent === ZERO_SHA ? null : parent;
+	}
+
 	private async filesAt(name: string, ref: string): Promise<FileMap> {
 		const repo = await this.repo(name);
 		const sha = ref === "main" || ref === "HEAD" || ref === "refs/heads/main" ? repo.main : ref;

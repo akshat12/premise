@@ -231,7 +231,12 @@ export class ArtifactsRepoStore implements RepoStore {
 		} catch (error) {
 			// Someone else pushed between our clone and our push.
 			const actual = await ArtifactsRepoStore.headOf(handle);
-			if (actual !== expectedHead && actual !== sha) {
+			if (actual === sha) {
+				// The push arrived and only its reply was lost. Saying it failed would have the caller try again, find
+				// nothing left to commit, and land the work without announcing that trunk moved.
+				return sha;
+			}
+			if (actual !== expectedHead) {
 				throw new StaleHeadError(actual);
 			}
 			throw error;
@@ -247,6 +252,11 @@ export class ArtifactsRepoStore implements RepoStore {
 		]);
 		// `await` here matters: `using` releases the handle when this function returns.
 		return await diffTrees(ArtifactsRepoStore.treeReader(handle), before, after);
+	}
+
+	async parentOf(repo: string, commit: CommitSha): Promise<CommitSha | null> {
+		using handle = await this.open(repo);
+		return (await handle.readCommit(commit))?.parents[0] ?? null;
 	}
 
 	async remove(repo: string): Promise<void> {

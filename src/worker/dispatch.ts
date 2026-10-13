@@ -145,8 +145,8 @@ export function isTrunkCopy(name: string): boolean {
 }
 
 /**
- * The trunk copies a reset may remove: every one except the trunk now in use and the trunks of the
- * runs that are kept, whose landings are what a replay of them reads its changes from. Pure.
+ * Which of `names` a reset may remove: copies a reset made, except the trunk now in use and the trunks
+ * of the runs that are kept, whose landings are what a replay of them reads its changes from. Pure.
  */
 export function staleTrunks(names: readonly string[], inUse: string, kept: readonly string[]): string[] {
 	return names.filter((name) => isTrunkCopy(name) && name !== inUse && !kept.includes(name));
@@ -175,6 +175,8 @@ export async function resetDemo(env: Env, options: { asked?: boolean; origin?: R
 	let unadopted: string | undefined;
 	try {
 		const previousTrunk = await currentTrunk(env);
+		// The trunks of the runs kept so far. One of them may drop off the list at this reset.
+		const keptBefore = await hub(env).keptTrunks();
 		const names = await store.list();
 
 		const forks = names.filter(isIntentRepo);
@@ -204,9 +206,11 @@ export async function resetDemo(env: Env, options: { asked?: boolean; origin?: R
 		await hub(env).setTrunk(trunk);
 		unadopted = undefined;
 		await hub(env).reset(asked, options.origin ?? "owner", previousTrunk);
-		// The trunk of a run that is kept stays, so that the run's changes can still be read. Copies that
-		// no kept run was on are no longer needed. The original trunk repo is left alone.
-		const stale = staleTrunks(names, trunk, [...(await hub(env).keptTrunks()), env.TRUNK_REPO]);
+		// The trunk of a run that is kept stays, so that the run's changes can still be read. What goes is only
+		// what this hub knows to be finished with: the trunk just replaced, if its run was not kept, and the
+		// trunk of a run that has just dropped off the list. Nothing is swept up by name alone, since another
+		// Worker can share the namespace. Whatever is trunk at this moment, and the original, are left alone.
+		const stale = staleTrunks([...new Set([previousTrunk, ...keptBefore])], trunk, [...(await hub(env).keptTrunks()), env.TRUNK_REPO, await currentTrunk(env)]);
 		await mapLimit(stale, DELETE_CONCURRENCY, (name) => store.remove(name).catch(() => undefined));
 		await publishMetrics(env);
 		return { trunk, head: await store.head(trunk), forksDeleted: forks.length, previousTrunk };

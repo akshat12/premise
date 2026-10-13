@@ -14,6 +14,9 @@ export type DiffIntent = Pick<Intent, "id" | "repo" | "baseCommit" | "headCommit
 /** Diffs between two commits of a fork. Commits never change, so neither do these. */
 const pushedDiffs = new Memo<IntentDiff>(Number.POSITIVE_INFINITY, DIFFS_KEPT);
 
+/** The same for landings on the trunk of a past run, kept apart so that browsing one does not push the live board's out. */
+const landedDiffs = new Memo<IntentDiff>(Number.POSITIVE_INFINITY, DIFFS_KEPT);
+
 /**
  * The commit in the Intent's own fork that holds its work, or null if it has pushed nothing.
  * Landing records the trunk commit as the Intent's head, and that commit is not in the fork: for
@@ -41,10 +44,17 @@ export async function pushedDiff(intent: DiffIntent, head: CommitSha, store: Pic
  * that landed it against the commit before. Its fork is gone by then, and trunk has every landing.
  * A trunk that cannot be read (it was removed) gives an empty diff marked `unavailable`.
  */
-export async function landedDiff(intentId: IntentId, trunk: string, landing: { commit: CommitSha; parent: CommitSha }, store: Pick<RepoStore, "changedPaths" | "readFile">, memo: Memo<IntentDiff> = pushedDiffs): Promise<IntentDiff> {
+export async function landedDiff(intentId: IntentId, trunk: string, landing: { commit: CommitSha; parent: CommitSha }, store: Pick<RepoStore, "changedPaths" | "readFile" | "parentOf">, memo: Memo<IntentDiff> = landedDiffs): Promise<IntentDiff> {
 	try {
-		const landed: DiffIntent = { id: intentId, repo: trunk, baseCommit: landing.parent, headCommit: landing.commit, status: "landed" };
-		return await memo.get(`${trunk}@${landing.parent}..${landing.commit}`, () => pushedDiff(landed, landing.commit, store));
+		// The commit before is read from the repo, not taken from the log: an announcement of trunk moving can
+		// be lost, and the log's idea of "before" would then take in another Intent's landing. (The log's own
+		// pair is only trusted to say that landing moved nothing.)
+		const parent = landing.parent === landing.commit ? landing.commit : await store.parentOf(trunk, landing.commit);
+		if (parent === null) {
+			throw new Error(`${landing.commit} has no commit before it in ${trunk}`);
+		}
+		const landed: DiffIntent = { id: intentId, repo: trunk, baseCommit: parent, headCommit: landing.commit, status: "landed" };
+		return await memo.get(`${trunk}@${parent}..${landing.commit}`, async () => ({ ...(await pushedDiff(landed, landing.commit, store)), intentId }));
 	} catch (error) {
 		console.error(`could not read the landing of Intent ${intentId} in ${trunk}`, error);
 		return unavailableDiff(intentId, landing.parent, landing.commit);

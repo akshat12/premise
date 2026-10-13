@@ -41,10 +41,14 @@ export interface Landing {
  * did not land in this run, or the log does not say where trunk was. Pure.
  */
 export function landingOf(events: readonly PremiseEventBody[], intentId: string): Landing | null {
-	const landedAt = (commit: string) => new Set(events.flatMap((event) => (event.t === "gate.result" && event.report.landedCommit === commit ? [event.report.intentId] : []))).size;
 	let before: string | null = null;
 	let commit: string | null = null;
+	// The Intents the gate has said landed at each commit not yet announced: the ones that commit carries.
+	const carried = new Map<string, Set<string>>();
 	for (const event of events) {
+		if (event.t === "gate.result" && event.report.landedCommit !== null && event.report.landedCommit !== before) {
+			carried.set(event.report.landedCommit, (carried.get(event.report.landedCommit) ?? new Set()).add(event.report.intentId));
+		}
 		if (event.t === "intent.created") {
 			before ??= event.intent.baseCommit;
 		} else if (event.t === "gate.result" && event.report.intentId === intentId && event.report.landedCommit !== null) {
@@ -55,7 +59,7 @@ export function landingOf(events: readonly PremiseEventBody[], intentId: string)
 			}
 		} else if (event.t === "trunk.advanced") {
 			if (commit !== null && event.commit === commit) {
-				return before === null ? null : { commit, parent: before, together: Math.max(1, landedAt(commit)) };
+				return before === null ? null : { commit, parent: before, together: Math.max(1, carried.get(commit)?.size ?? 1) };
 			}
 			before = event.commit;
 		}

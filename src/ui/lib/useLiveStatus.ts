@@ -59,11 +59,14 @@ export function useLiveStatus(active: boolean): LiveControl {
 		if (next === null || next.now < newest.current) {
 			return;
 		}
+		// An answer can be up to two seconds old when it arrives, so the largest lead seen is the nearest to the truth,
+		// and keeping it means a countdown never steps back.
+		const ahead = next.now - Date.now();
+		offset.current = newest.current === 0 ? ahead : Math.max(offset.current, ahead);
 		newest.current = next.now;
-		offset.current = next.now - Date.now();
 		setStatus(next);
 		setUnreachable(false);
-		setNow(next.now);
+		setNow(Date.now() + offset.current);
 	}, []);
 
 	const refresh = useCallback(async () => {
