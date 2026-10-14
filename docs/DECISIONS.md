@@ -1232,3 +1232,5 @@ Asked for by the user: slides that match what is built, approachable, organised 
 - **Checked after:** desktop screens look as before; on a phone, a row opens the sheet and Close slides it away, a past run opens full width with its own sheet and changes, the on-the-board row goes to the Live tab, the slides overlay steps and closes. Tests pass.
 
 - **Oct 14:** the title slide uses the website's mark (the tab icon: dark rounded square, white corner brackets, orange dot) and its wordmark style; the scaling slide adds "A UI for long runs: agents that work for hours or days" to what would change next, with a matching sentence in the script.
+
+- **Oct 14: the deck is 17 slides.** At the user's request: dropped "six parts", "the ledger's three answers", "at scale", "live" and "try it"; added "Demo" (both visits to the site now happen there) and "Thank you" (name and links). The script is one conversational paragraph per slide, about 980 spoken words, about 8 minutes with the demo.

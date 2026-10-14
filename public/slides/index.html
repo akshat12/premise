@@ -86,7 +86,7 @@ section svg { display: block; flex: none; }
 </div>
 </div>
 </div>
-<aside>This is Premise. Git keeps track of what AI agents wrote. Premise keeps track of what they assumed, and redoes the work when an assumption breaks. [NEXT SLIDE]</aside>
+<aside>Hi, I'm Akshat, and this is Premise. Git keeps track of what AI agents write. Premise keeps track of what they assume, and when one of those assumptions stops being true, it redoes the work that depended on it. [NEXT SLIDE]</aside>
 </section>
 
 <section id="problem" data-transition="fade" style="background:#f3f4f2;color:#14181d;font-family:'Atkinson Hyperlegible Next', Arial, sans-serif;padding:128px 128px 160px;display:flex;flex-direction:column;gap:40px">
@@ -151,7 +151,7 @@ section svg { display: block; flex: none; }
 <p style="font-family:'Atkinson Hyperlegible Mono', 'Courier New', monospace;font-size:24px;letter-spacing:3px;text-transform:uppercase;color:#55606b">Premise</p>
 <p style="font-family:'Atkinson Hyperlegible Mono', 'Courier New', monospace;font-size:24px;letter-spacing:1px;color:#55606b">premise.akshatdivekar.workers.dev</p>
 </div>
-<aside>Picture many AI agents changing one codebase at once. The changes that hurt are not the conflicts. Follow one. It touches different files, so there is no conflict. Its signature is the same, so the typecheck passes. Its tests pass too. And yet it is broken, because another agent's code relied on the old behaviour. [NEXT SLIDE]</aside>
+<aside>Imagine a bunch of AI agents all working on the same codebase at once. You'd think the big risk is two agents editing the same lines. It isn't. The scary change is the quiet one: it touches different files, so there's no conflict. The types still line up, so it compiles. Its tests pass. Everything looks green, and it's still broken, because some other agent was counting on the old behaviour. [NEXT SLIDE]</aside>
 </section>
 
 <section id="example" data-transition="fade" style="background:#f3f4f2;color:#14181d;font-family:'Atkinson Hyperlegible Next', Arial, sans-serif;padding:128px 128px 160px;display:flex;flex-direction:column;gap:40px">
@@ -244,140 +244,7 @@ section svg { display: block; flex: none; }
 <p style="font-family:'Atkinson Hyperlegible Mono', 'Courier New', monospace;font-size:24px;letter-spacing:3px;text-transform:uppercase;color:#55606b">Premise</p>
 <p style="font-family:'Atkinson Hyperlegible Mono', 'Courier New', monospace;font-size:24px;letter-spacing:1px;color:#55606b">premise.akshatdivekar.workers.dev</p>
 </div>
-<aside>Here is an example. Agent 1 changes a function called verifySession: for an expired session, it used to throw an error, and now it returns null. Agent 2's code catches that error and writes an audit entry. After the change there is nothing to catch, so the entry is never written, and no check notices. [NEXT SLIDE]</aside>
-</section>
-
-<section id="parts" data-transition="fade" style="background:#f3f4f2;color:#14181d;font-family:'Atkinson Hyperlegible Next', Arial, sans-serif;padding:128px 128px 160px;display:flex;flex-direction:column;gap:40px">
-<div style="display:flex;gap:32px;align-items:center">
-<div style="display:flex;align-items:center;justify-content:center;width:112px;height:112px;background:#14181d;border-radius:24px">
-<x-icon name="Settings" style="color:#f08a4b;width:60px;height:60px"></x-icon>
-</div>
-<div style="flex:1;display:flex;flex-direction:column;gap:12px">
-<p style="font-family:'Atkinson Hyperlegible Mono', 'Courier New', monospace;font-size:26px;font-weight:500;letter-spacing:3px;text-transform:uppercase;color:#c2410c">How it works</p>
-<h2 style="font-size:68px;font-weight:600;line-height:1.1;letter-spacing:-1px">Premise has six parts.</h2>
-</div>
-</div>
-<x-connector x1="266" y1="690" x2="266" y2="635" style="color:#868e97;border-width:6px"></x-connector>
-<div style="position:absolute;left:166px;top:690px;width:200px;height:48px;display:flex;align-items:center;justify-content:center;gap:12px;background:#fbfbfa;border:1px solid #d5d9d3;border-radius:8px">
-<x-shape kind="ellipse" style="background:#14181d;width:18px;height:18px"></x-shape>
-<p style="font-family:'Atkinson Hyperlegible Mono', 'Courier New', monospace;font-size:24px;line-height:1.3;color:#14181d">the work</p>
-</div>
-<div style="position:absolute;left:128px;top:312px;width:277px;height:320px;display:flex;flex-direction:column;justify-content:space-between;background:#fbfbfa;border:1px solid #d5d9d3;border-radius:12px 0 0 12px;overflow:hidden">
-<div style="display:flex;flex-direction:column;gap:20px;padding:24px 24px 0">
-<div style="display:flex;justify-content:space-between;align-items:center">
-<div style="display:flex;align-items:center;justify-content:center;width:80px;height:80px;background:#14181d;border-radius:18px">
-<x-icon name="Users" style="color:#f08a4b;width:44px;height:44px"></x-icon>
-</div>
-<p style="font-family:'Atkinson Hyperlegible Mono', 'Courier New', monospace;font-size:68px;font-weight:500;line-height:1;color:#868e97">1</p>
-</div>
-<div style="display:flex;flex-direction:column;gap:6px">
-<p style="font-size:34px;font-weight:600;line-height:1.2">Agents</p>
-<p style="font-size:30px;line-height:1.3;color:#3d4650">Each works on an Intent</p>
-</div>
-</div>
-<div style="height:48px;background:#dfe2dd;border-top:1px solid #868e97"></div>
-</div>
-<div style="position:absolute;left:405px;top:312px;width:278px;height:320px;display:flex;flex-direction:column;justify-content:space-between;background:#fbfbfa;border-top:1px solid #d5d9d3;border-right:1px solid #d5d9d3;border-bottom:1px solid #d5d9d3;overflow:hidden">
-<div style="display:flex;flex-direction:column;gap:20px;padding:24px 24px 0">
-<div style="display:flex;justify-content:space-between;align-items:center">
-<div style="display:flex;align-items:center;justify-content:center;width:80px;height:80px;background:#14181d;border-radius:18px">
-<x-icon name="Cloud" style="color:#f08a4b;width:44px;height:44px"></x-icon>
-</div>
-<p style="font-family:'Atkinson Hyperlegible Mono', 'Courier New', monospace;font-size:68px;font-weight:500;line-height:1;color:#868e97">2</p>
-</div>
-<div style="display:flex;flex-direction:column;gap:6px">
-<p style="font-size:34px;font-weight:600;line-height:1.2">Forks</p>
-<p style="font-size:30px;line-height:1.3;color:#3d4650">A private copy of the code</p>
-</div>
-</div>
-<div style="height:48px;background:#dfe2dd;border-top:1px solid #868e97"></div>
-</div>
-<div style="position:absolute;left:683px;top:312px;width:277px;height:320px;display:flex;flex-direction:column;justify-content:space-between;background:#fbfbfa;border-top:1px solid #d5d9d3;border-right:1px solid #d5d9d3;border-bottom:1px solid #d5d9d3;overflow:hidden">
-<div style="display:flex;flex-direction:column;gap:20px;padding:24px 24px 0">
-<div style="display:flex;justify-content:space-between;align-items:center">
-<div style="display:flex;align-items:center;justify-content:center;width:80px;height:80px;background:#14181d;border-radius:18px">
-<x-icon name="Book" style="color:#f08a4b;width:44px;height:44px"></x-icon>
-</div>
-<p style="font-family:'Atkinson Hyperlegible Mono', 'Courier New', monospace;font-size:68px;font-weight:500;line-height:1;color:#868e97">3</p>
-</div>
-<div style="display:flex;flex-direction:column;gap:6px">
-<p style="font-size:34px;font-weight:600;line-height:1.2">The ledger</p>
-<p style="font-size:30px;line-height:1.3;color:#3d4650">Knows who is changing what</p>
-</div>
-</div>
-<div style="height:48px;background:#dfe2dd;border-top:1px solid #868e97"></div>
-</div>
-<div style="position:absolute;left:960px;top:312px;width:277px;height:320px;display:flex;flex-direction:column;justify-content:space-between;background:#fbfbfa;border-top:1px solid #d5d9d3;border-right:1px solid #d5d9d3;border-bottom:1px solid #d5d9d3;overflow:hidden">
-<div style="display:flex;flex-direction:column;gap:20px;padding:24px 24px 0">
-<div style="display:flex;justify-content:space-between;align-items:center">
-<div style="display:flex;align-items:center;justify-content:center;width:80px;height:80px;background:#14181d;border-radius:18px">
-<x-icon name="Search" style="color:#f08a4b;width:44px;height:44px"></x-icon>
-</div>
-<p style="font-family:'Atkinson Hyperlegible Mono', 'Courier New', monospace;font-size:68px;font-weight:500;line-height:1;color:#868e97">4</p>
-</div>
-<div style="display:flex;flex-direction:column;gap:6px">
-<p style="font-size:34px;font-weight:600;line-height:1.2">Premises</p>
-<p style="font-size:30px;line-height:1.3;color:#3d4650">What an agent relies on</p>
-</div>
-</div>
-<div style="height:48px;background:#dfe2dd;border-top:1px solid #868e97"></div>
-</div>
-<div style="position:absolute;left:1237px;top:312px;width:278px;height:320px;display:flex;flex-direction:column;justify-content:space-between;background:#fbfbfa;border-top:1px solid #d5d9d3;border-right:1px solid #d5d9d3;border-bottom:1px solid #d5d9d3;overflow:hidden">
-<div style="display:flex;flex-direction:column;gap:20px;padding:24px 24px 0">
-<div style="display:flex;justify-content:space-between;align-items:center">
-<div style="display:flex;align-items:center;justify-content:center;width:80px;height:80px;background:#14181d;border-radius:18px">
-<x-icon name="Wrench" style="color:#f08a4b;width:44px;height:44px"></x-icon>
-</div>
-<p style="font-family:'Atkinson Hyperlegible Mono', 'Courier New', monospace;font-size:68px;font-weight:500;line-height:1;color:#868e97">5</p>
-</div>
-<div style="display:flex;flex-direction:column;gap:6px">
-<p style="font-size:34px;font-weight:600;line-height:1.2">Re-derive</p>
-<p style="font-size:30px;line-height:1.3;color:#3d4650">Does the work again</p>
-</div>
-</div>
-<div style="height:48px;background:#faefc2;border-top:1px solid #868e97"></div>
-</div>
-<div style="position:absolute;left:1515px;top:312px;width:277px;height:320px;display:flex;flex-direction:column;justify-content:space-between;background:#fbfbfa;border-top:1px solid #d5d9d3;border-right:1px solid #d5d9d3;border-bottom:1px solid #d5d9d3;border-radius:0 12px 12px 0;overflow:hidden">
-<div style="display:flex;flex-direction:column;gap:20px;padding:24px 24px 0">
-<div style="display:flex;justify-content:space-between;align-items:center">
-<div style="display:flex;align-items:center;justify-content:center;width:80px;height:80px;background:#14181d;border-radius:18px">
-<x-icon name="Lock" style="color:#f08a4b;width:44px;height:44px"></x-icon>
-</div>
-<p style="font-family:'Atkinson Hyperlegible Mono', 'Courier New', monospace;font-size:68px;font-weight:500;line-height:1;color:#868e97">6</p>
-</div>
-<div style="display:flex;flex-direction:column;gap:6px">
-<p style="font-size:34px;font-weight:600;line-height:1.2">The gate</p>
-<p style="font-size:30px;line-height:1.3;color:#3d4650">Every check before trunk</p>
-</div>
-</div>
-<div style="height:48px;background:#d8eedf;border-top:1px solid #868e97"></div>
-</div>
-<x-connector x1="1653" y1="632" x2="1653" y2="792" style="color:#17654a;border-width:6px"></x-connector>
-<svg style="position:absolute;left:128px;top:583px" width="1664" height="213" viewBox="0 0 1664 213" aria-label="A dot, the work, in the lane under Agents, where it starts">
-<circle cx="138" cy="25" r="9" fill="#14181d" stroke="#fbfbfa" stroke-width="3"/>
-</svg>
-<x-embed style="position:absolute;left:254px;top:596px;width:1411px;height:195px"><!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="color-scheme" content="light dark"><title>The work, a dot, travels along the lane through the six parts and lands on trunk</title><style>html,body{margin:0;background:transparent;overflow:hidden}.dot{position:absolute;left:0;top:0;width:15px;height:15px;border:3px solid #fbfbfa;border-radius:50%;background:#14181d;transform:translate(1.5px,1.5px);animation:go 5s linear infinite,show 5s linear infinite}@keyframes go{0%,5%{transform:translate(1.5px,1.5px)}85%{transform:translate(1388.5px,1.5px)}94%,100%{transform:translate(1388.5px,172.5px)}}@keyframes show{0%{opacity:0}2%{opacity:1}97%{opacity:1}100%{opacity:0}}</style></head><body><div class="dot"></div></body></html></x-embed>
-<x-connector x1="1376" y1="632" x2="1164" y2="714" route="vh" head="none" style="color:#e8590c;border-width:6px"></x-connector>
-<x-connector x1="756" y1="714" x2="544" y2="635" route="hv" style="color:#e8590c;border-width:6px"></x-connector>
-<div style="position:absolute;left:756px;top:690px;width:408px;height:48px;display:flex;align-items:center;justify-content:center;gap:10px;background:#fbfbfa;border:2px solid #e8590c;border-radius:8px">
-<x-icon name="Warning" style="color:#e8590c;width:36px;height:36px"></x-icon>
-<p style="font-family:'Atkinson Hyperlegible Mono', 'Courier New', monospace;font-size:24px;line-height:1.3;color:#c2410c">when a premise breaks</p>
-</div>
-<div style="position:absolute;left:128px;top:796px;width:1664px;height:88px;display:flex;align-items:center;gap:20px;padding:0 51px 0 32px;background:#14181d;border-radius:12px">
-<x-icon name="Database" style="color:#f08a4b;width:44px;height:44px"></x-icon>
-<p style="font-size:34px;font-weight:600;line-height:1.2;color:#fbfbfa">trunk</p>
-<p style="font-size:30px;line-height:1.3;color:#b6beb8">the shared code</p>
-<div style="flex:1"></div>
-<div style="display:flex;align-items:center;justify-content:center;gap:8px;width:176px;height:48px;background:#d8eedf;border-radius:8px">
-<x-icon name="Check" style="color:#17654a;width:36px;height:36px"></x-icon>
-<p style="font-family:'Atkinson Hyperlegible Mono', 'Courier New', monospace;font-size:24px;line-height:1.3;letter-spacing:1px;text-transform:uppercase;color:#17654a">landed</p>
-</div>
-</div>
-<div style="position:absolute;left:128px;right:128px;bottom:64px;display:flex;justify-content:space-between">
-<p style="font-family:'Atkinson Hyperlegible Mono', 'Courier New', monospace;font-size:24px;letter-spacing:3px;text-transform:uppercase;color:#55606b">Premise</p>
-<p style="font-family:'Atkinson Hyperlegible Mono', 'Courier New', monospace;font-size:24px;letter-spacing:1px;color:#55606b">premise.akshatdivekar.workers.dev</p>
-</div>
-<aside>Premise has six parts: agents, forks, the ledger, premises, re-derive, and the gate. I will take them one at a time. [NEXT SLIDE]</aside>
+<aside>Here's a real example. Agent 1 changes a function called verifySession. It used to throw an error when a session expired. Now it just returns null. But Agent 2 wrote code that catches that error and writes an audit entry. After the change, there's no error to catch, so the audit entry quietly never gets written. And nothing complains. [NEXT SLIDE]</aside>
 </section>
 
 <section id="agents" data-transition="fade" style="background:#f3f4f2;color:#14181d;font-family:'Atkinson Hyperlegible Next', Arial, sans-serif;padding:128px 128px 160px;display:flex;flex-direction:column;gap:40px">
@@ -474,7 +341,7 @@ section svg { display: block; flex: none; }
 <p style="font-family:'Atkinson Hyperlegible Mono', 'Courier New', monospace;font-size:24px;letter-spacing:3px;text-transform:uppercase;color:#55606b">Premise</p>
 <p style="font-family:'Atkinson Hyperlegible Mono', 'Courier New', monospace;font-size:24px;letter-spacing:1px;color:#55606b">premise.akshatdivekar.workers.dev</p>
 </div>
-<aside>First, agents. Each agent works on an Intent: its job, written down. This is Agent 2's: write an audit entry when a login arrives with an expired session. It says what the agent changes, handleLogin, and what it relies on, verifySession. What it relies on are its premises. [NEXT SLIDE]</aside>
+<aside>So how does Premise handle this? It starts with the agents. Each agent gets an Intent, which is just its job, written down. For Agent 2, that's: write an audit entry when someone logs in with an expired session. The Intent also says what the agent will change, here handleLogin, and what it relies on, here verifySession. Those things it relies on are called its premises. [NEXT SLIDE]</aside>
 </section>
 
 <section id="forks" data-transition="fade" style="background:#f3f4f2;color:#14181d;font-family:'Atkinson Hyperlegible Next', Arial, sans-serif;padding:128px 128px 160px;display:flex;flex-direction:column;gap:40px">
@@ -557,7 +424,7 @@ section svg { display: block; flex: none; }
 <p style="font-family:'Atkinson Hyperlegible Mono', 'Courier New', monospace;font-size:24px;letter-spacing:3px;text-transform:uppercase;color:#55606b">Premise</p>
 <p style="font-family:'Atkinson Hyperlegible Mono', 'Courier New', monospace;font-size:24px;letter-spacing:1px;color:#55606b">premise.akshatdivekar.workers.dev</p>
 </div>
-<aside>Second, forks. No agent works on trunk directly. Each Intent gets its own fork, a Git repository on Cloudflare Artifacts, and only the gate can land work on trunk. One recorded run made three hundred and nine forks. [NEXT SLIDE]</aside>
+<aside>No agent touches the shared code, which we call trunk, directly. Every Intent gets its own fork, a full Git repo on Cloudflare Artifacts. The only way back onto trunk is through the gate, which we'll get to in a minute. [NEXT SLIDE]</aside>
 </section>
 
 <section id="ledger" data-transition="fade" style="background:#f3f4f2;color:#14181d;font-family:'Atkinson Hyperlegible Next', Arial, sans-serif;padding:128px 128px 160px;display:flex;flex-direction:column;gap:40px">
@@ -640,62 +507,7 @@ section svg { display: block; flex: none; }
 <p style="font-family:'Atkinson Hyperlegible Mono', 'Courier New', monospace;font-size:24px;letter-spacing:3px;text-transform:uppercase;color:#55606b">Premise</p>
 <p style="font-family:'Atkinson Hyperlegible Mono', 'Courier New', monospace;font-size:24px;letter-spacing:1px;color:#55606b">premise.akshatdivekar.workers.dev</p>
 </div>
-<aside>Third, the ledger, a sign-up sheet for the code. Before Agent 1 writes anything, it signs up to change verifySession. The ledger also notes that Agents 2, 3 and 4 rely on it. So when Agent 1's change lands, the ledger already knows who could be affected. [NEXT SLIDE]</aside>
-</section>
-
-<section id="answers" data-transition="fade" style="background:#f3f4f2;color:#14181d;font-family:'Atkinson Hyperlegible Next', Arial, sans-serif;padding:128px 128px 160px;display:flex;flex-direction:column;gap:40px">
-<div style="display:flex;gap:32px;align-items:center">
-<div style="display:flex;align-items:center;justify-content:center;width:112px;height:112px;background:#14181d;border-radius:24px">
-<x-icon name="Chat" style="color:#f08a4b;width:60px;height:60px"></x-icon>
-</div>
-<div style="flex:1;display:flex;flex-direction:column;gap:12px">
-<p style="font-family:'Atkinson Hyperlegible Mono', 'Courier New', monospace;font-size:26px;font-weight:500;letter-spacing:3px;text-transform:uppercase;color:#c2410c">Part 3 · The ledger</p>
-<h2 style="font-size:68px;font-weight:600;line-height:1.1;letter-spacing:-1px">Two agents want the same function.</h2>
-</div>
-</div>
-<div style="position:absolute;left:128px;top:316px;width:1664px;display:flex;gap:16px;align-items:center;justify-content:center">
-<p style="font-family:'Atkinson Hyperlegible Mono', 'Courier New', monospace;font-size:26px;letter-spacing:1px;text-transform:uppercase;color:#fbfbfa;background:#14181d;border-radius:8px;padding:8px 16px">Agent 6</p>
-<p style="font-size:30px;line-height:1.3;color:#55606b">is changing</p>
-<p style="font-family:'Atkinson Hyperlegible Mono', 'Courier New', monospace;font-size:28px;line-height:1.3;color:#14181d;background:#fbfbfa;border:2px solid #e8590c;border-radius:8px;padding:8px 16px">computeTotal</p>
-<p style="font-size:30px;line-height:1.3;color:#55606b">and</p>
-<p style="font-family:'Atkinson Hyperlegible Mono', 'Courier New', monospace;font-size:26px;letter-spacing:1px;text-transform:uppercase;color:#c2410c;background:#fbfbfa;border:2px solid #e8590c;border-radius:8px;padding:6px 14px">Agent 5</p>
-<p style="font-size:30px;line-height:1.3;color:#c2410c">wants it too.</p>
-</div>
-<p style="position:absolute;left:128px;top:392px;width:1664px;text-align:center;font-size:30px;line-height:1.3;color:#55606b">The ledger gives one of three answers.</p>
-<div style="position:absolute;left:128px;top:452px;width:528px;height:210px;display:flex;flex-direction:column;gap:14px;background:#fbfbfa;border:1px solid #d5d9d3;border-radius:12px;padding:28px 32px">
-<div style="display:flex;gap:18px;align-items:center">
-<div style="display:flex;align-items:center;justify-content:center;width:64px;height:64px;background:#14181d;border-radius:14px">
-<x-icon name="Clock" style="color:#f08a4b;width:36px;height:36px"></x-icon>
-</div>
-<h3 style="font-size:44px;font-weight:600;line-height:1.2">Wait</h3>
-</div>
-<p style="font-size:30px;line-height:1.3;color:#3d4650">Pause until the other one lands. Then ask again.</p>
-</div>
-<div style="position:absolute;left:696px;top:452px;width:528px;height:210px;display:flex;flex-direction:column;gap:14px;background:#fbfbfa;border:1px solid #d5d9d3;border-radius:12px;padding:28px 32px">
-<div style="display:flex;gap:18px;align-items:center">
-<div style="display:flex;align-items:center;justify-content:center;width:64px;height:64px;background:#14181d;border-radius:14px">
-<x-icon name="Code" style="color:#f08a4b;width:36px;height:36px"></x-icon>
-</div>
-<h3 style="font-size:44px;font-weight:600;line-height:1.2">Split</h3>
-</div>
-<p style="font-size:30px;line-height:1.3;color:#3d4650">Divide the work. Each takes a part.</p>
-</div>
-<div style="position:absolute;left:1264px;top:452px;width:528px;height:210px;display:flex;flex-direction:column;gap:14px;background:#fbfbfa;border:1px solid #d5d9d3;border-radius:12px;padding:28px 32px">
-<div style="display:flex;gap:18px;align-items:center">
-<div style="display:flex;align-items:center;justify-content:center;width:64px;height:64px;background:#14181d;border-radius:14px">
-<x-icon name="Link" style="color:#f08a4b;width:36px;height:36px"></x-icon>
-</div>
-<h3 style="font-size:44px;font-weight:600;line-height:1.2">Depend</h3>
-</div>
-<p style="font-size:30px;line-height:1.3;color:#3d4650">This work depends on the other. Pause until it lands.</p>
-</div>
-<p style="position:absolute;left:128px;top:712px;width:1664px;text-align:center;font-size:34px;line-height:1.3;color:#14181d">A fixed rule decides, not a model. If it cannot, a person is asked.</p>
-<p style="position:absolute;left:128px;top:780px;width:1664px;text-align:center;font-size:26px;line-height:1.3;color:#55606b">In a recorded run of 306 Intents, the ledger answered 136 times. Nearly always, Wait.</p>
-<div style="position:absolute;left:128px;right:128px;bottom:64px;display:flex;justify-content:space-between">
-<p style="font-family:'Atkinson Hyperlegible Mono', 'Courier New', monospace;font-size:24px;letter-spacing:3px;text-transform:uppercase;color:#55606b">Premise</p>
-<p style="font-family:'Atkinson Hyperlegible Mono', 'Courier New', monospace;font-size:24px;letter-spacing:1px;color:#55606b">premise.akshatdivekar.workers.dev</p>
-</div>
-<aside>When two agents want the same function, the ledger answers Wait, until the other lands; Split, so each takes a part; or Depend, when one builds on the other. A fixed rule decides, not a model. In practice, it is nearly always Wait. [NEXT SLIDE]</aside>
+<aside>Next is the ledger. Think of it as a sign-up sheet for the code. Before Agent 1 changes verifySession, it signs up for it. The ledger also writes down that Agents 2, 3 and 4 rely on that function. So the moment Agent 1's change lands, Premise already knows exactly who might be affected. [NEXT SLIDE]</aside>
 </section>
 
 <section id="premises" data-transition="fade" style="background:#f3f4f2;color:#14181d;font-family:'Atkinson Hyperlegible Next', Arial, sans-serif;padding:128px 128px 160px;display:flex;flex-direction:column;gap:40px">
@@ -794,7 +606,7 @@ section svg { display: block; flex: none; }
 <p style="font-family:'Atkinson Hyperlegible Mono', 'Courier New', monospace;font-size:24px;letter-spacing:3px;text-transform:uppercase;color:#55606b">Premise</p>
 <p style="font-family:'Atkinson Hyperlegible Mono', 'Courier New', monospace;font-size:24px;letter-spacing:1px;color:#55606b">premise.akshatdivekar.workers.dev</p>
 </div>
-<aside>Fourth, premises. There are three kinds. The types of the functions an agent read, and of the functions it calls, which Premise records by itself. And a behaviour the agent states, as a check that can be run: Agent 2 states that verifySession throws for an expired session. A typecheck sees the first two. Only the third catches a change in behaviour. [NEXT SLIDE]</aside>
+<aside>A premise comes in three kinds. The first two are the types of the functions an agent read or calls, and Premise records those on its own. The third is the interesting one: a behaviour the agent says it depends on, written as a small check that can actually run. Agent 2 says: verifySession throws for an expired session. A typecheck can't see that one. Premise can. [NEXT SLIDE]</aside>
 </section>
 
 <section id="break" data-transition="fade" style="background:#f3f4f2;color:#14181d;font-family:'Atkinson Hyperlegible Next', Arial, sans-serif;padding:128px 128px 160px;display:flex;flex-direction:column;gap:40px">
@@ -899,7 +711,7 @@ section svg { display: block; flex: none; }
 <p style="font-family:'Atkinson Hyperlegible Mono', 'Courier New', monospace;font-size:24px;letter-spacing:3px;text-transform:uppercase;color:#55606b">Premise</p>
 <p style="font-family:'Atkinson Hyperlegible Mono', 'Courier New', monospace;font-size:24px;letter-spacing:1px;color:#55606b">premise.akshatdivekar.workers.dev</p>
 </div>
-<aside>Now a premise breaks. Agent 1's change lands, and the stated checks run again. Two fail, so Agents 2 and 4 are stopped within about half a second. Agent 3 relied only on the type, which did not change, so it carries on. Each stopped agent is told what changed, and who changed it. [NEXT SLIDE]</aside>
+<aside>So here's what happens when a premise breaks. Agent 1's change lands, and Premise reruns those checks. Two of them fail, so Agents 2 and 4 get stopped, in about half a second. Agent 3 only relied on the function's type, which didn't change, so it just keeps going. And each stopped agent is told exactly what changed, and who changed it. [NEXT SLIDE]</aside>
 </section>
 
 <section id="rederive" data-transition="fade" style="background:#f3f4f2;color:#14181d;font-family:'Atkinson Hyperlegible Next', Arial, sans-serif;padding:128px 128px 160px;display:flex;flex-direction:column;gap:40px">
@@ -996,7 +808,7 @@ section svg { display: block; flex: none; }
 <p style="font-family:'Atkinson Hyperlegible Mono', 'Courier New', monospace;font-size:24px;letter-spacing:3px;text-transform:uppercase;color:#55606b">Premise</p>
 <p style="font-family:'Atkinson Hyperlegible Mono', 'Courier New', monospace;font-size:24px;letter-spacing:1px;color:#55606b">premise.akshatdivekar.workers.dev</p>
 </div>
-<aside>Fifth, re-derive. Take Agent 2. Premise first tries a plain rebase, but Agent 2's tests fail. So the agent does the work again on a fresh fork of the new trunk, told that verifySession now returns null. This time it passes the gate and lands, with no person involved. The work is derived again from the same goal. [NEXT SLIDE]</aside>
+<aside>What happens to the stopped work? Take Agent 2. Premise first tries a simple rebase, but Agent 2's tests fail. So the agent redoes the work on a fresh copy of the new code, and this time it knows that verifySession returns null. That's what we call re-deriving. The new version passes, and it lands. Nobody had to step in. [NEXT SLIDE]</aside>
 </section>
 
 <section id="gate" data-transition="fade" style="background:#f3f4f2;color:#14181d;font-family:'Atkinson Hyperlegible Next', Arial, sans-serif;padding:128px 128px 160px;display:flex;flex-direction:column;gap:40px">
@@ -1109,7 +921,7 @@ section svg { display: block; flex: none; }
 <p style="font-family:'Atkinson Hyperlegible Mono', 'Courier New', monospace;font-size:24px;letter-spacing:3px;text-transform:uppercase;color:#55606b">Premise</p>
 <p style="font-family:'Atkinson Hyperlegible Mono', 'Courier New', monospace;font-size:24px;letter-spacing:1px;color:#55606b">premise.akshatdivekar.workers.dev</p>
 </div>
-<aside>Sixth, the gate, the only way onto trunk. It runs five checks: the typecheck, the agent's own tests, reference checks that no agent can edit, every test already on trunk, and the work's premises. Only when all five pass does the work land. [SWITCH TO THE BROWSER: the Demo tab, "Step 01 / 07"] That is the idea. Here is a real run on Cloudflare, replayed. The agents are scripted, with no model, but the forks, tests and landings are real. [PRESS → ONCE: "Step 02 / 07"] Each row is one agent's Intent. [PRESS →, WAIT FOR THE TAPE TO STOP, PRESS → AGAIN: "Step 04 / 07"] Agent 1 lands, and Agents 2 and 4 are stopped straight away. [PRESS →: "Step 05 / 07"] Agent 2 is re-derived, and lands. [PRESS →: "Step 06 / 07"] And then there is Agent 4, the case that tests miss. [BACK TO THE SLIDES, THEN NEXT SLIDE]</aside>
+<aside>Last piece: the gate. It's the only way onto trunk, and it runs five checks. Does the code still compile? Do the agent's own tests pass? Do the reference checks pass, the ones no agent can edit? Do all the existing tests pass? And do the work's premises still hold? Only when all five are green does the work land. [NEXT SLIDE]</aside>
 </section>
 
 <section id="agent4" data-transition="fade" style="background:#f3f4f2;color:#14181d;font-family:'Atkinson Hyperlegible Next', Arial, sans-serif;padding:128px 128px 160px;display:flex;flex-direction:column;gap:40px">
@@ -1204,7 +1016,7 @@ section svg { display: block; flex: none; }
 <p style="font-family:'Atkinson Hyperlegible Mono', 'Courier New', monospace;font-size:24px;letter-spacing:3px;text-transform:uppercase;color:#55606b">Premise</p>
 <p style="font-family:'Atkinson Hyperlegible Mono', 'Courier New', monospace;font-size:24px;letter-spacing:1px;color:#55606b">premise.akshatdivekar.workers.dev</p>
 </div>
-<aside>Look at Agent 4. After Agent 1's change, its tests, the reference checks and all ninety-one tests on trunk passed. Only its premise failed. Its tests used a stand-in for verifySession that still throws, but the premise is checked against the real function. With tests alone, this would have landed broken. Instead it was re-derived, and all four landed. [NEXT SLIDE]</aside>
+<aside>Now, why do premises matter if you already have tests? Look at Agent 4. After Agent 1's change, its own tests passed, the reference checks passed, and all ninety-one tests on trunk passed. Only its premise failed. Its tests used a fake version of verifySession that still throws. The premise checks the real thing. Tests alone would have let this through, broken. [NEXT SLIDE]</aside>
 </section>
 
 <section id="compared" data-transition="fade" style="background:#f3f4f2;color:#14181d;font-family:'Atkinson Hyperlegible Next', Arial, sans-serif;padding:128px 128px 160px;display:flex;flex-direction:column;gap:40px">
@@ -1353,257 +1165,7 @@ section svg { display: block; flex: none; }
 <p style="font-family:'Atkinson Hyperlegible Mono', 'Courier New', monospace;font-size:24px;letter-spacing:3px;text-transform:uppercase;color:#55606b">Premise</p>
 <p style="font-family:'Atkinson Hyperlegible Mono', 'Courier New', monospace;font-size:24px;letter-spacing:1px;color:#55606b">premise.akshatdivekar.workers.dev</p>
 </div>
-<aside>We put the same twelve tasks through three rules. With a typecheck only, three problems reached trunk. With a queue that runs the tests, one still got through, the kind you just saw. With Premise, none did. To be fair: the breaking change is planted, the agents are scripted, and Premise is the slowest of the three. [NEXT SLIDE]</aside>
-</section>
-
-<section id="scale" data-transition="fade" style="background:#f3f4f2;color:#14181d;font-family:'Atkinson Hyperlegible Next', Arial, sans-serif;padding:128px 128px 160px;display:flex;flex-direction:column;gap:40px">
-<div style="display:flex;gap:32px;align-items:center">
-<div style="display:flex;align-items:center;justify-content:center;width:112px;height:112px;background:#14181d;border-radius:24px">
-<x-icon name="Activity" style="color:#f08a4b;width:60px;height:60px"></x-icon>
-</div>
-<div style="flex:1;display:flex;flex-direction:column;gap:12px">
-<p style="font-family:'Atkinson Hyperlegible Mono', 'Courier New', monospace;font-size:26px;font-weight:500;letter-spacing:3px;text-transform:uppercase;color:#c2410c">At scale</p>
-<h2 style="font-size:68px;font-weight:600;line-height:1.1;letter-spacing:-1px">12 agents and 294 scripted Intents.</h2>
-</div>
-</div>
-<x-connector x1="524" y1="372" x2="686" y2="422" style="color:#868e97;border-width:4px"></x-connector>
-<x-connector x1="524" y1="450" x2="686" y2="450" style="color:#868e97;border-width:4px"></x-connector>
-<x-connector x1="524" y1="528" x2="686" y2="478" style="color:#868e97;border-width:4px"></x-connector>
-<x-connector x1="798" y1="450" x2="960" y2="450" style="color:#17654a;border-width:4px"></x-connector>
-<x-embed style="position:absolute;left:512px;top:364px;width:448px;height:172px"><!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="color-scheme" content="light dark"><title>Batches of ten scripted Intents leave their forks, pass through the one gate and land on trunk, turning green</title><style>html,body{margin:0;background:transparent;overflow:hidden}.c{position:absolute;left:0;top:0;width:448px;height:172px;clip-path:path(evenodd,'M0 0H448V172H0Z M198 32H262A22 22 0 0 1 284 54V118A22 22 0 0 1 262 140H198A22 22 0 0 1 176 118V54A22 22 0 0 1 198 32Z')}.m,.k,.s{position:absolute;animation-duration:4.5s;animation-timing-function:linear;animation-iteration-count:infinite}.m{left:0;top:0;width:84px;height:36px}.k{left:0;top:0;width:84px;height:36px;background:#f3f4f2;opacity:0;animation-name:k}.s{left:4px;top:4px;display:grid;grid-template-columns:repeat(5,12px);gap:4px;color:#55606b;opacity:0;animation-name:s,c1}.s i{width:12px;height:12px;background:currentColor}.m1{transform:translate(8px,1.7px);animation-name:p1}.m2{transform:translate(8px,68px);animation-name:p2}.m3{transform:translate(8px,134.3px);animation-name:p3}.m2 .s{animation-name:s,c2}.m1,.m1 div{animation-delay:1.5s}.m2,.m2 div{animation-delay:3s}.m3,.m3 div{animation-delay:4.5s}@keyframes k{0%,3%{opacity:0}8%,92%{opacity:1}97%,100%{opacity:0}}@keyframes s{0%,3%{opacity:0}8%,92%{opacity:1}97%,100%{opacity:0}}@keyframes c1{0%{color:#55606b;animation-timing-function:step-end}54%,100%{color:#17654a}}@keyframes c2{0%{color:#55606b;animation-timing-function:step-end}53.5%,100%{color:#17654a}}@keyframes p1{0%{transform:translate(8px,1.7px)}36.14%{transform:translate(132px,40px)}47.84%{transform:translate(174px,40px)}56.56%{transform:translate(188px,68px)}100%{transform:translate(344px,68px)}}@keyframes p2{0%{transform:translate(8px,68px)}100%{transform:translate(344px,68px)}}@keyframes p3{0%{transform:translate(8px,134.3px)}36.14%{transform:translate(132px,96px)}47.84%{transform:translate(174px,96px)}56.56%{transform:translate(188px,68px)}100%{transform:translate(344px,68px)}}</style></head><body><div class="c"><div class="m m1"><div class="k"></div><div class="s"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div></div><div class="m m2"><div class="k"></div><div class="s"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div></div><div class="m m3"><div class="k"></div><div class="s"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div></div></div></body></html></x-embed>
-<div style="position:absolute;left:128px;top:300px;width:380px;display:flex;align-items:center;justify-content:space-between">
-<p style="font-family:'Atkinson Hyperlegible Mono', 'Courier New', monospace;font-size:24px;line-height:1.3;letter-spacing:2px;text-transform:uppercase;color:#55606b">Forks</p>
-<div style="display:flex;align-items:center;gap:22px">
-<div style="display:flex;align-items:center;gap:10px">
-<div style="width:12px;height:12px;background:#14181d"></div>
-<p style="font-size:24px;line-height:1.3;color:#55606b">agent</p>
-</div>
-<div style="display:flex;align-items:center;gap:10px">
-<div style="width:12px;height:12px;background:#55606b"></div>
-<p style="font-size:24px;line-height:1.3;color:#55606b">scripted</p>
-</div>
-</div>
-</div>
-<p style="position:absolute;left:586px;top:300px;width:312px;font-family:'Atkinson Hyperlegible Mono', 'Courier New', monospace;font-size:24px;line-height:1.3;letter-spacing:2px;text-transform:uppercase;text-align:center;color:#55606b">The gate</p>
-<div style="position:absolute;left:976px;top:300px;width:380px;display:flex;align-items:center;justify-content:space-between">
-<p style="font-family:'Atkinson Hyperlegible Mono', 'Courier New', monospace;font-size:24px;line-height:1.3;letter-spacing:2px;text-transform:uppercase;color:#17654a">Trunk</p>
-<div style="display:flex;align-items:center;gap:22px">
-<div style="display:flex;align-items:center;gap:10px">
-<div style="width:12px;height:12px;background:#b6beb8"></div>
-<p style="font-size:24px;line-height:1.3;color:#55606b">did not land</p>
-</div>
-</div>
-</div>
-<div style="position:absolute;left:128px;top:348px;width:380px;display:flex;flex-direction:column;gap:4px">
-<div style="display:flex;gap:4px">
-<div style="width:188px;height:12px;background:repeating-linear-gradient(90deg, #14181d 0px, #14181d 12px, #f3f4f2 12px, #f3f4f2 16px)"></div>
-<div style="width:188px;height:12px;background:repeating-linear-gradient(90deg, #55606b 0px, #55606b 12px, #f3f4f2 12px, #f3f4f2 16px)"></div>
-</div>
-<div style="width:380px;height:12px;background:repeating-linear-gradient(90deg, #55606b 0px, #55606b 12px, #f3f4f2 12px, #f3f4f2 16px)"></div>
-<div style="width:380px;height:12px;background:repeating-linear-gradient(90deg, #55606b 0px, #55606b 12px, #f3f4f2 12px, #f3f4f2 16px)"></div>
-<div style="width:380px;height:12px;background:repeating-linear-gradient(90deg, #55606b 0px, #55606b 12px, #f3f4f2 12px, #f3f4f2 16px)"></div>
-<div style="width:380px;height:12px;background:repeating-linear-gradient(90deg, #55606b 0px, #55606b 12px, #f3f4f2 12px, #f3f4f2 16px)"></div>
-<div style="width:380px;height:12px;background:repeating-linear-gradient(90deg, #55606b 0px, #55606b 12px, #f3f4f2 12px, #f3f4f2 16px)"></div>
-<div style="width:380px;height:12px;background:repeating-linear-gradient(90deg, #55606b 0px, #55606b 12px, #f3f4f2 12px, #f3f4f2 16px)"></div>
-<div style="width:380px;height:12px;background:repeating-linear-gradient(90deg, #55606b 0px, #55606b 12px, #f3f4f2 12px, #f3f4f2 16px)"></div>
-<div style="width:380px;height:12px;background:repeating-linear-gradient(90deg, #55606b 0px, #55606b 12px, #f3f4f2 12px, #f3f4f2 16px)"></div>
-<div style="width:380px;height:12px;background:repeating-linear-gradient(90deg, #55606b 0px, #55606b 12px, #f3f4f2 12px, #f3f4f2 16px)"></div>
-<div style="width:380px;height:12px;background:repeating-linear-gradient(90deg, #55606b 0px, #55606b 12px, #f3f4f2 12px, #f3f4f2 16px)"></div>
-<div style="width:380px;height:12px;background:repeating-linear-gradient(90deg, #55606b 0px, #55606b 12px, #f3f4f2 12px, #f3f4f2 16px)"></div>
-<div style="width:284px;height:12px;background:repeating-linear-gradient(90deg, #55606b 0px, #55606b 12px, #f3f4f2 12px, #f3f4f2 16px)"></div>
-</div>
-<div style="position:absolute;left:686px;top:394px;width:112px;height:112px;display:flex;align-items:center;justify-content:center;background:#14181d;border-radius:24px">
-<x-icon name="Lock" style="color:#f08a4b;width:60px;height:60px"></x-icon>
-</div>
-<div style="position:absolute;left:976px;top:348px;width:380px;display:flex;flex-direction:column;gap:4px">
-<div style="width:380px;height:12px;background:repeating-linear-gradient(90deg, #17654a 0px, #17654a 12px, #f3f4f2 12px, #f3f4f2 16px)"></div>
-<div style="width:380px;height:12px;background:repeating-linear-gradient(90deg, #17654a 0px, #17654a 12px, #f3f4f2 12px, #f3f4f2 16px)"></div>
-<div style="width:380px;height:12px;background:repeating-linear-gradient(90deg, #17654a 0px, #17654a 12px, #f3f4f2 12px, #f3f4f2 16px)"></div>
-<div style="width:380px;height:12px;background:repeating-linear-gradient(90deg, #17654a 0px, #17654a 12px, #f3f4f2 12px, #f3f4f2 16px)"></div>
-<div style="width:380px;height:12px;background:repeating-linear-gradient(90deg, #17654a 0px, #17654a 12px, #f3f4f2 12px, #f3f4f2 16px)"></div>
-<div style="width:380px;height:12px;background:repeating-linear-gradient(90deg, #17654a 0px, #17654a 12px, #f3f4f2 12px, #f3f4f2 16px)"></div>
-<div style="width:380px;height:12px;background:repeating-linear-gradient(90deg, #17654a 0px, #17654a 12px, #f3f4f2 12px, #f3f4f2 16px)"></div>
-<div style="width:380px;height:12px;background:repeating-linear-gradient(90deg, #17654a 0px, #17654a 12px, #f3f4f2 12px, #f3f4f2 16px)"></div>
-<div style="width:380px;height:12px;background:repeating-linear-gradient(90deg, #17654a 0px, #17654a 12px, #f3f4f2 12px, #f3f4f2 16px)"></div>
-<div style="width:380px;height:12px;background:repeating-linear-gradient(90deg, #17654a 0px, #17654a 12px, #f3f4f2 12px, #f3f4f2 16px)"></div>
-<div style="width:380px;height:12px;background:repeating-linear-gradient(90deg, #17654a 0px, #17654a 12px, #f3f4f2 12px, #f3f4f2 16px)"></div>
-<div style="display:flex;gap:4px">
-<div style="width:28px;height:12px;background:repeating-linear-gradient(90deg, #17654a 0px, #17654a 12px, #f3f4f2 12px, #f3f4f2 16px)"></div>
-<div style="width:348px;height:12px;background:repeating-linear-gradient(90deg, #b6beb8 0px, #b6beb8 12px, #f3f4f2 12px, #f3f4f2 16px)"></div>
-</div>
-<div style="width:284px;height:12px;background:repeating-linear-gradient(90deg, #b6beb8 0px, #b6beb8 12px, #f3f4f2 12px, #f3f4f2 16px)"></div>
-</div>
-<div style="position:absolute;left:128px;top:578px;width:392px;display:flex;flex-direction:column">
-<p style="font-family:'Atkinson Hyperlegible Mono', 'Courier New', monospace;font-size:24px;line-height:1.3;letter-spacing:2px;text-transform:uppercase;color:#55606b">Intents</p>
-<p style="font-size:120px;font-weight:600;line-height:1;letter-spacing:-2px;color:#14181d">306</p>
-<p style="font-size:26px;line-height:1.3;color:#55606b">each on its own fork</p>
-</div>
-<div style="position:absolute;left:552px;top:578px;width:392px;display:flex;flex-direction:column">
-<p style="font-family:'Atkinson Hyperlegible Mono', 'Courier New', monospace;font-size:24px;line-height:1.3;letter-spacing:2px;text-transform:uppercase;color:#55606b">Landings a minute</p>
-<p style="font-size:120px;font-weight:600;line-height:1;letter-spacing:-2px;color:#14181d">61</p>
-<p style="font-size:26px;line-height:1.3;color:#55606b">through one gate,<br>in batches of ten scripted edits</p>
-</div>
-<div style="position:absolute;left:976px;top:578px;width:392px;display:flex;flex-direction:column">
-<p style="font-family:'Atkinson Hyperlegible Mono', 'Courier New', monospace;font-size:24px;line-height:1.3;letter-spacing:2px;text-transform:uppercase;color:#17654a">Landed</p>
-<p style="font-size:120px;font-weight:600;line-height:1;letter-spacing:-2px;color:#17654a">266</p>
-<p style="font-size:26px;line-height:1.3;color:#55606b">in 4 minutes 20 seconds</p>
-</div>
-<div style="position:absolute;left:1400px;top:300px;width:392px;height:508px;display:flex;flex-direction:column;gap:26px;padding:26px;background:#fbfbfa;border:2px solid #17654a;border-radius:12px">
-<div style="height:224px;display:flex;align-items:center;justify-content:center;padding:20px 0 0;background:#d8eedf;border-radius:8px">
-<div style="display:flex;align-items:center;justify-content:center;width:112px;height:112px;background:#17654a;border-radius:24px">
-<x-icon name="Check" style="color:#fbfbfa;width:64px;height:64px"></x-icon>
-</div>
-</div>
-<div style="display:flex;flex-direction:column">
-<p style="font-family:'Atkinson Hyperlegible Mono', 'Courier New', monospace;font-size:24px;line-height:1.3;letter-spacing:2px;text-transform:uppercase;color:#17654a">Problems on trunk</p>
-<p style="font-size:120px;font-weight:600;line-height:1;letter-spacing:-2px;color:#17654a">0</p>
-<p style="font-size:26px;line-height:1.3;color:#3d4650">nothing got through</p>
-</div>
-</div>
-<p style="position:absolute;left:128px;top:836px;width:1664px;font-size:24px;line-height:1.3;color:#55606b">A recorded run on real Cloudflare Artifacts. No model writes any of it: the agents are scripted, and the scripted Intents are generated edits with real forks, pushes and landings. 40 of the scripted Intents did not land.</p>
-<div style="position:absolute;left:128px;right:128px;bottom:64px;display:flex;justify-content:space-between">
-<p style="font-family:'Atkinson Hyperlegible Mono', 'Courier New', monospace;font-size:24px;letter-spacing:3px;text-transform:uppercase;color:#55606b">Premise</p>
-<p style="font-family:'Atkinson Hyperlegible Mono', 'Courier New', monospace;font-size:24px;letter-spacing:1px;color:#55606b">premise.akshatdivekar.workers.dev</p>
-</div>
-<aside>Under more load, a larger recorded run had three hundred and six Intents, each on its own fork. One gate landed about sixty-one a minute, two hundred and sixty-six in all, in four minutes twenty. No problem reached trunk. Again, all of it is scripted. [NEXT SLIDE]</aside>
-</section>
-
-<section id="live" data-transition="fade" style="background:#f3f4f2;color:#14181d;font-family:'Atkinson Hyperlegible Next', Arial, sans-serif;padding:128px 128px 160px;display:flex;flex-direction:column;gap:40px">
-<div style="display:flex;gap:32px;align-items:center">
-<div style="display:flex;align-items:center;justify-content:center;width:112px;height:112px;background:#14181d;border-radius:24px">
-<x-icon name="Play" style="color:#f08a4b;width:60px;height:60px"></x-icon>
-</div>
-<div style="flex:1;display:flex;flex-direction:column;gap:12px">
-<p style="font-family:'Atkinson Hyperlegible Mono', 'Courier New', monospace;font-size:26px;font-weight:500;letter-spacing:3px;text-transform:uppercase;color:#c2410c">Live</p>
-<h2 style="font-size:68px;font-weight:600;line-height:1.1;letter-spacing:-1px">Start a run yourself. Every run is kept.</h2>
-</div>
-</div>
-<div style="position:absolute;left:128px;top:300px;width:432px;display:flex;gap:16px;align-items:baseline">
-<p style="font-family:'Atkinson Hyperlegible Mono', 'Courier New', monospace;font-size:26px;font-weight:600;line-height:1.3;letter-spacing:2px;text-transform:uppercase;color:#14181d"><span style="color:#c2410c">01</span> Start</p>
-<p style="font-size:24px;line-height:1.3;color:#55606b">on the Live tab</p>
-</div>
-<div style="position:absolute;left:128px;top:348px;width:432px;height:448px;display:flex;flex-direction:column;gap:18px;padding:24px;background:#fbfbfa;border:1px solid #d5d9d3;border-radius:12px">
-<div style="display:flex;align-items:center;justify-content:center;gap:16px;height:76px;background:#14181d;border-radius:12px">
-<x-icon name="Play" style="color:#f08a4b;width:36px;height:36px"></x-icon>
-<p style="font-size:30px;font-weight:600;line-height:1.3;color:#fbfbfa">Start a run</p>
-</div>
-<div style="display:flex;flex-direction:column;gap:6px">
-<div style="height:142px"></div>
-<div style="display:flex;justify-content:flex-end">
-<p style="font-family:'Atkinson Hyperlegible Mono', 'Courier New', monospace;font-size:24px;line-height:1.3;letter-spacing:1px;text-transform:uppercase;color:#55606b">3 to 4 minutes</p>
-</div>
-</div>
-<p style="font-size:26px;line-height:1.3;color:#3d4650"><b>12</b> scripted agents and<br><b>30</b> scripted workload Intents,<br>on real Cloudflare Artifacts.</p>
-</div>
-<svg style="position:absolute;left:153px;top:467px" width="382" height="142" viewBox="0 0 382 142" aria-label="A small board of twelve lanes, one for each scripted agent. Each bar grows from Start and its lane turns green where the agent lands; three are re-derived on the way.">
-<rect x="118" y="0" width="264" height="10" rx="2" fill="#d8eedf"/>
-<rect x="0.5" y="0.5" width="118" height="9" rx="2" fill="#dfe2dd" stroke="#868e97" stroke-width="1"/>
-<circle cx="118" cy="5.0" r="5" fill="#17654a"/>
-<rect x="204" y="12" width="178" height="10" rx="2" fill="#d8eedf"/>
-<rect x="0.5" y="12.5" width="124" height="9" rx="2" fill="#dfe2dd" stroke="#868e97" stroke-width="1"/>
-<rect x="124.5" y="12.5" width="80" height="9" rx="2" fill="#faefc2" stroke="#868e97" stroke-width="1"/>
-<circle cx="204" cy="17.0" r="5" fill="#17654a"/>
-<rect x="172" y="24" width="210" height="10" rx="2" fill="#d8eedf"/>
-<rect x="0.5" y="24.5" width="172" height="9" rx="2" fill="#dfe2dd" stroke="#868e97" stroke-width="1"/>
-<circle cx="172" cy="29.0" r="5" fill="#17654a"/>
-<rect x="232" y="36" width="150" height="10" rx="2" fill="#d8eedf"/>
-<rect x="0.5" y="36.5" width="232" height="9" rx="2" fill="#dfe2dd" stroke="#868e97" stroke-width="1"/>
-<circle cx="232" cy="41.0" r="5" fill="#17654a"/>
-<rect x="192" y="48" width="190" height="10" rx="2" fill="#d8eedf"/>
-<rect x="0.5" y="48.5" width="192" height="9" rx="2" fill="#dfe2dd" stroke="#868e97" stroke-width="1"/>
-<circle cx="192" cy="53.0" r="5" fill="#17654a"/>
-<rect x="262" y="60" width="120" height="10" rx="2" fill="#d8eedf"/>
-<rect x="0.5" y="60.5" width="124" height="9" rx="2" fill="#dfe2dd" stroke="#868e97" stroke-width="1"/>
-<rect x="124.5" y="60.5" width="138" height="9" rx="2" fill="#faefc2" stroke="#868e97" stroke-width="1"/>
-<circle cx="262" cy="65.0" r="5" fill="#17654a"/>
-<rect x="216" y="72" width="166" height="10" rx="2" fill="#d8eedf"/>
-<rect x="0.5" y="72.5" width="216" height="9" rx="2" fill="#dfe2dd" stroke="#868e97" stroke-width="1"/>
-<circle cx="216" cy="77.0" r="5" fill="#17654a"/>
-<rect x="300" y="84" width="82" height="10" rx="2" fill="#d8eedf"/>
-<rect x="0.5" y="84.5" width="300" height="9" rx="2" fill="#dfe2dd" stroke="#868e97" stroke-width="1"/>
-<circle cx="300" cy="89.0" r="5" fill="#17654a"/>
-<rect x="246" y="96" width="136" height="10" rx="2" fill="#d8eedf"/>
-<rect x="0.5" y="96.5" width="246" height="9" rx="2" fill="#dfe2dd" stroke="#868e97" stroke-width="1"/>
-<circle cx="246" cy="101.0" r="5" fill="#17654a"/>
-<rect x="326" y="108" width="56" height="10" rx="2" fill="#d8eedf"/>
-<rect x="0.5" y="108.5" width="326" height="9" rx="2" fill="#dfe2dd" stroke="#868e97" stroke-width="1"/>
-<circle cx="326" cy="113.0" r="5" fill="#17654a"/>
-<rect x="286" y="120" width="96" height="10" rx="2" fill="#d8eedf"/>
-<rect x="0.5" y="120.5" width="124" height="9" rx="2" fill="#dfe2dd" stroke="#868e97" stroke-width="1"/>
-<rect x="124.5" y="120.5" width="162" height="9" rx="2" fill="#faefc2" stroke="#868e97" stroke-width="1"/>
-<circle cx="286" cy="125.0" r="5" fill="#17654a"/>
-<rect x="350" y="132" width="32" height="10" rx="2" fill="#d8eedf"/>
-<rect x="0.5" y="132.5" width="350" height="9" rx="2" fill="#dfe2dd" stroke="#868e97" stroke-width="1"/>
-<circle cx="350" cy="137.0" r="5" fill="#17654a"/>
-</svg>
-<x-embed style="position:absolute;left:153px;top:467px;width:382px;height:142px"><!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="color-scheme" content="light dark"><title>A playhead sweeping across the board of twelve lanes, uncovering each bar from left to right</title><style>html,body{margin:0;background:transparent;overflow:hidden}.c{position:absolute;left:0;top:0;width:386px;height:142px;background:#fbfbfa;transform:translateX(382px);animation:w 5s linear infinite}.l{position:absolute;left:0;width:386px;height:10px;border-radius:2px;background:#dfe2dd;opacity:.55}.h{position:absolute;left:0;top:0;width:2px;height:142px;background:#14181d}@keyframes w{0%{transform:translateX(382px);animation-timing-function:step-end}36%{transform:translateX(0);animation-timing-function:linear}100%{transform:translateX(382px)}}@media (prefers-reduced-motion:reduce){.c{animation:none}}</style></head><body><div class="c"><div class="l" style="top:0px"></div><div class="l" style="top:12px"></div><div class="l" style="top:24px"></div><div class="l" style="top:36px"></div><div class="l" style="top:48px"></div><div class="l" style="top:60px"></div><div class="l" style="top:72px"></div><div class="l" style="top:84px"></div><div class="l" style="top:96px"></div><div class="l" style="top:108px"></div><div class="l" style="top:120px"></div><div class="l" style="top:132px"></div><div class="h"></div></div></body></html></x-embed>
-<div style="position:absolute;left:600px;top:300px;width:792px;display:flex;gap:16px;align-items:baseline">
-<p style="font-family:'Atkinson Hyperlegible Mono', 'Courier New', monospace;font-size:26px;font-weight:600;line-height:1.3;letter-spacing:2px;text-transform:uppercase;color:#14181d"><span style="color:#c2410c">02</span> Every run is kept</p>
-<p style="font-size:24px;line-height:1.3;color:#55606b">on the Results tab</p>
-</div>
-<div style="position:absolute;left:600px;top:348px;width:792px;height:448px;display:flex;flex-direction:column;padding:28px 24px;background:#fbfbfa;border:1px solid #d5d9d3;border-radius:12px">
-<div style="display:flex;align-items:flex-end;height:62px">
-<p style="width:132px;font-family:'Atkinson Hyperlegible Mono', 'Courier New', monospace;font-size:24px;line-height:1.3;text-transform:uppercase;color:#55606b">By</p>
-<p style="width:204px;font-family:'Atkinson Hyperlegible Mono', 'Courier New', monospace;font-size:24px;line-height:1.3;text-transform:uppercase;color:#55606b">Agents <br>landed</p>
-<p style="width:180px;font-family:'Atkinson Hyperlegible Mono', 'Courier New', monospace;font-size:24px;line-height:1.3;text-transform:uppercase;color:#55606b">Workload <br>landed</p>
-<p style="width:130px;font-family:'Atkinson Hyperlegible Mono', 'Courier New', monospace;font-size:24px;line-height:1.3;text-transform:uppercase;color:#55606b">Problems <br>on trunk</p>
-</div>
-<div style="height:16px"></div>
-<div style="display:flex;align-items:center;height:104px;border-top:1px solid #868e97">
-<p style="width:132px;font-size:30px;line-height:1.3;color:#3d4650">a visitor</p>
-<div style="width:204px;display:flex"><p style="font-family:'Atkinson Hyperlegible Mono', 'Courier New', monospace;font-size:30px;font-weight:500;line-height:1.3;color:#17654a;background:#d8eedf;border-radius:8px;padding:4px 12px">12 of 12</p></div>
-<p style="width:180px;font-family:'Atkinson Hyperlegible Mono', 'Courier New', monospace;font-size:30px;font-weight:500;line-height:1.3;color:#14181d">26 of 30</p>
-<p style="width:130px;font-family:'Atkinson Hyperlegible Mono', 'Courier New', monospace;font-size:30px;font-weight:600;line-height:1.3;color:#17654a">0</p>
-</div>
-<div style="display:flex;align-items:center;height:104px;border-top:1px solid #d5d9d3">
-<p style="width:132px;font-size:30px;line-height:1.3;color:#3d4650">a visitor</p>
-<div style="width:204px;display:flex"><p style="font-family:'Atkinson Hyperlegible Mono', 'Courier New', monospace;font-size:30px;font-weight:500;line-height:1.3;color:#17654a;background:#d8eedf;border-radius:8px;padding:4px 12px">12 of 12</p></div>
-<p style="width:180px;font-family:'Atkinson Hyperlegible Mono', 'Courier New', monospace;font-size:30px;font-weight:500;line-height:1.3;color:#14181d">26 of 30</p>
-<p style="width:130px;font-family:'Atkinson Hyperlegible Mono', 'Courier New', monospace;font-size:30px;font-weight:600;line-height:1.3;color:#17654a">0</p>
-<p style="font-size:30px;font-weight:600;line-height:1.3;text-decoration:underline;color:#14181d">Open</p>
-</div>
-<div style="display:flex;align-items:center;height:104px;border-top:1px solid #d5d9d3">
-<p style="width:132px;font-size:30px;line-height:1.3;color:#3d4650">a visitor</p>
-<div style="width:204px;display:flex"><p style="font-family:'Atkinson Hyperlegible Mono', 'Courier New', monospace;font-size:30px;font-weight:500;line-height:1.3;color:#17654a;background:#d8eedf;border-radius:8px;padding:4px 12px">12 of 12</p></div>
-<p style="width:180px;font-family:'Atkinson Hyperlegible Mono', 'Courier New', monospace;font-size:30px;font-weight:500;line-height:1.3;color:#14181d">26 of 30</p>
-<p style="width:130px;font-family:'Atkinson Hyperlegible Mono', 'Courier New', monospace;font-size:30px;font-weight:600;line-height:1.3;color:#17654a">0</p>
-<p style="font-size:30px;font-weight:600;line-height:1.3;text-decoration:underline;color:#14181d">Open</p>
-</div>
-</div>
-<div style="position:absolute;left:1432px;top:300px;width:360px;display:flex;gap:16px;align-items:baseline">
-<p style="font-family:'Atkinson Hyperlegible Mono', 'Courier New', monospace;font-size:26px;font-weight:600;line-height:1.3;letter-spacing:2px;text-transform:uppercase;color:#14181d"><span style="color:#c2410c">03</span> Replay</p>
-</div>
-<div style="position:absolute;left:1432px;top:348px;width:360px;height:448px;display:flex;flex-direction:column;justify-content:space-between;gap:16px;padding:24px;background:#fbfbfa;border:2px solid #e8590c;border-radius:12px">
-<p style="font-size:26px;font-weight:600;line-height:1.3;white-space:nowrap;color:#14181d">What one agent changed</p>
-<div style="display:flex;flex-direction:column">
-<p style="font-size:30px;line-height:1.3;color:#3d4650">2 files changed</p>
-<div style="display:flex;gap:24px">
-<p style="font-family:'Atkinson Hyperlegible Mono', 'Courier New', monospace;font-size:44px;font-weight:600;line-height:1.3;color:#17654a">+19</p>
-<p style="font-family:'Atkinson Hyperlegible Mono', 'Courier New', monospace;font-size:44px;font-weight:600;line-height:1.3;color:#c2410c">−1</p>
-</div>
-</div>
-<div style="display:flex;flex-direction:column;border:1px solid #d5d9d3;border-radius:8px;overflow:hidden">
-<div style="display:flex;align-items:center;height:26px;padding:0 12px"><div style="width:150px;height:8px;border-radius:4px;background:#dfe2dd"></div></div>
-<div style="display:flex;align-items:center;height:26px;padding:0 12px;background:#fdeee7"><div style="width:118px;height:8px;border-radius:4px;background:#e8590c;opacity:0.55"></div></div>
-<div style="display:flex;align-items:center;height:26px;padding:0 12px;background:#d8eedf"><div style="width:196px;height:8px;border-radius:4px;background:#17654a;opacity:0.55"></div></div>
-<div style="display:flex;align-items:center;height:26px;padding:0 12px;background:#d8eedf"><div style="width:136px;height:8px;border-radius:4px;background:#17654a;opacity:0.55"></div></div>
-<div style="display:flex;align-items:center;height:26px;padding:0 12px;background:#d8eedf"><div style="width:172px;height:8px;border-radius:4px;background:#17654a;opacity:0.55"></div></div>
-<div style="display:flex;align-items:center;height:26px;padding:0 12px"><div style="width:96px;height:8px;border-radius:4px;background:#dfe2dd"></div></div>
-</div>
-<p style="font-size:26px;line-height:1.3;color:#55606b">As it landed on trunk.</p>
-</div>
-<x-connector x1="564" y1="507" x2="596" y2="507" route="straight" head="end" style="color:#868e97;border-width:3px"></x-connector>
-<div style="position:absolute;left:610px;top:569px;width:772px;height:84px;border:2px solid #e8590c;border-radius:12px"></div>
-<x-connector x1="1384" y1="611" x2="1428" y2="611" route="straight" head="end" style="color:#e8590c;border-width:3px"></x-connector>
-<div style="position:absolute;left:128px;top:832px;width:1664px;display:flex;gap:16px;align-items:center">
-<x-icon name="CheckCircle" style="color:#17654a;width:40px;height:40px"></x-icon>
-<p style="flex:1;font-size:34px;line-height:1.3;color:#3d4650">The recent live runs each landed every agent, with nothing broken on trunk.</p>
-</div>
-<div style="position:absolute;left:128px;right:128px;bottom:64px;display:flex;justify-content:space-between">
-<p style="font-family:'Atkinson Hyperlegible Mono', 'Courier New', monospace;font-size:24px;letter-spacing:3px;text-transform:uppercase;color:#55606b">Premise</p>
-<p style="font-family:'Atkinson Hyperlegible Mono', 'Courier New', monospace;font-size:24px;letter-spacing:1px;color:#55606b">premise.akshatdivekar.workers.dev</p>
-</div>
-<aside>You can try it yourself. On the Live tab, anyone can start a run of twelve scripted agents on real Artifacts. It takes three to four minutes. Every run is kept on the Results tab, and the recent ones each landed every agent, with nothing broken on trunk. [SWITCH TO THE BROWSER, THEN CLICK THE "Results" TAB] [CLICK A ROW OF THE LIVE RUNS TABLE THAT SAYS "12 of 12": A PANEL SLIDES IN FROM THE RIGHT] Here is one of those runs, as it ended. [CLICK AGENT 2'S ROW IN THE PANEL] And for any agent, you can see what it changed, as it landed on trunk. [BACK TO THE SLIDES, THEN NEXT SLIDE]</aside>
+<aside>We ran the same twelve tasks under three rules. With just a typecheck, three problems reached trunk. With a queue that also runs the tests, one still slipped through, the kind you just saw. With Premise, zero. To be upfront: the breaking change was planted, the agents are scripted, and Premise was the slowest of the three. [NEXT SLIDE]</aside>
 </section>
 
 <section id="built" data-transition="fade" style="background:#f3f4f2;color:#14181d;font-family:'Atkinson Hyperlegible Next', Arial, sans-serif;padding:128px 128px 160px;display:flex;flex-direction:column;gap:40px">
@@ -1717,7 +1279,7 @@ section svg { display: block; flex: none; }
 <p style="font-family:'Atkinson Hyperlegible Mono', 'Courier New', monospace;font-size:24px;letter-spacing:3px;text-transform:uppercase;color:#55606b">Premise</p>
 <p style="font-family:'Atkinson Hyperlegible Mono', 'Courier New', monospace;font-size:24px;letter-spacing:1px;color:#55606b">premise.akshatdivekar.workers.dev</p>
 </div>
-<aside>Under the hood, Premise is one Worker on Cloudflare. Code lives in Artifacts, and state lives in Durable Objects. Each agent runs as a Workflow, and every test runs in a fresh Dynamic Worker with no network. There are no containers. [NEXT SLIDE]</aside>
+<aside>Under the hood, it's one Worker on Cloudflare. The code lives in Artifacts, the state lives in Durable Objects, each agent runs as a Workflow, and every test runs in its own Dynamic Worker with no network. No containers anywhere. [NEXT SLIDE]</aside>
 </section>
 
 <section id="scaling" data-transition="fade" style="background:#f3f4f2;color:#14181d;font-family:'Atkinson Hyperlegible Next', Arial, sans-serif;padding:128px 128px 160px;display:flex;flex-direction:column;gap:40px">
@@ -1907,7 +1469,7 @@ section svg { display: block; flex: none; }
 <p style="font-family:'Atkinson Hyperlegible Mono', 'Courier New', monospace;font-size:24px;letter-spacing:3px;text-transform:uppercase;color:#55606b">Premise</p>
 <p style="font-family:'Atkinson Hyperlegible Mono', 'Courier New', monospace;font-size:24px;letter-spacing:1px;color:#55606b">premise.akshatdivekar.workers.dev</p>
 </div>
-<aside>It is a prototype, but already shaped for many agents: a fork per Intent, a ledger split by module, and stops that reach only the agents affected. Next would be many gates instead of one, each checking only what a change can reach, and a UI that stays readable when agents run for hours or days. That part is a design, not a measurement. [NEXT SLIDE]</aside>
+<aside>It's a prototype, but it's already built for lots of agents: a fork per Intent, a ledger split by module, and stops that only reach the agents affected. Next, I'd want many gates instead of one, checks that only look at what a change can reach, and a UI that still makes sense when agents run for hours or days. That part is a plan, not something I've measured. [NEXT SLIDE]</aside>
 </section>
 
 <section id="fits" data-transition="fade" style="background:#f3f4f2;color:#14181d;font-family:'Atkinson Hyperlegible Next', Arial, sans-serif;padding:128px 128px 160px;display:flex;flex-direction:column;gap:40px">
@@ -1966,13 +1528,13 @@ section svg { display: block; flex: none; }
 <p style="font-family:'Atkinson Hyperlegible Mono', 'Courier New', monospace;font-size:24px;letter-spacing:3px;text-transform:uppercase;color:#55606b">Premise</p>
 <p style="font-family:'Atkinson Hyperlegible Mono', 'Courier New', monospace;font-size:24px;letter-spacing:1px;color:#55606b">premise.akshatdivekar.workers.dev</p>
 </div>
-<aside>In a bigger system, tasks still come from people, tickets or an orchestrator, and agents of any kind do the work. Premise sits between those agents and trunk, and CI and deploy carry on as before. It adds one layer and changes nothing else. That is a design too. [NEXT SLIDE]</aside>
+<aside>So where would this fit in a real team? Tasks still come from people, tickets, or an orchestrator, and any kind of agent can do the work. Premise sits between those agents and trunk, and your CI and deploys carry on as before. It's one extra layer. Nothing else has to change. [NEXT SLIDE]</aside>
 </section>
 
-<section id="try" data-transition="fade" style="background:#14181d;color:#f3f4f2;font-family:'Atkinson Hyperlegible Next', Arial, sans-serif;padding:128px;display:flex;flex-direction:column;justify-content:space-between">
-<p style="font-family:'Atkinson Hyperlegible Mono', 'Courier New', monospace;font-size:26px;font-weight:500;letter-spacing:3px;text-transform:uppercase;color:#f08a4b">Try it</p>
+<section id="demo" data-transition="fade" style="background:#14181d;color:#f3f4f2;font-family:'Atkinson Hyperlegible Next', Arial, sans-serif;padding:128px;display:flex;flex-direction:column;justify-content:space-between">
+<p style="font-family:'Atkinson Hyperlegible Mono', 'Courier New', monospace;font-size:26px;font-weight:500;letter-spacing:3px;text-transform:uppercase;color:#f08a4b">Demo</p>
 <div style="display:flex;flex-direction:column;gap:36px">
-<h2 style="font-size:84px;font-weight:600;line-height:1.1;letter-spacing:-2px">Open it and press Next.<br>Or press Start, and watch a run happen.</h2>
+<h2 style="font-size:84px;font-weight:600;line-height:1.1;letter-spacing:-2px">Now let's see it run.</h2>
 <p style="font-family:'Atkinson Hyperlegible Mono', 'Courier New', monospace;font-size:48px;font-weight:500;letter-spacing:1px;color:#f08a4b">premise.akshatdivekar.workers.dev</p>
 <div style="display:flex;gap:28px;align-items:stretch">
 <div style="flex:1;display:flex;flex-direction:column;gap:12px;background:#20262d;border:1px solid #3a424b;border-radius:12px;padding:28px 32px">
@@ -1998,8 +1560,40 @@ section svg { display: block; flex: none; }
 </div>
 </div>
 </div>
-<p style="font-size:28px;line-height:1.4;color:#8d9690">Open source under the MIT licence: github.com/akshat12/premise</p>
-<aside>To sum up: Git tracks what agents wrote, and Premise tracks what they assumed. It is open source, built on Cloudflare Workers and Artifacts. Open the site and press Next, or start a run on the Live tab. Thanks for watching. [HOLD FOR FIVE SECONDS, THEN STOP THE SCREEN RECORDING]</aside>
+<p style="font-size:28px;line-height:1.4;color:#8d9690">Real runs on Cloudflare Artifacts. The agents are scripted; the forks, tests and landings are real.</p>
+<aside>Okay, let's see it actually run. [SWITCH TO THE BROWSER: the Demo tab, "Step 01 / 07"] This is a real run on Cloudflare, replayed. The agents are scripted, but the forks, tests and landings are all real. [PRESS → ONCE: "Step 02 / 07"] Each row is one agent working on its Intent. [PRESS →, WAIT FOR THE TAPE TO STOP, PRESS → AGAIN: "Step 04 / 07"] Agent 1 lands, and Agents 2 and 4 are stopped straight away. [PRESS →: "Step 05 / 07"] Agent 2 redoes its work, and lands. [PRESS →: "Step 06 / 07"] And here's Agent 4, the one the tests missed. [CLICK THE "Results" TAB] Anyone can start a run like this from the Live tab, and every run is kept here. [CLICK A ROW OF THE LIVE RUNS TABLE THAT SAYS "12 of 12": A PANEL SLIDES IN FROM THE RIGHT] Here's one of those runs, as it finished. [CLICK AGENT 2'S ROW IN THE PANEL] And for any agent, you can see exactly what it changed. [BACK TO THE SLIDES, THEN NEXT SLIDE]</aside>
+</section>
+
+<section id="thanks" data-transition="fade" style="background:#14181d;color:#f3f4f2;font-family:'Atkinson Hyperlegible Next', Arial, sans-serif;padding:112px 128px;display:flex;flex-direction:column;justify-content:space-between">
+<div style="display:flex;gap:28px;align-items:center">
+<svg width="96" height="96" viewBox="0 0 32 32" aria-label="The Premise mark">
+<rect x="0.5" y="0.5" width="31" height="31" rx="6" fill="#20262d" stroke="#3a424b" stroke-width="1"/>
+<path d="M7 12V7h5M25 12V7h-5M7 20v5h5M25 20v5h-5" fill="none" stroke="#fbfbfa" stroke-width="2.5"/>
+<circle cx="16" cy="16" r="4" fill="#e8590c"/>
+</svg>
+<p style="font-family:'Atkinson Hyperlegible Mono', 'Courier New', monospace;font-size:68px;font-weight:600;line-height:1;letter-spacing:10px;text-transform:uppercase;color:#f3f4f2">Premise</p>
+</div>
+<div style="display:flex;flex-direction:column;gap:40px">
+<h1 style="font-size:140px;font-weight:600;line-height:1.05;letter-spacing:-3px">Thank you.</h1>
+<p style="font-size:40px;line-height:1.4;color:#b6beb8;width:1400px">Git tracks what agents wrote. Premise tracks what they assumed.</p>
+</div>
+<div style="display:flex;justify-content:space-between;align-items:flex-end;padding:32px 0 0;border-top:1px solid #3a424b">
+<div style="display:flex;flex-direction:column;gap:10px">
+<p style="font-size:34px;font-weight:600;line-height:1.3;color:#f3f4f2">Akshat Divekar</p>
+<p style="font-family:'Atkinson Hyperlegible Mono', 'Courier New', monospace;font-size:24px;line-height:1.3;letter-spacing:3px;text-transform:uppercase;color:#8d9690">Open source, built on Cloudflare Workers and Artifacts</p>
+</div>
+<div style="display:flex;flex-direction:column;gap:14px;align-items:flex-end">
+<div style="display:flex;gap:14px;align-items:center">
+<x-icon name="Globe" style="color:#f08a4b;width:30px;height:30px"></x-icon>
+<p style="font-family:'Atkinson Hyperlegible Mono', 'Courier New', monospace;font-size:26px;line-height:1.3;color:#f08a4b"><a href="https://premise.akshatdivekar.workers.dev" style="color:#f08a4b">premise.akshatdivekar.workers.dev</a></p>
+</div>
+<div style="display:flex;gap:14px;align-items:center">
+<x-icon name="Code" style="color:#f08a4b;width:30px;height:30px"></x-icon>
+<p style="font-family:'Atkinson Hyperlegible Mono', 'Courier New', monospace;font-size:26px;line-height:1.3;color:#f08a4b"><a href="https://github.com/akshat12/premise" style="color:#f08a4b">github.com/akshat12/premise</a></p>
+</div>
+</div>
+</div>
+<aside>That's Premise. Git tracks what agents wrote, and Premise tracks what they assumed. It's open source, and the links are right here. Thanks for watching. [HOLD FOR FIVE SECONDS, THEN STOP THE SCREEN RECORDING]</aside>
 </section>
 
 </div></div>
@@ -2012,7 +1606,7 @@ section svg { display: block; flex: none; }
 </div>
 <script>
 const ICONS = {"Activity": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"100%\" height=\"100%\" fill=\"currentColor\" viewBox=\"0 0 256 256\"><path d=\"M240,128a8,8,0,0,1-8,8H204.94l-37.78,75.58A8,8,0,0,1,160,216h-.4a8,8,0,0,1-7.08-5.14L95.35,60.76,63.28,131.31A8,8,0,0,1,56,136H24a8,8,0,0,1,0-16H50.85L88.72,36.69a8,8,0,0,1,14.76.46l57.51,151,31.85-63.71A8,8,0,0,1,200,120h32A8,8,0,0,1,240,128Z\"></path></svg>", "Book": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"100%\" height=\"100%\" fill=\"currentColor\" viewBox=\"0 0 256 256\"><path d=\"M232,48H160a40,40,0,0,0-32,16A40,40,0,0,0,96,48H24a8,8,0,0,0-8,8V200a8,8,0,0,0,8,8H96a24,24,0,0,1,24,24,8,8,0,0,0,16,0,24,24,0,0,1,24-24h72a8,8,0,0,0,8-8V56A8,8,0,0,0,232,48ZM96,192H32V64H96a24,24,0,0,1,24,24V200A39.81,39.81,0,0,0,96,192Zm128,0H160a39.81,39.81,0,0,0-24,8V88a24,24,0,0,1,24-24h64Z\"></path></svg>", "Chart": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"100%\" height=\"100%\" fill=\"currentColor\" viewBox=\"0 0 256 256\"><path d=\"M224,200h-8V40a8,8,0,0,0-8-8H152a8,8,0,0,0-8,8V80H96a8,8,0,0,0-8,8v40H48a8,8,0,0,0-8,8v64H32a8,8,0,0,0,0,16H224a8,8,0,0,0,0-16ZM160,48h40V200H160ZM104,96h40V200H104ZM56,144H88v56H56Z\"></path></svg>", "Chat": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"100%\" height=\"100%\" fill=\"currentColor\" viewBox=\"0 0 256 256\"><path d=\"M128,24A104,104,0,0,0,36.18,176.88L24.83,210.93a16,16,0,0,0,20.24,20.24l34.05-11.35A104,104,0,1,0,128,24Zm0,192a87.87,87.87,0,0,1-44.06-11.81,8,8,0,0,0-6.54-.67L40,216,52.47,178.6a8,8,0,0,0-.66-6.54A88,88,0,1,1,128,216Z\"></path></svg>", "Check": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"100%\" height=\"100%\" fill=\"currentColor\" viewBox=\"0 0 256 256\"><path d=\"M229.66,77.66l-128,128a8,8,0,0,1-11.32,0l-56-56a8,8,0,0,1,11.32-11.32L96,188.69,218.34,66.34a8,8,0,0,1,11.32,11.32Z\"></path></svg>", "CheckCircle": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"100%\" height=\"100%\" fill=\"currentColor\" viewBox=\"0 0 256 256\"><path d=\"M173.66,98.34a8,8,0,0,1,0,11.32l-56,56a8,8,0,0,1-11.32,0l-24-24a8,8,0,0,1,11.32-11.32L112,148.69l50.34-50.35A8,8,0,0,1,173.66,98.34ZM232,128A104,104,0,1,1,128,24,104.11,104.11,0,0,1,232,128Zm-16,0a88,88,0,1,0-88,88A88.1,88.1,0,0,0,216,128Z\"></path></svg>", "Clock": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"100%\" height=\"100%\" fill=\"currentColor\" viewBox=\"0 0 256 256\"><path d=\"M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm0,192a88,88,0,1,1,88-88A88.1,88.1,0,0,1,128,216Zm64-88a8,8,0,0,1-8,8H128a8,8,0,0,1-8-8V72a8,8,0,0,1,16,0v48h48A8,8,0,0,1,192,128Z\"></path></svg>", "Cloud": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"100%\" height=\"100%\" fill=\"currentColor\" viewBox=\"0 0 256 256\"><path d=\"M160,40A88.09,88.09,0,0,0,81.29,88.67,64,64,0,1,0,72,216h88a88,88,0,0,0,0-176Zm0,160H72a48,48,0,0,1,0-96c1.1,0,2.2,0,3.29.11A88,88,0,0,0,72,128a8,8,0,0,0,16,0,72,72,0,1,1,72,72Z\"></path></svg>", "Code": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"100%\" height=\"100%\" fill=\"currentColor\" viewBox=\"0 0 256 256\"><path d=\"M69.12,94.15,28.5,128l40.62,33.85a8,8,0,1,1-10.24,12.29l-48-40a8,8,0,0,1,0-12.29l48-40a8,8,0,0,1,10.24,12.3Zm176,27.7-48-40a8,8,0,1,0-10.24,12.3L227.5,128l-40.62,33.85a8,8,0,1,0,10.24,12.29l48-40a8,8,0,0,0,0-12.29ZM162.73,32.48a8,8,0,0,0-10.25,4.79l-64,176a8,8,0,0,0,4.79,10.26A8.14,8.14,0,0,0,96,224a8,8,0,0,0,7.52-5.27l64-176A8,8,0,0,0,162.73,32.48Z\"></path></svg>", "Database": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"100%\" height=\"100%\" fill=\"currentColor\" viewBox=\"0 0 256 256\"><path d=\"M128,24C74.17,24,32,48.6,32,80v96c0,31.4,42.17,56,96,56s96-24.6,96-56V80C224,48.6,181.83,24,128,24Zm80,104c0,9.62-7.88,19.43-21.61,26.92C170.93,163.35,150.19,168,128,168s-42.93-4.65-58.39-13.08C55.88,147.43,48,137.62,48,128V111.36c17.06,15,46.23,24.64,80,24.64s62.94-9.68,80-24.64ZM69.61,53.08C85.07,44.65,105.81,40,128,40s42.93,4.65,58.39,13.08C200.12,60.57,208,70.38,208,80s-7.88,19.43-21.61,26.92C170.93,115.35,150.19,120,128,120s-42.93-4.65-58.39-13.08C55.88,99.43,48,89.62,48,80S55.88,60.57,69.61,53.08ZM186.39,202.92C170.93,211.35,150.19,216,128,216s-42.93-4.65-58.39-13.08C55.88,195.43,48,185.62,48,176V159.36c17.06,15,46.23,24.64,80,24.64s62.94-9.68,80-24.64V176C208,185.62,200.12,195.43,186.39,202.92Z\"></path></svg>", "Globe": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"100%\" height=\"100%\" fill=\"currentColor\" viewBox=\"0 0 256 256\"><path d=\"M128,24h0A104,104,0,1,0,232,128,104.12,104.12,0,0,0,128,24Zm88,104a87.61,87.61,0,0,1-3.33,24H174.16a157.44,157.44,0,0,0,0-48h38.51A87.61,87.61,0,0,1,216,128ZM102,168H154a115.11,115.11,0,0,1-26,45A115.27,115.27,0,0,1,102,168Zm-3.9-16a140.84,140.84,0,0,1,0-48h59.88a140.84,140.84,0,0,1,0,48ZM40,128a87.61,87.61,0,0,1,3.33-24H81.84a157.44,157.44,0,0,0,0,48H43.33A87.61,87.61,0,0,1,40,128ZM154,88H102a115.11,115.11,0,0,1,26-45A115.27,115.27,0,0,1,154,88Zm52.33,0H170.71a135.28,135.28,0,0,0-22.3-45.6A88.29,88.29,0,0,1,206.37,88ZM107.59,42.4A135.28,135.28,0,0,0,85.29,88H49.63A88.29,88.29,0,0,1,107.59,42.4ZM49.63,168H85.29a135.28,135.28,0,0,0,22.3,45.6A88.29,88.29,0,0,1,49.63,168Zm98.78,45.6a135.28,135.28,0,0,0,22.3-45.6h35.66A88.29,88.29,0,0,1,148.41,213.6Z\"></path></svg>", "GraduationCap": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"100%\" height=\"100%\" fill=\"currentColor\" viewBox=\"0 0 256 256\"><path d=\"M251.76,88.94l-120-64a8,8,0,0,0-7.52,0l-120,64a8,8,0,0,0,0,14.12L32,117.87v48.42a15.91,15.91,0,0,0,4.06,10.65C49.16,191.53,78.51,216,128,216a130,130,0,0,0,48-8.76V240a8,8,0,0,0,16,0V199.51a115.63,115.63,0,0,0,27.94-22.57A15.91,15.91,0,0,0,224,166.29V117.87l27.76-14.81a8,8,0,0,0,0-14.12ZM128,200c-43.27,0-68.72-21.14-80-33.71V126.4l76.24,40.66a8,8,0,0,0,7.52,0L176,143.47v46.34C163.4,195.69,147.52,200,128,200Zm80-33.75a97.83,97.83,0,0,1-16,14.25V134.93l16-8.53ZM188,118.94l-.22-.13-56-29.87a8,8,0,0,0-7.52,14.12L171,128l-43,22.93L25,96,128,41.07,231,96Z\"></path></svg>", "Home": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"100%\" height=\"100%\" fill=\"currentColor\" viewBox=\"0 0 256 256\"><path d=\"M219.31,108.68l-80-80a16,16,0,0,0-22.62,0l-80,80A15.87,15.87,0,0,0,32,120v96a8,8,0,0,0,8,8h64a8,8,0,0,0,8-8V160h32v56a8,8,0,0,0,8,8h64a8,8,0,0,0,8-8V120A15.87,15.87,0,0,0,219.31,108.68ZM208,208H160V152a8,8,0,0,0-8-8H104a8,8,0,0,0-8,8v56H48V120l80-80,80,80Z\"></path></svg>", "Key": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"100%\" height=\"100%\" fill=\"currentColor\" viewBox=\"0 0 256 256\"><path d=\"M216.57,39.43A80,80,0,0,0,83.91,120.78L28.69,176A15.86,15.86,0,0,0,24,187.31V216a16,16,0,0,0,16,16H72a8,8,0,0,0,8-8V208H96a8,8,0,0,0,8-8V184h16a8,8,0,0,0,5.66-2.34l9.56-9.57A79.73,79.73,0,0,0,160,176h.1A80,80,0,0,0,216.57,39.43ZM224,98.1c-1.09,34.09-29.75,61.86-63.89,61.9H160a63.7,63.7,0,0,1-23.65-4.51,8,8,0,0,0-8.84,1.68L116.69,168H96a8,8,0,0,0-8,8v16H72a8,8,0,0,0-8,8v16H40V187.31l58.83-58.82a8,8,0,0,0,1.68-8.84A63.72,63.72,0,0,1,96,95.92c0-34.14,27.81-62.8,61.9-63.89A64,64,0,0,1,224,98.1ZM192,76a12,12,0,1,1-12-12A12,12,0,0,1,192,76Z\"></path></svg>", "Lightbulb": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"100%\" height=\"100%\" fill=\"currentColor\" viewBox=\"0 0 256 256\"><path d=\"M176,232a8,8,0,0,1-8,8H88a8,8,0,0,1,0-16h80A8,8,0,0,1,176,232Zm40-128a87.55,87.55,0,0,1-33.64,69.21A16.24,16.24,0,0,0,176,186v6a16,16,0,0,1-16,16H96a16,16,0,0,1-16-16v-6a16,16,0,0,0-6.23-12.66A87.59,87.59,0,0,1,40,104.49C39.74,56.83,78.26,17.14,125.88,16A88,88,0,0,1,216,104Zm-16,0a72,72,0,0,0-73.74-72c-39,.92-70.47,33.39-70.26,72.39a71.65,71.65,0,0,0,27.64,56.3A32,32,0,0,1,96,186v6h64v-6a32.15,32.15,0,0,1,12.47-25.35A71.65,71.65,0,0,0,200,104Zm-16.11-9.34a57.6,57.6,0,0,0-46.56-46.55,8,8,0,0,0-2.66,15.78c16.57,2.79,30.63,16.85,33.44,33.45A8,8,0,0,0,176,104a9,9,0,0,0,1.35-.11A8,8,0,0,0,183.89,94.66Z\"></path></svg>", "Lightning": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"100%\" height=\"100%\" fill=\"currentColor\" viewBox=\"0 0 256 256\"><path d=\"M215.79,118.17a8,8,0,0,0-5-5.66L153.18,90.9l14.66-73.33a8,8,0,0,0-13.69-7l-112,120a8,8,0,0,0,3,13l57.63,21.61L88.16,238.43a8,8,0,0,0,13.69,7l112-120A8,8,0,0,0,215.79,118.17ZM109.37,214l10.47-52.38a8,8,0,0,0-5-9.06L62,132.71l84.62-90.66L136.16,94.43a8,8,0,0,0,5,9.06l52.8,19.8Z\"></path></svg>", "Link": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"100%\" height=\"100%\" fill=\"currentColor\" viewBox=\"0 0 256 256\"><path d=\"M240,88.23a54.43,54.43,0,0,1-16,37L189.25,160a54.27,54.27,0,0,1-38.63,16h-.05A54.63,54.63,0,0,1,96,119.84a8,8,0,0,1,16,.45A38.62,38.62,0,0,0,150.58,160h0a38.39,38.39,0,0,0,27.31-11.31l34.75-34.75a38.63,38.63,0,0,0-54.63-54.63l-11,11A8,8,0,0,1,135.7,59l11-11A54.65,54.65,0,0,1,224,48,54.86,54.86,0,0,1,240,88.23ZM109,185.66l-11,11A38.41,38.41,0,0,1,70.6,208h0a38.63,38.63,0,0,1-27.29-65.94L78,107.31A38.63,38.63,0,0,1,144,135.71a8,8,0,0,0,16,.45A54.86,54.86,0,0,0,144,96a54.65,54.65,0,0,0-77.27,0L32,130.75A54.62,54.62,0,0,0,70.56,224h0a54.28,54.28,0,0,0,38.64-16l11-11A8,8,0,0,0,109,185.66Z\"></path></svg>", "Lock": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"100%\" height=\"100%\" fill=\"currentColor\" viewBox=\"0 0 256 256\"><path d=\"M208,80H176V56a48,48,0,0,0-96,0V80H48A16,16,0,0,0,32,96V208a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V96A16,16,0,0,0,208,80ZM96,56a32,32,0,0,1,64,0V80H96ZM208,208H48V96H208V208Zm-68-56a12,12,0,1,1-12-12A12,12,0,0,1,140,152Z\"></path></svg>", "PaperPlane": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"100%\" height=\"100%\" fill=\"currentColor\" viewBox=\"0 0 256 256\"><path d=\"M227.32,28.68a16,16,0,0,0-15.66-4.08l-.15,0L19.57,82.84a16,16,0,0,0-2.49,29.8L102,154l41.3,84.87A15.86,15.86,0,0,0,157.74,248q.69,0,1.38-.06a15.88,15.88,0,0,0,14-11.51l58.2-191.94c0-.05,0-.1,0-.15A16,16,0,0,0,227.32,28.68ZM157.83,231.85l-.05.14,0-.07-40.06-82.3,48-48a8,8,0,0,0-11.31-11.31l-48,48L24.08,98.25l-.07,0,.14,0L216,40Z\"></path></svg>", "Play": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"100%\" height=\"100%\" fill=\"currentColor\" viewBox=\"0 0 256 256\"><path d=\"M232.4,114.49,88.32,26.35a16,16,0,0,0-16.2-.3A15.86,15.86,0,0,0,64,39.87V216.13A15.94,15.94,0,0,0,80,232a16.07,16.07,0,0,0,8.36-2.35L232.4,141.51a15.81,15.81,0,0,0,0-27ZM80,215.94V40l143.83,88Z\"></path></svg>", "Search": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"100%\" height=\"100%\" fill=\"currentColor\" viewBox=\"0 0 256 256\"><path d=\"M229.66,218.34l-50.07-50.06a88.11,88.11,0,1,0-11.31,11.31l50.06,50.07a8,8,0,0,0,11.32-11.32ZM40,112a72,72,0,1,1,72,72A72.08,72.08,0,0,1,40,112Z\"></path></svg>", "Settings": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"100%\" height=\"100%\" fill=\"currentColor\" viewBox=\"0 0 256 256\"><path d=\"M128,80a48,48,0,1,0,48,48A48.05,48.05,0,0,0,128,80Zm0,80a32,32,0,1,1,32-32A32,32,0,0,1,128,160Zm88-29.84q.06-2.16,0-4.32l14.92-18.64a8,8,0,0,0,1.48-7.06,107.21,107.21,0,0,0-10.88-26.25,8,8,0,0,0-6-3.93l-23.72-2.64q-1.48-1.56-3-3L186,40.54a8,8,0,0,0-3.94-6,107.71,107.71,0,0,0-26.25-10.87,8,8,0,0,0-7.06,1.49L130.16,40Q128,40,125.84,40L107.2,25.11a8,8,0,0,0-7.06-1.48A107.6,107.6,0,0,0,73.89,34.51a8,8,0,0,0-3.93,6L67.32,64.27q-1.56,1.49-3,3L40.54,70a8,8,0,0,0-6,3.94,107.71,107.71,0,0,0-10.87,26.25,8,8,0,0,0,1.49,7.06L40,125.84Q40,128,40,130.16L25.11,148.8a8,8,0,0,0-1.48,7.06,107.21,107.21,0,0,0,10.88,26.25,8,8,0,0,0,6,3.93l23.72,2.64q1.49,1.56,3,3L70,215.46a8,8,0,0,0,3.94,6,107.71,107.71,0,0,0,26.25,10.87,8,8,0,0,0,7.06-1.49L125.84,216q2.16.06,4.32,0l18.64,14.92a8,8,0,0,0,7.06,1.48,107.21,107.21,0,0,0,26.25-10.88,8,8,0,0,0,3.93-6l2.64-23.72q1.56-1.48,3-3L215.46,186a8,8,0,0,0,6-3.94,107.71,107.71,0,0,0,10.87-26.25,8,8,0,0,0-1.49-7.06Zm-16.1-6.5a73.93,73.93,0,0,1,0,8.68,8,8,0,0,0,1.74,5.48l14.19,17.73a91.57,91.57,0,0,1-6.23,15L187,173.11a8,8,0,0,0-5.1,2.64,74.11,74.11,0,0,1-6.14,6.14,8,8,0,0,0-2.64,5.1l-2.51,22.58a91.32,91.32,0,0,1-15,6.23l-17.74-14.19a8,8,0,0,0-5-1.75h-.48a73.93,73.93,0,0,1-8.68,0,8,8,0,0,0-5.48,1.74L100.45,215.8a91.57,91.57,0,0,1-15-6.23L82.89,187a8,8,0,0,0-2.64-5.1,74.11,74.11,0,0,1-6.14-6.14,8,8,0,0,0-5.1-2.64L46.43,170.6a91.32,91.32,0,0,1-6.23-15l14.19-17.74a8,8,0,0,0,1.74-5.48,73.93,73.93,0,0,1,0-8.68,8,8,0,0,0-1.74-5.48L40.2,100.45a91.57,91.57,0,0,1,6.23-15L69,82.89a8,8,0,0,0,5.1-2.64,74.11,74.11,0,0,1,6.14-6.14A8,8,0,0,0,82.89,69L85.4,46.43a91.32,91.32,0,0,1,15-6.23l17.74,14.19a8,8,0,0,0,5.48,1.74,73.93,73.93,0,0,1,8.68,0,8,8,0,0,0,5.48-1.74L155.55,40.2a91.57,91.57,0,0,1,15,6.23L173.11,69a8,8,0,0,0,2.64,5.1,74.11,74.11,0,0,1,6.14,6.14,8,8,0,0,0,5.1,2.64l22.58,2.51a91.32,91.32,0,0,1,6.23,15l-14.19,17.74A8,8,0,0,0,199.87,123.66Z\"></path></svg>", "Star": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"100%\" height=\"100%\" fill=\"currentColor\" viewBox=\"0 0 256 256\"><path d=\"M239.18,97.26A16.38,16.38,0,0,0,224.92,86l-59-4.76L143.14,26.15a16.36,16.36,0,0,0-30.27,0L90.11,81.23,31.08,86a16.46,16.46,0,0,0-9.37,28.86l45,38.83L53,211.75a16.38,16.38,0,0,0,24.5,17.82L128,198.49l50.53,31.08A16.4,16.4,0,0,0,203,211.75l-13.76-58.07,45-38.83A16.43,16.43,0,0,0,239.18,97.26Zm-15.34,5.47-48.7,42a8,8,0,0,0-2.56,7.91l14.88,62.8a.37.37,0,0,1-.17.48c-.18.14-.23.11-.38,0l-54.72-33.65a8,8,0,0,0-8.38,0L69.09,215.94c-.15.09-.19.12-.38,0a.37.37,0,0,1-.17-.48l14.88-62.8a8,8,0,0,0-2.56-7.91l-48.7-42c-.12-.1-.23-.19-.13-.5s.18-.27.33-.29l63.92-5.16A8,8,0,0,0,103,91.86l24.62-59.61c.08-.17.11-.25.35-.25s.27.08.35.25L153,91.86a8,8,0,0,0,6.75,4.92l63.92,5.16c.15,0,.24,0,.33.29S224,102.63,223.84,102.73Z\"></path></svg>", "ThumbsUp": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"100%\" height=\"100%\" fill=\"currentColor\" viewBox=\"0 0 256 256\"><path d=\"M234,80.12A24,24,0,0,0,216,72H160V56a40,40,0,0,0-40-40,8,8,0,0,0-7.16,4.42L75.06,96H32a16,16,0,0,0-16,16v88a16,16,0,0,0,16,16H204a24,24,0,0,0,23.82-21l12-96A24,24,0,0,0,234,80.12ZM32,112H72v88H32ZM223.94,97l-12,96a8,8,0,0,1-7.94,7H88V105.89l36.71-73.43A24,24,0,0,1,144,56V80a8,8,0,0,0,8,8h64a8,8,0,0,1,7.94,9Z\"></path></svg>", "Tool": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"100%\" height=\"100%\" fill=\"currentColor\" viewBox=\"0 0 256 256\"><path d=\"M251.34,112,183.88,44.08a96.1,96.1,0,0,0-135.77,0l-.09.09L34.25,58.4A8,8,0,0,0,45.74,69.53L59.47,55.35a79.92,79.92,0,0,1,18.71-13.9L124.68,88l-96,96a16,16,0,0,0,0,22.63l20.69,20.69a16,16,0,0,0,22.63,0l96-96,14.34,14.34h0L200,163.3a16,16,0,0,0,22.63,0l28.69-28.69A16,16,0,0,0,251.34,112ZM60.68,216,40,195.31l68-68L128.68,148ZM162.34,114.32,140,136.67,119.31,116l22.35-22.35a8,8,0,0,0,0-11.32L94.32,35a80,80,0,0,1,78.23,20.41l44.22,44.51L188,128.66l-14.34-14.34A8,8,0,0,0,162.34,114.32Zm49,37.66-12-12L228,111.25l12,12Z\"></path></svg>", "Trust": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"100%\" height=\"100%\" fill=\"currentColor\" viewBox=\"0 0 256 256\"><path d=\"M254.3,107.91,228.78,56.85a16,16,0,0,0-21.47-7.15L182.44,62.13,130.05,48.27a8.14,8.14,0,0,0-4.1,0L73.56,62.13,48.69,49.7a16,16,0,0,0-21.47,7.15L1.7,107.9a16,16,0,0,0,7.15,21.47l27,13.51,55.49,39.63a8.06,8.06,0,0,0,2.71,1.25l64,16a8,8,0,0,0,7.6-2.1l55.07-55.08,26.42-13.21a16,16,0,0,0,7.15-21.46Zm-54.89,33.37L165,113.72a8,8,0,0,0-10.68.61C136.51,132.27,116.66,130,104,122L147.24,80h31.81l27.21,54.41ZM41.53,64,62,74.22,36.43,125.27,16,115.06Zm116,119.13L99.42,168.61l-49.2-35.14,28-56L128,64.28l9.8,2.59-45,43.68-.08.09a16,16,0,0,0,2.72,24.81c20.56,13.13,45.37,11,64.91-5L188,152.66Zm62-57.87-25.52-51L214.47,64,240,115.06Zm-87.75,92.67a8,8,0,0,1-7.75,6.06,8.13,8.13,0,0,1-1.95-.24L80.41,213.33a7.89,7.89,0,0,1-2.71-1.25L51.35,193.26a8,8,0,0,1,9.3-13l25.11,17.94L126,208.24A8,8,0,0,1,131.82,217.94Z\"></path></svg>", "Users": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"100%\" height=\"100%\" fill=\"currentColor\" viewBox=\"0 0 256 256\"><path d=\"M117.25,157.92a60,60,0,1,0-66.5,0A95.83,95.83,0,0,0,3.53,195.63a8,8,0,1,0,13.4,8.74,80,80,0,0,1,134.14,0,8,8,0,0,0,13.4-8.74A95.83,95.83,0,0,0,117.25,157.92ZM40,108a44,44,0,1,1,44,44A44.05,44.05,0,0,1,40,108Zm210.14,98.7a8,8,0,0,1-11.07-2.33A79.83,79.83,0,0,0,172,168a8,8,0,0,1,0-16,44,44,0,1,0-16.34-84.87,8,8,0,1,1-5.94-14.85,60,60,0,0,1,55.53,105.64,95.83,95.83,0,0,1,47.22,37.71A8,8,0,0,1,250.14,206.7Z\"></path></svg>", "Verified": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"100%\" height=\"100%\" fill=\"currentColor\" viewBox=\"0 0 256 256\"><path d=\"M225.86,102.82c-3.77-3.94-7.67-8-9.14-11.57-1.36-3.27-1.44-8.69-1.52-13.94-.15-9.76-.31-20.82-8-28.51s-18.75-7.85-28.51-8c-5.25-.08-10.67-.16-13.94-1.52-3.56-1.47-7.63-5.37-11.57-9.14C146.28,23.51,138.44,16,128,16s-18.27,7.51-25.18,14.14c-3.94,3.77-8,7.67-11.57,9.14C88,40.64,82.56,40.72,77.31,40.8c-9.76.15-20.82.31-28.51,8S41,67.55,40.8,77.31c-.08,5.25-.16,10.67-1.52,13.94-1.47,3.56-5.37,7.63-9.14,11.57C23.51,109.72,16,117.56,16,128s7.51,18.27,14.14,25.18c3.77,3.94,7.67,8,9.14,11.57,1.36,3.27,1.44,8.69,1.52,13.94.15,9.76.31,20.82,8,28.51s18.75,7.85,28.51,8c5.25.08,10.67.16,13.94,1.52,3.56,1.47,7.63,5.37,11.57,9.14C109.72,232.49,117.56,240,128,240s18.27-7.51,25.18-14.14c3.94-3.77,8-7.67,11.57-9.14,3.27-1.36,8.69-1.44,13.94-1.52,9.76-.15,20.82-.31,28.51-8s7.85-18.75,8-28.51c.08-5.25.16-10.67,1.52-13.94,1.47-3.56,5.37-7.63,9.14-11.57C232.49,146.28,240,138.44,240,128S232.49,109.73,225.86,102.82Zm-11.55,39.29c-4.79,5-9.75,10.17-12.38,16.52-2.52,6.1-2.63,13.07-2.73,19.82-.1,7-.21,14.33-3.32,17.43s-10.39,3.22-17.43,3.32c-6.75.1-13.72.21-19.82,2.73-6.35,2.63-11.52,7.59-16.52,12.38S132,224,128,224s-9.15-4.92-14.11-9.69-10.17-9.75-16.52-12.38c-6.1-2.52-13.07-2.63-19.82-2.73-7-.1-14.33-.21-17.43-3.32s-3.22-10.39-3.32-17.43c-.1-6.75-.21-13.72-2.73-19.82-2.63-6.35-7.59-11.52-12.38-16.52S32,132,32,128s4.92-9.15,9.69-14.11,9.75-10.17,12.38-16.52c2.52-6.1,2.63-13.07,2.73-19.82.1-7,.21-14.33,3.32-17.43S70.51,56.9,77.55,56.8c6.75-.1,13.72-.21,19.82-2.73,6.35-2.63,11.52-7.59,16.52-12.38S124,32,128,32s9.15,4.92,14.11,9.69,10.17,9.75,16.52,12.38c6.1,2.52,13.07,2.63,19.82,2.73,7,.1,14.33.21,17.43,3.32s3.22,10.39,3.32,17.43c.1,6.75.21,13.72,2.73,19.82,2.63,6.35,7.59,11.52,12.38,16.52S224,124,224,128,219.08,137.15,214.31,142.11ZM173.66,98.34a8,8,0,0,1,0,11.32l-56,56a8,8,0,0,1-11.32,0l-24-24a8,8,0,0,1,11.32-11.32L112,148.69l50.34-50.35A8,8,0,0,1,173.66,98.34Z\"></path></svg>", "Warning": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"100%\" height=\"100%\" fill=\"currentColor\" viewBox=\"0 0 256 256\"><path d=\"M236.8,188.09,149.35,36.22h0a24.76,24.76,0,0,0-42.7,0L19.2,188.09a23.51,23.51,0,0,0,0,23.72A24.35,24.35,0,0,0,40.55,224h174.9a24.35,24.35,0,0,0,21.33-12.19A23.51,23.51,0,0,0,236.8,188.09ZM222.93,203.8a8.5,8.5,0,0,1-7.48,4.2H40.55a8.5,8.5,0,0,1-7.48-4.2,7.59,7.59,0,0,1,0-7.72L120.52,44.21a8.75,8.75,0,0,1,15,0l87.45,151.87A7.59,7.59,0,0,1,222.93,203.8ZM120,144V104a8,8,0,0,1,16,0v40a8,8,0,0,1-16,0Zm20,36a12,12,0,1,1-12-12A12,12,0,0,1,140,180Z\"></path></svg>", "Wrench": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"100%\" height=\"100%\" fill=\"currentColor\" viewBox=\"0 0 256 256\"><path d=\"M226.76,69a8,8,0,0,0-12.84-2.88l-40.3,37.19-17.23-3.7-3.7-17.23,37.19-40.3A8,8,0,0,0,187,29.24,72,72,0,0,0,88,96,72.34,72.34,0,0,0,94,124.94L33.79,177c-.15.12-.29.26-.43.39a32,32,0,0,0,45.26,45.26c.13-.13.27-.28.39-.42L131.06,162A72,72,0,0,0,232,96,71.56,71.56,0,0,0,226.76,69ZM160,152a56.14,56.14,0,0,1-27.07-7,8,8,0,0,0-9.92,1.77L67.11,211.51a16,16,0,0,1-22.62-22.62L109.18,133a8,8,0,0,0,1.77-9.93,56,56,0,0,1,58.36-82.31l-31.2,33.81a8,8,0,0,0-1.94,7.1L141.83,108a8,8,0,0,0,6.14,6.14l26.35,5.66a8,8,0,0,0,7.1-1.94l33.81-31.2A56.06,56.06,0,0,1,160,152Z\"></path></svg>"};
-const SAID = [["This is Premise. Git keeps track of what AI agents wrote. Premise keeps track of what they assumed, and redoes the work when an assumption breaks."], ["Picture many AI agents changing one codebase at once. The changes that hurt are not the conflicts. Follow one. It touches different files, so there is no conflict. Its signature is the same, so the typecheck passes. Its tests pass too. And yet it is broken, because another agent's code relied on the old behaviour."], ["Here is an example. Agent 1 changes a function called verifySession: for an expired session, it used to throw an error, and now it returns null. Agent 2's code catches that error and writes an audit entry. After the change there is nothing to catch, so the entry is never written, and no check notices."], ["Premise has six parts: agents, forks, the ledger, premises, re-derive, and the gate. I will take them one at a time."], ["First, agents. Each agent works on an Intent: its job, written down. This is Agent 2's: write an audit entry when a login arrives with an expired session. It says what the agent changes, handleLogin, and what it relies on, verifySession. What it relies on are its premises."], ["Second, forks. No agent works on trunk directly. Each Intent gets its own fork, a Git repository on Cloudflare Artifacts, and only the gate can land work on trunk. One recorded run made three hundred and nine forks."], ["Third, the ledger, a sign-up sheet for the code. Before Agent 1 writes anything, it signs up to change verifySession. The ledger also notes that Agents 2, 3 and 4 rely on it. So when Agent 1's change lands, the ledger already knows who could be affected."], ["When two agents want the same function, the ledger answers Wait, until the other lands; Split, so each takes a part; or Depend, when one builds on the other. A fixed rule decides, not a model. In practice, it is nearly always Wait."], ["Fourth, premises. There are three kinds. The types of the functions an agent read, and of the functions it calls, which Premise records by itself. And a behaviour the agent states, as a check that can be run: Agent 2 states that verifySession throws for an expired session. A typecheck sees the first two. Only the third catches a change in behaviour."], ["Now a premise breaks. Agent 1's change lands, and the stated checks run again. Two fail, so Agents 2 and 4 are stopped within about half a second. Agent 3 relied only on the type, which did not change, so it carries on. Each stopped agent is told what changed, and who changed it."], ["Fifth, re-derive. Take Agent 2. Premise first tries a plain rebase, but Agent 2's tests fail. So the agent does the work again on a fresh fork of the new trunk, told that verifySession now returns null. This time it passes the gate and lands, with no person involved. The work is derived again from the same goal."], ["Sixth, the gate, the only way onto trunk. It runs five checks: the typecheck, the agent's own tests, reference checks that no agent can edit, every test already on trunk, and the work's premises. Only when all five pass does the work land."], ["Look at Agent 4. After Agent 1's change, its tests, the reference checks and all ninety-one tests on trunk passed. Only its premise failed. Its tests used a stand-in for verifySession that still throws, but the premise is checked against the real function. With tests alone, this would have landed broken. Instead it was re-derived, and all four landed."], ["We put the same twelve tasks through three rules. With a typecheck only, three problems reached trunk. With a queue that runs the tests, one still got through, the kind you just saw. With Premise, none did. To be fair: the breaking change is planted, the agents are scripted, and Premise is the slowest of the three."], ["Under more load, a larger recorded run had three hundred and six Intents, each on its own fork. One gate landed about sixty-one a minute, two hundred and sixty-six in all, in four minutes twenty. No problem reached trunk. Again, all of it is scripted."], ["You can try it yourself. On the Live tab, anyone can start a run of twelve scripted agents on real Artifacts. It takes three to four minutes. Every run is kept on the Results tab, and the recent ones each landed every agent, with nothing broken on trunk."], ["Under the hood, Premise is one Worker on Cloudflare. Code lives in Artifacts, and state lives in Durable Objects. Each agent runs as a Workflow, and every test runs in a fresh Dynamic Worker with no network. There are no containers."], ["It is a prototype, but already shaped for many agents: a fork per Intent, a ledger split by module, and stops that reach only the agents affected. Next would be many gates instead of one, each checking only what a change can reach, and a UI that stays readable when agents run for hours or days. That part is a design, not a measurement."], ["In a bigger system, tasks still come from people, tickets or an orchestrator, and agents of any kind do the work. Premise sits between those agents and trunk, and CI and deploy carry on as before. It adds one layer and changes nothing else. That is a design too."], ["To sum up: Git tracks what agents wrote, and Premise tracks what they assumed. It is open source, built on Cloudflare Workers and Artifacts. Open the site and press Next, or start a run on the Live tab. Thanks for watching."]];
+const SAID = [["Hi, I'm Akshat, and this is Premise. Git keeps track of what AI agents write. Premise keeps track of what they assume, and when one of those assumptions stops being true, it redoes the work that depended on it."], ["Imagine a bunch of AI agents all working on the same codebase at once. You'd think the big risk is two agents editing the same lines. It isn't. The scary change is the quiet one: it touches different files, so there's no conflict. The types still line up, so it compiles. Its tests pass. Everything looks green, and it's still broken, because some other agent was counting on the old behaviour."], ["Here's a real example. Agent 1 changes a function called verifySession. It used to throw an error when a session expired. Now it just returns null. But Agent 2 wrote code that catches that error and writes an audit entry. After the change, there's no error to catch, so the audit entry quietly never gets written. And nothing complains."], ["So how does Premise handle this? It starts with the agents. Each agent gets an Intent, which is just its job, written down. For Agent 2, that's: write an audit entry when someone logs in with an expired session. The Intent also says what the agent will change, here handleLogin, and what it relies on, here verifySession. Those things it relies on are called its premises."], ["No agent touches the shared code, which we call trunk, directly. Every Intent gets its own fork, a full Git repo on Cloudflare Artifacts. The only way back onto trunk is through the gate, which we'll get to in a minute."], ["Next is the ledger. Think of it as a sign-up sheet for the code. Before Agent 1 changes verifySession, it signs up for it. The ledger also writes down that Agents 2, 3 and 4 rely on that function. So the moment Agent 1's change lands, Premise already knows exactly who might be affected."], ["A premise comes in three kinds. The first two are the types of the functions an agent read or calls, and Premise records those on its own. The third is the interesting one: a behaviour the agent says it depends on, written as a small check that can actually run. Agent 2 says: verifySession throws for an expired session. A typecheck can't see that one. Premise can."], ["So here's what happens when a premise breaks. Agent 1's change lands, and Premise reruns those checks. Two of them fail, so Agents 2 and 4 get stopped, in about half a second. Agent 3 only relied on the function's type, which didn't change, so it just keeps going. And each stopped agent is told exactly what changed, and who changed it."], ["What happens to the stopped work? Take Agent 2. Premise first tries a simple rebase, but Agent 2's tests fail. So the agent redoes the work on a fresh copy of the new code, and this time it knows that verifySession returns null. That's what we call re-deriving. The new version passes, and it lands. Nobody had to step in."], ["Last piece: the gate. It's the only way onto trunk, and it runs five checks. Does the code still compile? Do the agent's own tests pass? Do the reference checks pass, the ones no agent can edit? Do all the existing tests pass? And do the work's premises still hold? Only when all five are green does the work land."], ["Now, why do premises matter if you already have tests? Look at Agent 4. After Agent 1's change, its own tests passed, the reference checks passed, and all ninety-one tests on trunk passed. Only its premise failed. Its tests used a fake version of verifySession that still throws. The premise checks the real thing. Tests alone would have let this through, broken."], ["We ran the same twelve tasks under three rules. With just a typecheck, three problems reached trunk. With a queue that also runs the tests, one still slipped through, the kind you just saw. With Premise, zero. To be upfront: the breaking change was planted, the agents are scripted, and Premise was the slowest of the three."], ["Under the hood, it's one Worker on Cloudflare. The code lives in Artifacts, the state lives in Durable Objects, each agent runs as a Workflow, and every test runs in its own Dynamic Worker with no network. No containers anywhere."], ["It's a prototype, but it's already built for lots of agents: a fork per Intent, a ledger split by module, and stops that only reach the agents affected. Next, I'd want many gates instead of one, checks that only look at what a change can reach, and a UI that still makes sense when agents run for hours or days. That part is a plan, not something I've measured."], ["So where would this fit in a real team? Tasks still come from people, tickets, or an orchestrator, and any kind of agent can do the work. Premise sits between those agents and trunk, and your CI and deploys carry on as before. It's one extra layer. Nothing else has to change."], ["Okay, let's see it actually run."], ["That's Premise. Git tracks what agents wrote, and Premise tracks what they assumed. It's open source, and the links are right here. Thanks for watching."]];
 const px = (value) => (value == null || value === "" ? null : parseFloat(value));
 const sections = [...document.querySelectorAll("#stage > section")];
 

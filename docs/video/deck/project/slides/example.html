@@ -88,5 +88,5 @@
 <p style="font-family:'Atkinson Hyperlegible Mono', 'Courier New', monospace;font-size:24px;letter-spacing:3px;text-transform:uppercase;color:#55606b">Premise</p>
 <p style="font-family:'Atkinson Hyperlegible Mono', 'Courier New', monospace;font-size:24px;letter-spacing:1px;color:#55606b">premise.akshatdivekar.workers.dev</p>
 </div>
-<aside>Here is an example. Agent 1 changes a function called verifySession: for an expired session, it used to throw an error, and now it returns null. Agent 2's code catches that error and writes an audit entry. After the change there is nothing to catch, so the entry is never written, and no check notices. [NEXT SLIDE]</aside>
+<aside>Here's a real example. Agent 1 changes a function called verifySession. It used to throw an error when a session expired. Now it just returns null. But Agent 2 wrote code that catches that error and writes an audit entry. After the change, there's no error to catch, so the audit entry quietly never gets written. And nothing complains. [NEXT SLIDE]</aside>
 </section>

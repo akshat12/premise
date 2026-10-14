@@ -90,5 +90,5 @@
 <p style="font-family:'Atkinson Hyperlegible Mono', 'Courier New', monospace;font-size:24px;letter-spacing:3px;text-transform:uppercase;color:#55606b">Premise</p>
 <p style="font-family:'Atkinson Hyperlegible Mono', 'Courier New', monospace;font-size:24px;letter-spacing:1px;color:#55606b">premise.akshatdivekar.workers.dev</p>
 </div>
-<aside>Look at Agent 4. After Agent 1's change, its tests, the reference checks and all ninety-one tests on trunk passed. Only its premise failed. Its tests used a stand-in for verifySession that still throws, but the premise is checked against the real function. With tests alone, this would have landed broken. Instead it was re-derived, and all four landed. [NEXT SLIDE]</aside>
+<aside>Now, why do premises matter if you already have tests? Look at Agent 4. After Agent 1's change, its own tests passed, the reference checks passed, and all ninety-one tests on trunk passed. Only its premise failed. Its tests used a fake version of verifySession that still throws. The premise checks the real thing. Tests alone would have let this through, broken. [NEXT SLIDE]</aside>
 </section>

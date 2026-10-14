@@ -11,23 +11,20 @@
 		"cover",
 		"problem",
 		"example",
-		"parts",
 		"agents",
 		"forks",
 		"ledger",
-		"answers",
 		"premises",
 		"break",
 		"rederive",
 		"gate",
 		"agent4",
 		"compared",
-		"scale",
-		"live",
 		"built",
 		"scaling",
 		"fits",
-		"try"
+		"demo",
+		"thanks"
 	],
 	"sections": {
 		"s1": {
@@ -35,15 +32,15 @@
 			"start": "cover"
 		},
 		"s2": {
-			"description": "The six parts of Premise, one at a time: agents and their Intents, forks, the ledger, premises, what happens when a premise breaks, re-derive, and the gate.",
-			"start": "parts"
+			"description": "How Premise works: agents and their Intents, forks, the ledger, premises, what happens when a premise breaks, re-derive, and the gate.",
+			"start": "agents"
 		},
 		"s3": {
-			"description": "What it shows: the case tests miss, the three-rule comparison, a larger run, and live runs anyone can start and replay.",
+			"description": "What it shows: the case tests miss, and the three-rule comparison.",
 			"start": "agent4"
 		},
 		"s4": {
-			"description": "How it is built on Cloudflare, how it would scale up, where it would sit in a bigger system, and where to try it.",
+			"description": "How it is built, how it would scale, where it would sit, then the demo.",
 			"start": "built"
 		}
 	},
