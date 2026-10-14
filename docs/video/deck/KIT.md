@@ -90,7 +90,7 @@ Type scale (use only these sizes): 68 (the slide's headline), 44 (a card or bloc
 - The eyebrow is 1 to 4 words.
 - The footer row is always exactly as above.
 - The speaker notes are what the narrator says over the slide in the video. They are not written
-  by hand: `tools/sync_notes.py` copies them from `docs/video/screen-recording-script.md`, with
+  by hand: `tools/sync_notes.py` copies them from the read-aloud script (`private/screen-recording-script.md`, kept out of the repo), with
   that script's bracketed actions ([→] is one press of the right arrow).
 
 ## The picture zone

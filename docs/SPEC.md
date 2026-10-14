@@ -90,7 +90,7 @@ This answers the skeptic's question, "doesn't tsc already catch it?" The next qu
 - Jurisdiction (one line in the video).
 
 ## Video, about 8 minutes (premise break first)
-*As built:* about six minutes, and a different order: `docs/video/script.md` is the script. No dispatch, no code shot, three columns in the comparison, and a closing row on what a live model did.
+*As built:* about six minutes, and a different order: the script is kept outside the repo. No dispatch, no code shot, three columns in the comparison, and a closing row on what a live model did.
 
 - **0:00 Hook.** A/B split screen with the numbers.
 - **0:30** Dispatch 12 tasks plus 300 workload agents.

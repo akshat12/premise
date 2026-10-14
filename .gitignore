@@ -17,3 +17,6 @@ video-out/
 
 # A/B results from a local run (the committed ones are from real Artifacts)
 docs/ab-results.local.*
+
+# Notes kept on this machine only: the screen recording script, shot list, rehearsal notes and the submission checklist
+private/
