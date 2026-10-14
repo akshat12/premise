@@ -502,6 +502,7 @@ describe("removing a kept run", () => {
 		expect(await main.runLanding(alone, "i000000d1")).toBeNull();
 		expect(await store.list()).not.toContain("trunk-delete01");
 		expect((await call(`/api/runs/${alone}/events`)).status).toBe(404);
+		expect((await call(`/api/runs/${alone}/history`)).status).toBe(404);
 
 		// Two runs on one trunk: removing the first leaves the copy for the second, which is untouched.
 		expect(await (await remove(sharedA)).json()).toEqual({ ok: true, id: sharedA, trunkRemoved: null });

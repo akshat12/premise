@@ -24,7 +24,7 @@ export const POLL_AFTER_MS = 2500;
 export const POLL_EVERY_MS = 2500;
 
 /**
- * The same log over plain HTTP: `/api/events/ws` is the socket, `/api/events` the JSON. Used while
+ * The same log over plain HTTP: `/api/board/history/ws` is the socket, `/api/board/history` the JSON. Used while
  * no socket is open, so the board still shows where WebSockets are blocked.
  */
 export function httpUrl(base: string, since: number, limit?: number): string {

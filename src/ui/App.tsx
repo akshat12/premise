@@ -35,7 +35,8 @@ import { fetchPastRun } from "./lib/pastRun";
 import { advanceTape, buildTape, positionAt } from "./lib/tape";
 import { callsign, lanesOf, layoutFor, OUTSIDE } from "./lib/view";
 
-const LIVE_URL = "/api/events/ws";
+// Not /api/events/ws, which ad blockers refuse (see BOARD_HISTORY in worker/routes/events.ts).
+const LIVE_URL = "/api/board/history/ws";
 /**
  * Three tabs. "Demo" plays a recorded run as a story, and nothing else. "Live" is the same page for
  * the deployed Worker's board, with a button that starts a run on it. "Results" is what was

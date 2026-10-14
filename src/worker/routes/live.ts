@@ -42,7 +42,8 @@ export async function handleLive(request: Request, env: Env, url: URL): Promise<
 		// The run on the board and the ones before it, a line each. Read-only, and the same for everyone for a few seconds.
 		return request.method === "GET" ? cachedJson(await hub(env).runs()) : Response.json({ error: "method not allowed" }, { status: 405 });
 	}
-	const kept = /^\/api\/runs\/([1-9]\d{0,8})\/events$/.exec(url.pathname);
+	// `/history` is the same as `/events`, under a name ad blockers do not refuse (see BOARD_HISTORY).
+	const kept = /^\/api\/runs\/([1-9]\d{0,8})\/(?:events|history)$/.exec(url.pathname);
 	if (kept !== null) {
 		// The log of a past run, to play it again. It never changes, so it may be kept by whoever asks.
 		if (request.method !== "GET") {

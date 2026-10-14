@@ -9,7 +9,7 @@ import { healthBody } from "./health";
 import { handleAdmin } from "./routes/admin";
 import { handleApi } from "./routes/api";
 import { handleDispatch } from "./routes/dispatch";
-import { handleEvents } from "./routes/events";
+import { BOARD_HISTORY, handleEvents } from "./routes/events";
 import { handleLive } from "./routes/live";
 
 // Memory mode: checked once each time this code is loaded, before the first request is answered.
@@ -38,7 +38,7 @@ export default {
 		if (url.pathname.startsWith("/api/admin/")) {
 			return handleAdmin(request, env, url);
 		}
-		if (url.pathname === "/api/events" || url.pathname === "/api/events/ws") {
+		if (url.pathname === "/api/events" || url.pathname === "/api/events/ws" || url.pathname === BOARD_HISTORY || url.pathname === `${BOARD_HISTORY}/ws`) {
 			return handleEvents(request, env, url);
 		}
 		if (url.pathname.startsWith("/api/")) {

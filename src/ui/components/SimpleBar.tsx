@@ -43,7 +43,10 @@ interface SimpleBarProps {
 export function SimpleBar({ layout, views, onMore, onHow, kind }: SimpleBarProps) {
 	return (
 		<header className="simplebar" data-layout={layout}>
-			<span className="callsign simplebar-name">Premise</span>
+			{/* Back to the start: the Demo tab at its first step, with nothing in the address. */}
+			<a className="callsign simplebar-name" href="/" title="Back to the start">
+				Premise
+			</a>
 			{layout === "phone" ? null : (
 				<>
 					<span className="simplebar-rule" aria-hidden="true" />

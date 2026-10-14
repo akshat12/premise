@@ -5,7 +5,7 @@ import type { PremiseEvent } from "../../shared/events";
 export async function fetchPastRun(id: number): Promise<PremiseEvent[]> {
 	const events: PremiseEvent[] = [];
 	for (let since = 0; ; ) {
-		const response = await fetch(`/api/runs/${id}/events?since=${since}`);
+		const response = await fetch(`/api/runs/${id}/history?since=${since}`);
 		if (!response.ok) {
 			throw new Error(`run ${id}: ${response.status}`);
 		}

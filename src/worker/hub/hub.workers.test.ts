@@ -191,6 +191,17 @@ describe("EventHub WebSocket", () => {
 });
 
 describe("event routes", () => {
+	it("the page's names for the log, which blockers leave alone, answer the same", async () => {
+		const plain = await (await exports.default.fetch("http://premise.test/api/events?since=0")).json();
+		const response = await exports.default.fetch("http://premise.test/api/board/history?since=0");
+		expect(response.status).toBe(200);
+		expect(await response.json()).toEqual(plain);
+		const socket = await exports.default.fetch("http://premise.test/api/board/history/ws?since=0", { headers: { Upgrade: "websocket" } });
+		expect(socket.status).toBe(101);
+		socket.webSocket?.accept();
+		socket.webSocket?.close();
+	});
+
 	it("GET /api/events returns the log as JSON", async () => {
 		const response = await exports.default.fetch("http://premise.test/api/events?since=0");
 		expect(response.status).toBe(200);
