@@ -549,20 +549,19 @@ export function followClock(tape: Tape, now: number, shownSpan?: number): Tape {
 	return advanceTape(span === tape.span ? tape : { ...tape, span, ticks: ticksFor(span) }, at);
 }
 
-/** How long the axis takes, roughly, to widen to a new span: quick, but not a jump. */
-export const SPAN_EASE_MS = 450;
+/** How long the axis takes to widen to a new span: quick, but not a jump. */
+export const SPAN_EASE_MS = 600;
 
 /**
- * One frame of the axis widening from `shown` towards `target`, `dtMs` after the last: it closes
- * most of the gap in SPAN_EASE_MS, then lands on it exactly. It only ever widens; a narrower target
- * (a new run) is taken at once. Pure.
+ * Where the axis is `elapsedMs` into widening from `from` to `to`: it starts and ends gently
+ * (smoothstep), so no single frame moves much, and it lands on `to` exactly at SPAN_EASE_MS. Pure.
  */
-export function easeSpan(shown: number, target: number, dtMs: number): number {
-	if (target <= shown) {
-		return target;
+export function easeSpan(from: number, to: number, elapsedMs: number): number {
+	if (to <= from || elapsedMs >= SPAN_EASE_MS) {
+		return to;
 	}
-	const next = shown + (target - shown) * (1 - Math.exp((-3 * Math.max(0, dtMs)) / SPAN_EASE_MS));
-	return target - next < 50 ? target : next;
+	const x = Math.max(0, elapsedMs) / SPAN_EASE_MS;
+	return from + (to - from) * x * x * (3 - 2 * x);
 }
 
 /** A run longer than this is offered a closer view: on the whole-run axis its short bars are too thin to read. */

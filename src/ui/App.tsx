@@ -292,16 +292,22 @@ export function App() {
 			return;
 		}
 		let frame = 0;
-		let last = performance.now();
-		// When "now" needs a wider axis, it widens over a moment rather than in one frame (easeSpan).
-		let span = 0;
+		// When "now" needs a wider axis, it widens over a moment rather than in one frame (easeSpan):
+		// from the axis shown when the wider one was first wanted, to that one.
+		let shown = 0;
+		let ease = { from: 0, to: 0, began: 0 };
 		const step = (time: number) => {
 			if (lead.current !== null) {
 				const now = Date.now() + lead.current - runStart;
-				span = span === 0 ? Math.max(builtSpanRef.current, spanFor(now)) : easeSpan(span, Math.max(builtSpanRef.current, spanFor(now)), time - last);
-				setLiveClock({ start: runStart, now, span });
+				const wanted = Math.max(builtSpanRef.current, spanFor(now));
+				if (shown === 0 || wanted < shown) {
+					ease = { from: wanted, to: wanted, began: time };
+				} else if (wanted !== ease.to) {
+					ease = { from: shown, to: wanted, began: time };
+				}
+				shown = easeSpan(ease.from, ease.to, time - ease.began);
+				setLiveClock({ start: runStart, now, span: shown });
 			}
-			last = time;
 			frame = requestAnimationFrame(step);
 		};
 		frame = requestAnimationFrame(step);

@@ -443,22 +443,19 @@ describe("followClock", () => {
 });
 
 describe("easeSpan", () => {
-	it("widens most of the way within the easing time, then lands exactly, and never overshoots", () => {
-		let span = 90_000;
-		const target = 120_000;
-		const seen: number[] = [];
-		for (let frame = 0; frame < 60; frame++) {
-			span = easeSpan(span, target, 1000 / 60);
-			seen.push(span);
-		}
-		expect(seen.every((value, index) => value <= target && (index === 0 || value >= (seen[index - 1] as number)))).toBe(true);
-		expect(seen[Math.round((SPAN_EASE_MS / 1000) * 60)]).toBeGreaterThan(90_000 + 0.9 * 30_000);
-		expect(seen.at(-1)).toBe(target);
+	it("widens gently at both ends, never by much in one frame, and lands exactly at the end", () => {
+		const frames = Array.from({ length: Math.ceil((SPAN_EASE_MS / 1000) * 60) + 2 }, (_, frame) => easeSpan(90_000, 120_000, (frame * 1000) / 60));
+		const steps = frames.slice(1).map((value, index) => value - (frames[index] as number));
+		expect(steps.every((step) => step >= 0)).toBe(true);
+		// The largest frame is at most one and a half times the average one: no lurch at the start.
+		expect(Math.max(...steps)).toBeLessThanOrEqual(1.5 * (30_000 / ((SPAN_EASE_MS / 1000) * 60)) + 1);
+		expect(steps[0]).toBeLessThan(steps[Math.floor(steps.length / 2)] as number);
+		expect(frames.at(-1)).toBe(120_000);
 	});
 
-	it("takes a narrower axis at once (a new run), and stays put when already there", () => {
+	it("takes a narrower or equal axis at once", () => {
 		expect(easeSpan(180_000, 60_000, 16)).toBe(60_000);
-		expect(easeSpan(60_000, 60_000, 16)).toBe(60_000);
+		expect(easeSpan(60_000, 60_000, 0)).toBe(60_000);
 	});
 
 	it("keeps the easing axis even when a new event has already widened the tape's own, but never one too narrow for now", () => {
