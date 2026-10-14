@@ -136,20 +136,21 @@ Needs Node 22.12 or later (22 or 24). No Cloudflare account and no model key:
 git clone https://github.com/akshat12/premise.git && cd premise
 npm install
 cp local.vars.example .dev.vars    # in-memory repos, scripted agents, a local admin token
-npm run dev:local                  # http://localhost:5173
+npm run dev:local                  # prints its address, usually http://localhost:5173
 ```
 
 In a second terminal:
 
 ```bash
 npm run demo                       # resets, dispatches 12 tasks and 40 workload Intents, opens the live board
+                                   # (add --no-open to keep it from opening a browser)
 ```
 
 Or do it from the page: open the **Live** tab at <http://localhost:5173/?live> and press **Start a run**.
 
-If Vite says port 5173 is in use and picks another, pass it to the demo: `npm run demo -- --url http://localhost:<port>`. The local Workers runtime occasionally restarts when it is given a run in its first seconds; the demo script waits for a just-started server and, if a restart still happens, starts the run once more.
+**If port 5173 is taken,** Vite picks another and prints it (for example `Local: http://localhost:5174/`). Use that port everywhere below in place of 5173, and pass it to the scripts: `npm run demo -- --url http://localhost:<port>`. Without `--url`, the demo script talks to 5173 and resets whatever Premise server it finds there. The local Workers runtime occasionally restarts when it is given a run in its first seconds; the demo script waits for a just-started server and, if a restart still happens, starts the run once more.
 
-<http://localhost:5173/> plays the demo recording, which needs no backend at all. `npm test` runs the tests (about 1,010, in about two and a half minutes) and `npm run typecheck` the type checks. While it runs, the Workers test pool prints a few dozen "uncaught exception" lines, from Workflow runs that tests start and then abandon; the summary at the end is what counts. `npx tsx scripts/ab.ts --url http://localhost:5173 --seeds 7,11,23` reruns the comparison above against the local Worker (the three headline rows come out the same; it takes about ten seconds a run instead of ninety). It resets the local demo first and writes its report to `docs/ab-results.local.md`, leaving the committed results alone.
+<http://localhost:5173/> plays the demo recording, which needs no backend at all. `npm test` runs the tests (about 1,090, in about two and a half minutes; stop the dev server first) and `npm run typecheck` the type checks. While it runs, the Workers test pool prints around a hundred "uncaught exception" lines ("The Workers runtime canceled this request"), from Workflow runs that tests start and then abandon; the summary at the end is what counts. `npx tsx scripts/ab.ts --url http://localhost:5173 --seeds 7,11,23` reruns the comparison above against the local Worker (the three headline rows come out the same; it takes ten to fifteen seconds a run instead of ninety, about two minutes in all). It resets the local demo first and writes its report to `docs/ab-results.local.md`, leaving the committed results alone.
 
 In this mode repos are held in memory and agents replay scripted turns, but everything else is the real code: the ledger, the gate, the TypeScript compiler, the isolate runner, invalidation and re-derive.
 
@@ -163,7 +164,7 @@ Needs the Workers Paid plan (Artifacts requires it) and Node 22.12 or later. A m
    npm install
    npx wrangler login
    ```
-2. In `wrangler.jsonc`, set `CLOUDFLARE_ACCOUNT_ID` to your account id (`npx wrangler whoami` prints it).
+2. In `wrangler.jsonc`, replace `CLOUDFLARE_ACCOUNT_ID` with your own account id (`npx wrangler whoami` prints it). The file ships with the author's, which will not work for you.
 3. Create the queue.
    ```bash
    npx wrangler queues create premise-events
@@ -193,7 +194,7 @@ Needs the Workers Paid plan (Artifacts requires it) and Node 22.12 or later. A m
    npm run demo -- --url <your worker>
    ```
 
-**The Start button on your own deployment.** `POST /api/live/start` takes no token and no parameters, so anyone who finds your Worker can start a run. What a run can cost is bounded in `src/worker/live/public-run.ts`: one at a time, three minutes between starts, twenty in any 24 hours, scripted agents only (it is refused while `LLM` is a model), about 45 forks each. Every batch of tests a run makes is one Dynamic Worker, which Cloudflare bills by the number created in a day, so the daily cap is also what bounds that part of the bill. To switch it off or on without a deploy:
+**The Start button on your own deployment.** `POST /api/live/start` takes no token and no parameters, so anyone who finds your Worker can start a run. What a run can cost is bounded in `src/worker/live/public-run.ts`: one at a time, three minutes between starts, ten in any 24 hours, scripted agents only (it is refused while `LLM` is a model), about 45 forks each. Every batch of tests a run makes is one Dynamic Worker, which Cloudflare bills by the number created in a day, so the daily cap is also what bounds that part of the bill. To switch it off or on without a deploy:
 
 ```bash
 curl -X POST <your worker>/api/admin/public-runs -H "x-admin-token: <your token>" -H "content-type: application/json" -d '{"enabled":false}'
