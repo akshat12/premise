@@ -2597,3 +2597,95 @@ button.tape-label:focus-visible {
 	outline: 2px solid var(--accent-line);
 	outline-offset: 2px;
 }
+
+/* ---- The workload's list, in the details panel: one line per scripted Intent ---- */
+.drawer-listing {
+	overflow-y: auto;
+	border-top: 1px solid var(--rule);
+}
+.workload-list {
+	margin: 0;
+	padding: 4px 0;
+	list-style: none;
+}
+.workload-line {
+	display: grid;
+	grid-template-columns: 72px minmax(0, 1fr) 112px;
+	column-gap: 16px;
+	align-items: baseline;
+	width: 100%;
+	padding: 6px 24px;
+	border: 0;
+	border-bottom: 1px solid var(--rule);
+	background: none;
+	color: var(--ink);
+	font: inherit;
+	font-size: 13px;
+	text-align: left;
+	cursor: pointer;
+}
+.workload-line:hover {
+	background: #f4f5f3;
+}
+.workload-line:focus-visible {
+	outline: 2px solid var(--bluestamp);
+	outline-offset: -2px;
+}
+.workload-name {
+	font-size: 12px;
+}
+.workload-edit {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+.workload-state {
+	text-align: right;
+	color: var(--ink-soft);
+}
+.workload-line[data-state="landed"] .workload-state {
+	color: var(--holds);
+}
+.workload-line[data-state="did not land"] .workload-state,
+.workload-line[data-state="stopped"] .workload-state,
+.workload-line[data-state="needs a person"] .workload-state {
+	color: var(--redpen);
+}
+.workload-reason {
+	grid-column: 2 / 4;
+	font-size: 12px;
+	color: var(--redpen);
+}
+.workload-empty {
+	margin: 0;
+	padding: 12px 24px;
+	font-size: 13px;
+	color: var(--ink-soft);
+}
+.drawer-back {
+	padding: 0;
+	border: 0;
+	background: none;
+	color: var(--bluestamp);
+	cursor: pointer;
+	font: inherit;
+	font-size: 12px;
+	text-decoration: underline;
+}
+.drawer-back:focus-visible {
+	outline: 2px solid var(--bluestamp);
+	outline-offset: 2px;
+}
+@media (max-width: 767px) {
+	.workload-line {
+		grid-template-columns: 64px minmax(0, 1fr);
+		padding: 6px 12px;
+	}
+	.workload-state {
+		grid-column: 2;
+		text-align: left;
+	}
+	.workload-reason {
+		grid-column: 2;
+	}
+}

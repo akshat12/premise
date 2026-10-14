@@ -46,7 +46,12 @@ function PremiseRow({ premise, callsignOf, named, onSelect }: { premise: Premise
 }
 
 interface DrawerProps {
-	intent: IntentView;
+	/** The Intent shown. Absent when the panel shows the workload's list instead (`listing`). */
+	intent?: IntentView;
+	/** In place of one Intent: a title, a sentence under it, and the list itself. */
+	listing?: { title: string; sentence: string; content: React.ReactNode };
+	/** Shown for a workload Intent opened from the list: goes back to the list. */
+	onBack?: () => void;
 	events: readonly PremiseEvent[];
 	callsignOf: (id: IntentId) => string;
 	/** Rewrites Intent ids inside a message as callsigns. */
@@ -72,18 +77,23 @@ let rememberedColumns: number[] = [...DRAWER_COLUMNS];
 const COLUMN_NAMES = ["Why", "Relies on", "Timeline", "Changes"];
 
 /** The selected Intent in full: why it did what it did, what it relies on and where each premise came from, its story so far, and what it changed. */
-export function Drawer({ intent, events, callsignOf, named, onSelect, onClose, diff, changesFrom = "live", layout = "wide" }: DrawerProps) {
+export function Drawer({ intent, listing, onBack, events, callsignOf, named, onSelect, onClose, diff, changesFrom = "live", layout = "wide" }: DrawerProps) {
 	// Reviewing: the Changes column has the whole drawer. It stays that way from one Intent to the next, until the drawer is closed.
 	const [reviewing, setReviewing] = useState(false);
 	const review = reviewing && diff !== undefined;
-	const groups = useMemo(() => groupPremises(intent.premises), [intent.premises]);
+	const premises = intent?.premises;
+	const groups = useMemo(() => groupPremises(premises ?? []), [premises]);
+	const intentId = intent?.id;
 	const timeline = useMemo(() => {
+		if (intentId === undefined) {
+			return [];
+		}
 		// The gate names a failed assertion by id; the reader gets the sentence the agent wrote.
-		const described = new Map(intent.premises.flatMap((premise) => (premise.assertion ? [[premise.assertion.id, premise.assertion.description] as const] : [])));
-		return timelineFor(events, intent.id, (assertionId) => described.get(assertionId));
-	}, [events, intent.id, intent.premises]);
+		const described = new Map((premises ?? []).flatMap((premise) => (premise.assertion ? [[premise.assertion.id, premise.assertion.description] as const] : [])));
+		return timelineFor(events, intentId, (assertionId) => described.get(assertionId));
+	}, [events, intentId, premises]);
 	const now = events.at(-1)?.ts ?? 0;
-	const stale = intent.status === "stale" || intent.status === "rederiving";
+	const stale = intent?.status === "stale" || intent?.status === "rederiving";
 
 	// The drawer's top edge can be dragged. Its height is remembered for as long as the page is open,
 	// and a double-click on the handle goes back to the size the stylesheet gives it.
@@ -155,7 +165,7 @@ export function Drawer({ intent, events, callsignOf, named, onSelect, onClose, d
 	// when Changes has the panel to itself.
 	const [columns, setColumns] = useState<number[]>(rememberedColumns);
 	const grid = useRef<HTMLDivElement>(null);
-	const beside = review || layout === "phone" ? 0 : layout === "wide" && diff !== undefined ? 4 : 3;
+	const beside = intent === undefined || review || layout === "phone" ? 0 : layout === "wide" && diff !== undefined ? 4 : 3;
 	const shown = columns.slice(0, beside);
 	const edges = columnEdges(shown);
 	// Where a column drag began: which divider, where the pointer was, and the shares at that moment.
@@ -232,7 +242,7 @@ export function Drawer({ intent, events, callsignOf, named, onSelect, onClose, d
 	});
 
 	return (
-		<section ref={section} className="drawer flex flex-col" data-review={review} data-dragging={dragging} style={height === null ? undefined : { height, maxHeight: "max(140px, calc(100dvh - 150px))" }} aria-label={`${callsignOf(intent.id)} details`}>
+		<section ref={section} className="drawer flex flex-col" data-review={review} data-dragging={dragging} style={height === null ? undefined : { height, maxHeight: "max(140px, calc(100dvh - 150px))" }} aria-label={intent ? `${callsignOf(intent.id)} details` : listing?.title}>
 			<div
 				className="drawer-handle"
 				role="separator"
@@ -256,6 +266,20 @@ export function Drawer({ intent, events, callsignOf, named, onSelect, onClose, d
 					<CaretDown size={12} weight="bold" aria-hidden="true" />
 				</button>
 			</div>
+			{intent === undefined ? (
+				<>
+					<header className="drawer-head">
+						<div style={{ minWidth: 0 }}>
+							<span className="callsign" style={{ fontSize: 13, lineHeight: 1 }}>
+								{listing?.title}
+							</span>
+							<p style={{ fontSize: 13, margin: "4px 0 0", color: "var(--ink-soft)" }}>{listing?.sentence}</p>
+						</div>
+					</header>
+					<div className="drawer-listing min-h-0 flex-1">{listing?.content}</div>
+				</>
+			) : (
+				<>
 			<header className="drawer-head">
 				<div style={{ minWidth: 0 }}>
 					<div className="flex items-center gap-3">
@@ -264,6 +288,11 @@ export function Drawer({ intent, events, callsignOf, named, onSelect, onClose, d
 						</span>
 						<StatusMark status={intent.status} />
 						<RaceIndicator intent={intent} />
+						{onBack ? (
+							<button type="button" className="drawer-back" onClick={onBack}>
+								Back to the workload list
+							</button>
+						) : null}
 					</div>
 					<p style={{ fontSize: 13, margin: "4px 0 0", color: stale ? "var(--redpen)" : "var(--ink-soft)" }}>{stale ? "A premise broke: this Intent is stopped until its work is redone on the new trunk" : intent.goal}</p>
 				</div>
@@ -357,6 +386,8 @@ export function Drawer({ intent, events, callsignOf, named, onSelect, onClose, d
 					/>
 				))}
 			</div>
+				</>
+			)}
 		</section>
 	);
 }

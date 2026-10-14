@@ -1,3 +1,4 @@
+import { WORKLOAD_LIST } from "../lib/workload";
 import { ArrowsClockwise, Bell, CheckCircle, Eye, PencilSimple, XCircle } from "@phosphor-icons/react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { IntentId } from "../../shared/types";
@@ -520,8 +521,9 @@ export function TapeView({ tape: whole, workload, layout, selected, onSelect, li
 				{under}
 				{rows}
 				{tape.workload && workload ? (
-					<div className="tape-row tape-workrow">
-						<div className="tape-label">
+					<div className="tape-row tape-workrow" data-selected={selected === WORKLOAD_LIST}>
+						{/* Opens the list of the workload's Intents in the details panel, one line each. */}
+						<button type="button" className="tape-label" aria-pressed={selected === WORKLOAD_LIST} aria-label={`Workload: ${workload.total} scripted Intents, ${allCounts.join(", ")}. Show the list.`} onClick={() => onSelect(WORKLOAD_LIST)}>
 							<span className="tape-band" aria-hidden="true" />
 							<span className="tape-name">
 								<span className="callsign tape-callsign">WORKLOAD {workload.total}</span>
@@ -531,7 +533,7 @@ export function TapeView({ tape: whole, workload, layout, selected, onSelect, li
 								{phone ? `scripted, no model · ${workloadCounts}` : workloadCounts}
 							</span>
 							{phone ? densityStrip : null}
-						</div>
+						</button>
 						{phone ? null : densityStrip}
 					</div>
 				) : null}

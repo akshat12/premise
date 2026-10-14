@@ -11,6 +11,8 @@ import { buildTape, positionAt } from "../lib/tape";
 import { useIntentDiff } from "../lib/useIntentDiff";
 import { callsign, lanesOf, layoutFor, OUTSIDE } from "../lib/view";
 import { Drawer } from "./Drawer";
+import { WorkloadList } from "./WorkloadList";
+import { WORKLOAD_LIST, workloadLines } from "../lib/workload";
 import { TapeView } from "./TapeView";
 
 interface PastRunPanelProps {
@@ -127,6 +129,7 @@ export function PastRunPanel({ run, onClose, onDelete }: PastRunPanelProps) {
 	};
 	const named = (text: string) => text.replace(/\bi[0-9a-z]{8}\b/g, (id) => (state.intents[id] ? callsignOf(id) : id)).replace(/\bintent ((?:T\d+|Agent \d+) )/g, "$1");
 	const ending = story?.steps.at(-1);
+	const workloadList = selected === WORKLOAD_LIST ? workloadLines(state.intents, callsignOf) : [];
 
 	return (
 		<div className="past-run-layer">
@@ -206,7 +209,7 @@ export function PastRunPanel({ run, onClose, onDelete }: PastRunPanelProps) {
 						</div>
 					</div>
 				) : null}
-				{selectedIntent ? <Drawer intent={selectedIntent} events={shown} callsignOf={callsignOf} named={named} diff={diff} changesFrom="past-run" layout={layout} onSelect={setSelected} onClose={() => setSelected(null)} /> : null}
+				{selectedIntent || selected === WORKLOAD_LIST ? <Drawer intent={selectedIntent} {...(selected === WORKLOAD_LIST ? { listing: { title: "Workload", sentence: `${workloadList.length} scripted Intents: small pre-written edits, with no agent and no model. Each goes through the ledger and the gate like an agent's work. Click one for its details.`, content: <WorkloadList lines={workloadList} onSelect={setSelected} /> } } : {})} {...(selectedIntent?.kind === "workload" ? { onBack: () => setSelected(WORKLOAD_LIST) } : {})} events={shown} callsignOf={callsignOf} named={named} diff={diff} changesFrom="past-run" layout={layout} onSelect={setSelected} onClose={() => setSelected(null)} /> : null}
 			</div>
 		</div>
 	);

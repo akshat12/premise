@@ -8,6 +8,8 @@ import { reduceAll } from "./lib/reduce";
 import { useIntentDiff } from "./lib/useIntentDiff";
 import { AbPanel, type AbResults } from "./components/AbPanel";
 import { SlidesCard, SlidesOverlay } from "./components/Slides";
+import { WorkloadList } from "./components/WorkloadList";
+import { WORKLOAD_LIST, workloadLines } from "./lib/workload";
 import { browserMemory, isFirstVisit, rememberVisit } from "./lib/firstVisit";
 import { DispatchPanel } from "./components/DispatchPanel";
 import { Drawer } from "./components/Drawer";
@@ -516,6 +518,8 @@ export function App() {
 		// A step must move even when no event falls inside it (the recording has quiet stretches of several seconds).
 		seek(nudge === 1 ? Math.max(position + 1, target) : nudge === -1 ? Math.max(1, Math.min(position - 1, target)) : target);
 	};
+	// The workload's Intents, one line each, while its list is open in the details panel.
+	const workloadList = selected === WORKLOAD_LIST ? workloadLines(state.intents, callsignOf) : [];
 	const toggleSelected = (id: IntentId) => setSelected((current) => (current === id ? null : id));
 	// A card that needs a person sits above the tape: floating over its corner, it would cover "now", the part being watched.
 	// Answering one takes the admin token. A visitor to the live board sees the question and not the buttons.
@@ -616,7 +620,7 @@ export function App() {
 			<Shortcuts open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
 			{slidesCard && tab === "demo" && !slidesOpen ? <SlidesCard onOpen={openSlides} onDismiss={() => setSlidesCard(false)} /> : null}
 			{slidesOpen ? <SlidesOverlay onClose={closeSlides} /> : null}
-			{selectedIntent && !onResults ? <Drawer intent={selectedIntent} events={events} callsignOf={callsignOf} named={named} diff={diff} changesFrom={mode === "live" ? "live" : pastRun !== null ? "past-run" : "recording"} layout={layout} onSelect={setSelected} onClose={() => setSelected(null)} /> : null}
+			{(selectedIntent || selected === WORKLOAD_LIST) && !onResults ? <Drawer intent={selectedIntent} {...(selected === WORKLOAD_LIST ? { listing: { title: "Workload", sentence: `${workloadList.length} scripted Intents: small pre-written edits, with no agent and no model. Each goes through the ledger and the gate like an agent's work. Click one for its details.`, content: <WorkloadList lines={workloadList} onSelect={setSelected} /> } } : {})} {...(selectedIntent?.kind === "workload" ? { onBack: () => setSelected(WORKLOAD_LIST) } : {})} events={events} callsignOf={callsignOf} named={named} diff={diff} changesFrom={mode === "live" ? "live" : pastRun !== null ? "past-run" : "recording"} layout={layout} onSelect={setSelected} onClose={() => setSelected(null)} /> : null}
 		</div>
 	);
 }

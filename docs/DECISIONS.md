@@ -1202,3 +1202,8 @@ Asked for by the user: slides that match what is built, approachable, organised 
 - **Oct 14:** the repo is public at https://github.com/akshat12/premise (the name the checklist suggested), `main` only. A scan of the tracked files and the whole history before the push found no secrets: only the placeholder admin tokens. The address is in the README's clone line, the shot list and the closing slide.
 
 - **Oct 14:** a visitor with an ad or privacy blocker saw the Live tab stuck on "Connecting to the Worker" (`ERR_BLOCKED_BY_CLIENT` on `/api/events` and `/api/events/ws`: blocker lists take `/api/events` for analytics). The page now reads the log at `/api/board/history` and `/api/board/history/ws`, and a kept run at `/api/runs/:id/history`; the old paths still answer, for the scripts. The Premise name in the top bar is a link to `/`.
+
+### The workload list (Oct 14; the user asked to see the workload Intents one by one)
+
+- Clicking the Workload row on the board (Live tab, Demo tab, and a past run's side panel) opens the bottom details panel with one line per workload Intent: its tag (`w7_11`), what the edit does, where it got to, and, when it did not land, why ("Gave up waiting: w7_11 was changing planPrice."). A line opens that Intent's usual details, with "Back to the workload list". Pure logic in `src/ui/lib/workload.ts`, tested; the selection uses a sentinel, `WORKLOAD_LIST`, not an Intent id.
+- Workload Intents are now named by their tag everywhere (`callsign`), not by their id.

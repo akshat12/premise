@@ -23,7 +23,12 @@ export const MEDIUM_FROM = 768;
 export const layoutFor = (width: number): Layout => (width >= WIDE_FROM ? "wide" : width >= MEDIUM_FROM ? "medium" : "phone");
 
 /** An Intent's callsign on the live board: the task number and one word. "t02-audit-expired" -> "T02 AUDIT". */
-export function callsign(intent: Pick<IntentView, "taskId" | "id">): string {
+export function callsign(intent: Pick<IntentView, "taskId" | "id"> & { goal?: string }): string {
+	// A scripted workload Intent is named by the tag its goal starts with ("w7_11: touch the body of planPrice").
+	const tag = intent.taskId === "workload" ? /^(w\d+_\d+):/.exec(intent.goal ?? "") : null;
+	if (tag) {
+		return tag[1] as string;
+	}
 	const match = /^(t\d+)-([a-z0-9]+)/i.exec(intent.taskId);
 	return match ? `${match[1]} ${match[2]}`.toUpperCase() : intent.id.toUpperCase();
 }
