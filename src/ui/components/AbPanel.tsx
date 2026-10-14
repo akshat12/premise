@@ -112,6 +112,8 @@ export function AbPanel({ results }: { results: AbResults | null }) {
 					Every measurement ({results.table.length} rows, {results.seeds.length === 1 ? `seed ${results.seeds[0]}` : `seeds ${results.seeds.join(", ")}`}, {results.date})
 				</summary>
 				<p className="plane-small">Where the runs disagree, a cell gives the lowest and highest value.</p>
+				{/* On a narrow phone the four columns are wider than the screen: the table scrolls sideways, not the page. */}
+				<div style={{ overflowX: "auto" }}>
 				<table style={{ marginTop: 12, fontSize: 13, borderCollapse: "collapse", width: "100%" }}>
 					<thead>
 						<tr style={{ textAlign: "left" }}>
@@ -141,6 +143,7 @@ export function AbPanel({ results }: { results: AbResults | null }) {
 						))}
 					</tbody>
 				</table>
+				</div>
 			</details>
 		</section>
 	);

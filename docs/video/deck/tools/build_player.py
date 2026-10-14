@@ -91,13 +91,18 @@ section svg { display: block; flex: none; }
 #bar button:disabled { opacity: 0.4; cursor: default; }
 #bar button:focus-visible, #bar a:focus-visible { outline: 2px solid #f08a4b; outline-offset: 2px; }
 #next { background: #e8590c !important; border-color: #e8590c !important; color: #fff !important; }
+/* A phone held upright gets a small slide: say how to get a bigger one. */
+#turn { display: none; }
+@media (orientation: portrait) and (max-width: 720px) {
+	#turn { display: block; position: absolute; top: 16px; left: 16px; right: 16px; margin: 0; text-align: center; font-size: 14px; color: #8d9690; }
+}
 @media (max-width: 720px) {
 	#bar { flex-wrap: wrap; gap: 8px; padding: 8px 12px; }
 	#said { flex-basis: 100%; font-size: 15px; }
 	#count { flex: 1; }
 }
 </style></head><body>
-<div id="room"><div id="stage">
+<div id="room"><p id="turn">Turn your phone sideways for a bigger slide.</p><div id="stage">
 __SLIDES__
 </div></div>
 <div id="bar">

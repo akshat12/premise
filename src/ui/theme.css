@@ -853,6 +853,9 @@ kbd {
 	letter-spacing: 0.04em;
 	line-height: 16px;
 }
+.tape-tick[data-covered="true"] {
+	visibility: hidden;
+}
 /* The playhead's readout: the one solid black mark on the axis. */
 .tape-now-pill {
 	position: absolute;
@@ -1451,6 +1454,31 @@ button.tape-label:focus-visible {
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
+}
+/* The workload's counts are the row's whole message: on a phone they wrap rather than being cut. */
+.tape[data-layout="phone"] .tape-workrow .tape-label .tape-soft {
+	white-space: normal;
+}
+/* On a phone a row's words share their band with the lines drawn down the tape (now, a landing). The "now"
+   line goes under the rows there, showing faintly through a coloured row, and the words sit on top of it
+   with a soft edge in the row's own colour, so a line never runs through a name. */
+.tape[data-layout="phone"] .tape-over {
+	z-index: 0;
+}
+.tape[data-layout="phone"] .tape-row[data-wash],
+.tape[data-layout="phone"] .tape-row[data-wash] .tape-label {
+	background: color-mix(in srgb, var(--wash) 86%, transparent);
+}
+.tape[data-layout="phone"] .tape-label > .tape-name,
+.tape[data-layout="phone"] .tape-label > .tape-status,
+.tape[data-layout="phone"] .tape-label > .tape-soft {
+	position: relative;
+	z-index: 3;
+	text-shadow:
+		0 0 2px var(--wash, var(--board)),
+		0 0 3px var(--wash, var(--board)),
+		0 0 5px var(--wash, var(--board)),
+		0 0 8px var(--wash, var(--board));
 }
 .tape-track[data-bare="true"] .tape-bar {
 	top: 0;
@@ -2695,5 +2723,65 @@ button.tape-label:focus-visible {
 	}
 	.workload-reason {
 		grid-column: 2;
+	}
+}
+
+/* ---- Phones: the list of live runs and a past run's panel ---- */
+@media (max-width: 767px) {
+	/* The runs table keeps the three columns that say how a run went: when, agents landed, problems on trunk. */
+	.runs {
+		min-width: 0;
+	}
+	.runs th:nth-child(2),
+	.runs td:nth-child(2),
+	.runs th:nth-child(3),
+	.runs td:nth-child(3),
+	.runs th:nth-child(5),
+	.runs td:nth-child(5),
+	.runs th:nth-child(6),
+	.runs td:nth-child(6),
+	.runs th:nth-child(7),
+	.runs td:nth-child(7) {
+		display: none;
+	}
+	.runs th,
+	.runs td {
+		padding-right: 10px;
+		white-space: normal;
+	}
+	.runs-note {
+		display: inline-block;
+		margin: 4px 0 0;
+	}
+	/* The panel's head on two lines: what the run was, then its two buttons. */
+	.past-run-head {
+		flex-wrap: wrap;
+		gap: 10px 12px;
+		padding: 14px 16px;
+	}
+	.past-run-title {
+		flex: 1 1 100%;
+	}
+	.past-run-title h2 {
+		font-size: 20px;
+	}
+}
+
+/* ---- The smallest phones (320 to 360 wide): the top bar's four parts still fit on one line ---- */
+@media (max-width: 360px) {
+	.simplebar[data-layout="phone"] {
+		gap: 4px;
+		padding: 6px 8px;
+	}
+	.simplebar[data-layout="phone"] .simplebar-name {
+		font-size: 12px;
+		letter-spacing: 0.04em;
+	}
+	.simplebar[data-layout="phone"] [role="tab"] {
+		padding-right: 6px;
+		padding-left: 6px;
+	}
+	.runs {
+		font-size: 13px;
 	}
 }

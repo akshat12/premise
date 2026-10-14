@@ -205,6 +205,10 @@ function Key({ cutMs }: { cutMs: number }) {
  * The tape: time runs left to right, one row for each agent's Intent, with trunk along the top.
  * A landing that broke a premise is a red line through the rows it stopped, and only those.
  */
+/** About how wide an axis mark's time is drawn ("10:00", with its left padding), and half the playhead's readout. */
+const TICK_TEXT_PX = 40;
+const PILL_HALF_PX = 24;
+
 export function TapeView({ tape: whole, workload, layout, selected, onSelect, live, ended, total, onSeek, step, notes }: TapeViewProps) {
 	// A long run can be looked at closer: the last ten minutes or the last two, instead of the whole of it.
 	const [zoom, setZoom] = useState<number | null>(null);
@@ -490,7 +494,8 @@ export function TapeView({ tape: whole, workload, layout, selected, onSelect, li
 					<div className="tape-axis">
 						<div className="tape-ticks" ref={axisRef} {...slider}>
 							{(phone ? [0, tape.span / 2] : tape.ticks).map((tick) => (
-								<span key={tick} className="tape-tick" style={{ left: pct(tick) }}>
+								// A mark the playhead's readout sits on is not drawn: the two would be printed over each other.
+								<span key={tick} className="tape-tick" data-covered={px(tick) + TICK_TEXT_PX > px(tape.now) - PILL_HALF_PX && px(tick) < px(tape.now) + PILL_HALF_PX} style={{ left: pct(tick) }}>
 									{clock(tick + offset)}
 								</span>
 							))}
