@@ -4,6 +4,9 @@
 	"description": "Accounts and billing core for a small SaaS. Target repo for the Premise demo.",
 	"type": "module",
 	"license": "MIT",
+	"engines": {
+		"node": ">=24.0.0"
+	},
 	"scripts": {
 		"typecheck": "tsc --noEmit",
 		"test": "tsx premise/run-tests.ts"

@@ -8,7 +8,7 @@ It has no runtime dependencies and uses no Node or browser APIs, so its tests ru
 
 ## Run it
 
-You need [Node.js](https://nodejs.org/) 22 or later.
+You need [Node.js](https://nodejs.org/) 24. With nvm or fnm, run `nvm use` (or `fnm use`) in the folder: the `.nvmrc` file asks for 24.
 
 ```bash
 git clone https://github.com/akshat12/acme-accounts.git

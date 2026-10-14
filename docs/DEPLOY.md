@@ -3,7 +3,7 @@
 This puts Premise on **your own** Cloudflare account. You use your own account, your own admin token, and, if you want real AI agents, your own model key. Nothing here uses the author's account.
 
 
-Needs the Workers Paid plan (Artifacts requires it) and Node 22.12 or later. A model key is optional: without one the agents replay scripted turns.
+Needs the Workers Paid plan (Artifacts requires it) and Node 24. A model key is optional: without one the agents replay scripted turns.
 
 1. Install and log in.
    ```bash

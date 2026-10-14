@@ -47,7 +47,7 @@ No install and no account needed.
 
 ## Run it on your computer
 
-You need [Node.js](https://nodejs.org/) 22 (22.12 or later) or 24. You do **not** need a Cloudflare account or an AI key: locally, the code is held in memory and the agents replay scripted turns.
+You need [Node.js](https://nodejs.org/) 24. If you use nvm or fnm, run `nvm use` (or `fnm use`) in the folder after cloning: the repo's `.nvmrc` asks for 24. With an older Node, `npm install` stops at once and says so. You do **not** need a Cloudflare account or an AI key: locally, the code is held in memory and the agents replay scripted turns.
 
 **1. Get the code and install**
 
