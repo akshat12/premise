@@ -1,6 +1,6 @@
 # Script for the screen recording: slides, then the live site
 
-Read this one when you record with the slide deck. (`script.md` is the older cut that uses the site alone.) It is about 1,310 spoken words: about 9:35 at 150 words a minute, and past ten minutes at 140, with the presses and the two visits to the site. The rules allow five to ten minutes, so rehearse once with a clock in view. That leaves almost no room, so keep to 150 words a minute. If you are past 8:00 when you reach slide 18, press through it without speaking and go on to slide 19; if you are past 8:45 at slide 19, press through that one too.
+Read this one when you record with the slide deck. (`script.md` is the older cut that uses the site alone.) It is about 1,010 spoken words: about 7:40 at 150 words a minute and about 8:10 at 140, with the presses and the two visits to the site. The rules allow five to ten minutes, so rehearse once with a clock in view. If you are past 8:30 when you reach slide 18, press through it without speaking and go on to slide 19.
 
 **How to read it**
 
@@ -26,33 +26,33 @@ Read this one when you record with the slide deck. (`script.md` is the older cut
 
 ### Slide 1 · Cover
 
-Git tracks what agents wrote. Premise tracks what they assumed, and re-derives the work the moment an assumption breaks.
+Git tracks what agents wrote. Premise tracks what they assumed.
 
 **[NEXT SLIDE]**
 
 ### Slide 2 · The problem
 
-When many AI coding agents share one codebase, the changes that hurt are not the conflicts. Follow one change.
+When many AI agents share one codebase, the worst changes are not the conflicts. Follow one.
 
-**[→]** Different files, so there is no conflict.
+**[→]** Different files: no conflict.
 
-**[→]** The same signature, so the typecheck passes.
+**[→]** Same signature: the typecheck passes.
 
-**[→]** Its tests pass. Everything looks fine.
+**[→]** Its tests pass.
 
-**[→]** And it is still broken: another agent's code relied on the old behaviour.
+**[→]** And it is still broken. Another agent relied on the old behaviour.
 
 **[NEXT SLIDE]**
 
 ### Slide 3 · An example
 
-Here is that change. Agent 1 changes one function, verifySession. For an expired session it used to throw an error. Now it returns null.
+Agent 1 changes a function, verifySession. For an expired session it used to throw an error. Now it returns null.
 
-**[→]** Agent 2's code relies on the old way. It catches that error and writes an audit entry.
+**[→]** Agent 2's code catches that error and writes an audit entry.
 
 **[→]** Now nothing is thrown, so the entry is never written.
 
-**[→]** Same signature, different files. Both checks pass.
+**[→]** And every check passes.
 
 **[NEXT SLIDE]**
 
@@ -60,7 +60,7 @@ Here is that change. Agent 1 changes one function, verifySession. For an expired
 
 ### Slide 4 · Premise has six parts
 
-Premise has six parts. Agents, each on a job called an Intent.
+Premise has six parts. Agents, each with a job called an Intent.
 
 **[→]** Forks: a private copy of the code.
 
@@ -68,21 +68,21 @@ Premise has six parts. Agents, each on a job called an Intent.
 
 **[→]** Premises: what each agent relies on.
 
-**[→]** Re-derive: the work done again when a premise breaks.
+**[→]** Re-derive: redoing work when a premise breaks.
 
-**[→]** And the gate: every check before trunk, the shared code.
+**[→]** And the gate: the checks before trunk, the shared code.
 
 **[NEXT SLIDE]**
 
 ### Slide 5 · Part 1, agents
 
-An Intent is an agent's job, written down. This is Agent 2's. Its goal: write an audit entry when a login arrives with an expired session.
+An Intent is an agent's job, written down. This is Agent 2's: write an audit entry for an expired login.
 
 **[→]** What it changes: handleLogin.
 
-**[→]** And what it relies on: verifySession. That list is its premises.
+**[→]** What it relies on: verifySession. Those are its premises.
 
-**[→]** Every agent's job is written down this way.
+**[→]** Every agent has one.
 
 **[NEXT SLIDE]**
 
@@ -90,9 +90,9 @@ An Intent is an agent's job, written down. This is Agent 2's. Its goal: write an
 
 No agent works on trunk directly.
 
-**[→]** Every Intent gets its own copy, a fork: a Git repo on Cloudflare Artifacts.
+**[→]** Each Intent gets a fork: its own Git repo on Cloudflare Artifacts.
 
-**[→]** There is one way back. Only the gate lands work on trunk.
+**[→]** Only the gate lands work on trunk.
 
 **[→]** One recorded run made three hundred and nine forks.
 
@@ -100,55 +100,55 @@ No agent works on trunk directly.
 
 ### Slide 7 · Part 3, the ledger
 
-The ledger is a sign-up sheet for the code. Before an agent writes anything, it says what it will change. Agent 1 signs up for verifySession.
+The ledger is a sign-up sheet for the code. Agent 1 signs up to change verifySession.
 
-**[→]** What an agent reads or calls is noted too. Agents 2, 3 and 4 rely on verifySession.
+**[→]** Agents 2, 3 and 4 rely on it. That is noted too.
 
 **[→]** Every function gets a line.
 
-**[→]** So when Agent 1's change lands, the ledger knows exactly who could be affected.
+**[→]** So when Agent 1's change lands, the ledger knows who could be affected.
 
 **[NEXT SLIDE]**
 
 ### Slide 8 · Part 3, the ledger's three answers
 
-Sometimes two agents want the same function. The ledger gives one of three answers.
+When two agents want the same function, the ledger gives one of three answers.
 
-**[→]** Wait: pause until the other lands, then ask again.
+**[→]** Wait: pause until the other lands.
 
 **[→]** Split: divide the work.
 
-**[→]** Depend: this work depends on the other, so it pauses too.
+**[→]** Depend: it needs the other's work first, so it pauses.
 
-**[→]** A fixed rule decides, not a model. If it cannot, a person is asked.
+**[→]** A fixed rule decides, not a model.
 
-**[→]** In one recorded run it answered a hundred and thirty-six times. Nearly always, Wait.
+**[→]** In one recorded run, the answer was nearly always Wait.
 
 **[NEXT SLIDE]**
 
 ### Slide 9 · Part 4, premises
 
-A premise is something an agent's work relies on. Three kinds. What it read: the type of every function it looked at.
+A premise is something an agent's work relies on. There are three kinds. The types of the functions it read.
 
-**[→]** What it calls: the type of every function it uses. Both are recorded for it.
+**[→]** The types of the functions it calls.
 
-**[→]** And what it states: a behaviour, as a check that can be run. Agent 2 states that verifySession throws for an expired session.
+**[→]** And a behaviour it states, as a check that can be run. Agent 2 states that verifySession throws for an expired session.
 
-**[→]** A typecheck sees the first two. The third is the one it cannot see.
+**[→]** A typecheck cannot see that third kind.
 
 **[NEXT SLIDE]**
 
 ### Slide 10 · When a premise breaks
 
-Now a premise breaks. Agent 1 changes verifySession, and the other three rely on it.
+Now a premise breaks.
 
-**[→]** Agent 1 lands. Every landing runs the stated checks again, and two now fail.
+**[→]** Agent 1 lands. The stated checks run again, and two fail.
 
-**[→]** In the same second, Agents 2 and 4 are stopped. They relied on the old behaviour.
+**[→]** Agents 2 and 4 are stopped at once.
 
 **[→]** Agent 3 relies only on the type, which did not change. It carries on.
 
-**[→]** Each stopped agent is told what changed and who changed it.
+**[→]** Each stopped agent is told what changed.
 
 **[NEXT SLIDE]**
 
@@ -156,13 +156,13 @@ Now a premise breaks. Agent 1 changes verifySession, and the other three rely on
 
 What happens to stopped work? Take Agent 2.
 
-**[→]** First, a plain rebase. It takes about a second. Here it is not enough: Agent 2's tests fail.
+**[→]** First, a plain rebase. Here it is not enough: the tests fail.
 
-**[→]** So the agent does the work again, on a fresh fork, told what broke. That is a re-derive.
+**[→]** So the agent redoes the work on a fresh fork, knowing what broke. That is a re-derive.
 
-**[→]** It passes the gate and lands. No person was involved.
+**[→]** It passes the gate and lands.
 
-**[→]** The Intent is not abandoned. A person is the last resort.
+**[→]** No person was needed.
 
 **[NEXT SLIDE]**
 
@@ -170,9 +170,9 @@ What happens to stopped work? Take Agent 2.
 
 The gate is the only way onto trunk. Five checks. The typecheck.
 
-**[→]** The tests the agent wrote.
+**[→]** The agent's own tests.
 
-**[→]** Reference checks, which no agent can write or edit.
+**[→]** Reference checks, which no agent can edit.
 
 **[→]** Every test already on trunk.
 
@@ -184,7 +184,7 @@ The gate is the only way onto trunk. Five checks. The typecheck.
 
 **[SWITCH TO THE BROWSER: the Demo tab, "Step 01 / 07"]**
 
-That was the idea. This is a real run on Cloudflare Artifacts, replayed. The agents are scripted: no model. The forks, tests and landings are real.
+This is a real run on Cloudflare Artifacts, replayed. The agents are scripted, with no model. The forks, tests and landings are real.
 
 **[PRESS → ONCE: "Step 02 / 07"]** Each row is an agent's Intent.
 
@@ -192,61 +192,61 @@ That was the idea. This is a real run on Cloudflare Artifacts, replayed. The age
 
 **[PRESS →: "Step 05 / 07"]** Agent 2 is re-derived, and lands.
 
-**[PRESS →: "Step 06 / 07"]** And Agent 4: the case that tests miss.
+**[PRESS →: "Step 06 / 07"]** And Agent 4: the case tests miss.
 
 **[BACK TO THE SLIDES, THEN NEXT SLIDE]**
 
 ### Slide 13 · The case tests miss
 
-Look closely at Agent 4. Its own tests passed, after Agent 1's change.
+Look at Agent 4. After Agent 1's change, its own tests passed.
 
 **[→]** So did the reference checks.
 
-**[→]** So did all ninety-one tests on trunk.
+**[→]** So did every test on trunk.
 
-**[→]** One thing failed: its premise.
+**[→]** Only its premise failed.
 
-**[→]** Why? It tested with a stand-in for verifySession, and the stand-in still throws.
+**[→]** Why? Its tests used a stand-in for verifySession, and the stand-in still throws.
 
-**[→]** Its premise was checked against the real function, which now returns null. Tests alone would have landed this, broken. Instead it was re-derived too, and all four landed.
+**[→]** The premise is checked against the real function. Tests alone would have landed this broken. Instead it was re-derived, and all four landed.
 
 **[NEXT SLIDE]**
 
 ### Slide 14 · Compared
 
-We put twelve tasks through three rules. With a typecheck only, three problems reach trunk.
+We ran twelve tasks under three rules. With a typecheck only, three problems reach trunk.
 
-**[→]** With a queue that runs the tests, two go back to a person, and one still reaches trunk: the kind you just saw.
+**[→]** With a queue that runs the tests, one still reaches trunk.
 
-**[→]** With Premise, none reach trunk and none are handed back. To be clear: the break is planted, the agents are scripted, and Premise is the slowest.
+**[→]** With Premise, none do. To be clear: the break is planted, the agents are scripted, and Premise is the slowest.
 
 **[NEXT SLIDE]**
 
 ### Slide 15 · At scale
 
-The same system under load, in a larger recorded run. Three hundred and six Intents, each on its own fork.
+A larger recorded run: three hundred and six Intents.
 
-**[→]** One gate, landing sixty-one a minute, in batches of ten.
+**[→]** One gate, landing sixty-one a minute.
 
 **[→]** Two hundred and sixty-six landed, in four minutes twenty.
 
-**[→]** Problems on trunk: none. No model wrote any of it: it is all scripted.
+**[→]** Problems on trunk: none. All of it scripted.
 
 **[NEXT SLIDE]**
 
 ### Slide 16 · Live
 
-You can run it yourself. On the site's Live tab, anyone can start a run: twelve scripted agents, on real Cloudflare Artifacts, in three to four minutes.
+You can run it yourself. On the Live tab, anyone can start a run of twelve scripted agents on real Artifacts.
 
-**[→]** Every run is kept on the Results tab, whoever started it.
+**[→]** Every run is kept on the Results tab.
 
-**[→]** And a kept run can be played again.
+**[→]** A kept run can be played again.
 
 **[→]** The recent live runs each landed every agent, with nothing broken on trunk.
 
 **[SWITCH TO THE BROWSER, THEN CLICK THE "Results" TAB]**
 
-**[CLICK A ROW OF THE LIVE RUNS TABLE THAT SAYS "12 of 12": A PANEL SLIDES IN FROM THE RIGHT]** Here is one of those runs, as it ended. Twelve agents this time.
+**[CLICK A ROW OF THE LIVE RUNS TABLE THAT SAYS "12 of 12": A PANEL SLIDES IN FROM THE RIGHT]** Here is one of those runs, as it ended.
 
 **[CLICK AGENT 2'S ROW IN THE PANEL]** And for any agent: its changes, as they landed on trunk.
 
@@ -256,15 +256,15 @@ You can run it yourself. On the site's Live tab, anyone can start a run: twelve 
 
 ### Slide 17 · How it is built
 
-Premise is one Worker on Cloudflare: the API, the page, and the TypeScript compiler.
+Premise is one Worker on Cloudflare.
 
-**[→]** Code lives in Artifacts: trunk, and a fork for every Intent.
+**[→]** Code lives in Artifacts.
 
-**[→]** State lives in Durable Objects: the ledger, each Intent, the gate, the event log.
+**[→]** State lives in Durable Objects.
 
 **[→]** Each agent is a Workflow.
 
-**[→]** Tests run in Dynamic Workers: a fresh isolate each time, with no network.
+**[→]** Tests run in Dynamic Workers, with no network.
 
 **[→]** No containers.
 
@@ -272,7 +272,7 @@ Premise is one Worker on Cloudflare: the API, the page, and the TypeScript compi
 
 ### Slide 18 · Scaling up
 
-It is a prototype. Already shaped for many agents: a fork for every Intent,
+It is a prototype, but shaped for many agents: a fork for every Intent,
 
 **[→]** a ledger split by module,
 
@@ -288,30 +288,30 @@ It is a prototype. Already shaped for many agents: a fork for every Intent,
 
 ### Slide 19 · In a bigger system
 
-Where would this sit in a bigger system? Tasks come from people, tickets or an orchestrator. Agents of any kind do the work, each in its own fork, and it ends up on trunk.
+Where would Premise sit in a bigger system? Tasks come in, and agents of any kind do the work.
 
-**[→]** Premise goes between the agents and trunk: the ledger, the premises, the gate.
+**[→]** Premise goes between the agents and trunk.
 
 **[→]** Work whose premise broke is stopped early and re-derived.
 
-**[→]** After trunk, CI and deploy run as before.
+**[→]** CI and deploy run as before.
 
-**[→]** One layer is added, and the rest stays as it is. That is a design: today, trunk lives on Artifacts.
+**[→]** One layer is added. The rest stays as it is. This part is a design too.
 
 **[NEXT SLIDE]**
 
 ### Slide 20 · The honest part
 
-One more thing, because it is the honest part. Every agent so far was scripted. We ran the same four tasks with a live model as every agent. The premise stopped Agent 4's first attempt, as before. But the model redid the work the same way, and that passed every test and landed. The premise caught the problem once, and the redo let it back in.
+One honest thing. Every agent so far was scripted. We also ran four tasks with a live model. The premise stopped Agent 4's first attempt, as before. But the model redid the work the same way, and it passed every test and landed.
 
 Premises are the early warning. The gate is the guarantee.
 
-Since then, the gate turns back a redo identical to the stopped work. The model's second run still let one through. What we changed after that narrows the hole. It does not close it.
+Since then, the gate turns back a redo identical to the stopped work. A second run with the model still let one through. What we changed after that narrows the hole. It does not close it.
 
 **[NEXT SLIDE]**
 
 ### Slide 21 · Try it
 
-Git tracks what agents wrote. Premise tracks what they assumed. It is open source, built on Cloudflare Workers and Artifacts. Open it and press Next. Or open the Live tab and press Start.
+Git tracks what agents wrote. Premise tracks what they assumed. It is open source, built on Cloudflare Workers and Artifacts. Open it and press Next, or start a run on the Live tab.
 
 **[HOLD FOR FIVE SECONDS, THEN STOP THE SCREEN RECORDING]**

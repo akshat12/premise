@@ -90,5 +90,5 @@
 <p style="font-family:'Atkinson Hyperlegible Mono', 'Courier New', monospace;font-size:24px;letter-spacing:3px;text-transform:uppercase;color:#55606b">Premise</p>
 <p style="font-family:'Atkinson Hyperlegible Mono', 'Courier New', monospace;font-size:24px;letter-spacing:1px;color:#55606b">premise.akshatdivekar.workers.dev</p>
 </div>
-<aside>Look closely at Agent 4. Its own tests passed, after Agent 1's change. [→] So did the reference checks. [→] So did all ninety-one tests on trunk. [→] One thing failed: its premise. [→] Why? It tested with a stand-in for verifySession, and the stand-in still throws. [→] Its premise was checked against the real function, which now returns null. Tests alone would have landed this, broken. Instead it was re-derived too, and all four landed. [NEXT SLIDE]</aside>
+<aside>Look at Agent 4. After Agent 1's change, its own tests passed. [→] So did the reference checks. [→] So did every test on trunk. [→] Only its premise failed. [→] Why? Its tests used a stand-in for verifySession, and the stand-in still throws. [→] The premise is checked against the real function. Tests alone would have landed this broken. Instead it was re-derived, and all four landed. [NEXT SLIDE]</aside>
 </section>

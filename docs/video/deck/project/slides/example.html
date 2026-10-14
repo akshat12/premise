@@ -88,5 +88,5 @@
 <p style="font-family:'Atkinson Hyperlegible Mono', 'Courier New', monospace;font-size:24px;letter-spacing:3px;text-transform:uppercase;color:#55606b">Premise</p>
 <p style="font-family:'Atkinson Hyperlegible Mono', 'Courier New', monospace;font-size:24px;letter-spacing:1px;color:#55606b">premise.akshatdivekar.workers.dev</p>
 </div>
-<aside>Here is that change. Agent 1 changes one function, verifySession. For an expired session it used to throw an error. Now it returns null. [→] Agent 2's code relies on the old way. It catches that error and writes an audit entry. [→] Now nothing is thrown, so the entry is never written. [→] Same signature, different files. Both checks pass. [NEXT SLIDE]</aside>
+<aside>Agent 1 changes a function, verifySession. For an expired session it used to throw an error. Now it returns null. [→] Agent 2's code catches that error and writes an audit entry. [→] Now nothing is thrown, so the entry is never written. [→] And every check passes. [NEXT SLIDE]</aside>
 </section>

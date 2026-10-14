@@ -1196,3 +1196,5 @@ Asked for by the user: slides that match what is built, approachable, organised 
 - `fits` is slide 19, after "Scaling up": tasks, any agents, Premise (ledger, premises, gate), trunk, then CI and deploy, with the stop-and-re-derive loop back to the agents. It says "would": connecting an existing Git host is not built, and the notes say trunk lives on Artifacts today.
 - "The honest part" is now slide 20 and "Try it" 21. The script grew by about 80 words, to about 1,310: about 9:35 at 150 words a minute, which is close to the ten-minute limit. The script says which slides to press through if the take runs long.
 - The first-visit card no longer names a number of slides.
+
+- **Oct 13, late:** the read-aloud script was trimmed to the main points at the user's request, from about 1,305 spoken words to about 1,010 (about 7:40 at 150 words a minute with the presses and site visits). Every press and every bracketed action is kept; the disclosures (scripted agents, the planted break, Premise being slowest, the live-model result) are kept. The slide notes and the captions on `/slides/` follow it.
