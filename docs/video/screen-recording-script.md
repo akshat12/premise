@@ -14,7 +14,7 @@ Read this one when you record with the slide deck. (`script.md` is the older cut
 - Window 1: the deck, in Present mode, on slide 1.
 - Window 2: Chrome at `https://premise.akshatdivekar.workers.dev/`, page area 1440×900, on the **Demo** tab at "Step 01 / 07". (`shot-list.md` has the browser set-up, with one change: capture the whole screen, not the page area, because this take shows two windows. Put Chrome in full screen instead of using the DevTools device toolbar.) Switch between the two windows with `⌘Tab`.
 - Open `https://premise.akshatdivekar.workers.dev/?results` once beforehand. Check that the headline still says the last live runs each landed every agent, with nothing broken on trunk, and that a row under the top one that says "12 of 12" opens a panel when it is clicked (the top row, the run on the board now, goes to the Live tab instead; some rows are runs of 5 or 7 agents).
-- In Present mode, check that slide 16 is "Demo" and slide 17 is "Thank you".
+- In Present mode, check that the last slide, 16, is "Demo". The take ends in the browser, not on a slide.
 - Do not press **Start a run** during the take: a run takes three to four minutes.
 
 **Words to keep to.** Intent, changes, relies on, premise, re-derive, gate, trunk; Wait, Split, Depend. Say "Agent 1" to "Agent 4". Never say "race".
@@ -99,7 +99,7 @@ We ran the same twelve tasks under three rules. With just a typecheck, three pro
 
 **[NEXT SLIDE]**
 
-## Part four: how it's built, and where it goes (slides 13 to 17)
+## Part four: how it's built, where it goes, and the demo (slides 13 to 16)
 
 ### Slide 13 · How it is built
 
@@ -141,10 +141,6 @@ This is a real run on Cloudflare, replayed. The agents are scripted, but the for
 
 **[CLICK AGENT 2'S ROW IN THE PANEL]** And for any agent, you can see exactly what it changed.
 
-**[BACK TO THE SLIDES, THEN NEXT SLIDE]**
+**[CLICK "Close" ON THE PANEL]** That's Premise. Git tracks what agents wrote, and Premise tracks what they assumed. You can try it yourself at this address, and the code is open source on GitHub. Thanks for watching.
 
-### Slide 17 · Thank you
-
-That's Premise. Git tracks what agents wrote, and Premise tracks what they assumed. It's open source, and the links are right here. Thanks for watching.
-
-**[HOLD FOR FIVE SECONDS, THEN STOP THE SCREEN RECORDING]**
+**[HOLD FOR FIVE SECONDS, THEN STOP THE SCREEN RECORDING. YOU END IN THE BROWSER; THERE IS NO NEED TO GO BACK TO THE SLIDES]**
