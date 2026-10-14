@@ -19,7 +19,7 @@ import { LiveBar } from "./components/LiveBar";
 import { BuiltOn } from "./components/BuiltOn";
 import { type Command, MoreSheet, Palette, Shortcuts } from "./components/Palette";
 import { ScaleView } from "./components/ScaleView";
-import { type RunKind, SimpleBar } from "./components/SimpleBar";
+import { type RunKind, SimpleBar, GITHUB_URL } from "./components/SimpleBar";
 import { RecentRuns } from "./components/RecentRuns";
 import { RunFigures } from "./components/RunFigures";
 import { figuresFor } from "./lib/figures";
@@ -554,6 +554,7 @@ export function App() {
 					);
 				},
 			},
+			{ id: "github", title: "GitHub repo", hint: "the code, open source", run: () => window.open(GITHUB_URL, "_blank", "noopener,noreferrer") },
 			{ id: "shortcuts", title: "Show keyboard shortcuts", keyboardOnly: true, run: () => setShortcutsOpen(true) },
 		],
 		[token, show],

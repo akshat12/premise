@@ -2,6 +2,9 @@ import { Button } from "@cloudflare/kumo";
 import { DotsThree } from "@phosphor-icons/react";
 import type { Layout } from "../lib/view";
 
+/** The public repository. */
+export const GITHUB_URL = "https://github.com/akshat12/premise";
+
 /**
  * Kumo's tabs keep the arrow keys for moving between tabs, which is right for a keyboard user. But
  * after a click the tab keeps focus, and the → key (the story's next step) would go to the tabs
@@ -63,6 +66,12 @@ export function SimpleBar({ layout, views, onMore, onHow, kind }: SimpleBarProps
 			<div className="simplebar-views" onPointerUp={releaseFocus}>
 				{views}
 			</div>
+			{/* The code, on GitHub. On a phone the bar has no room: it is under "More" there instead. */}
+			{layout === "phone" ? null : (
+				<a className="label-button simplebar-how" href={GITHUB_URL} target="_blank" rel="noopener noreferrer">
+					GitHub repo
+				</a>
+			)}
 			{/* A link to the same deck at /slides/: a plain click opens it over this page instead. */}
 			<a
 				className="label-button simplebar-how"
