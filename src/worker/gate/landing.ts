@@ -17,13 +17,14 @@ import { BATCH_SIZE, pickBatch, taskPriority, WORKLOAD_BATCH_SIZE } from "./queu
 import type { Standing, StandingStore } from "./standing";
 import { DEFAULT_MAX_CONCURRENT, finishRederive, MAX_FAILED_REDERIVES, type RaceDeps, RederiveScheduler, type RederiveStore, type StaleEntry, type Started, startRace } from "./rederive";
 import { release } from "../ports/release";
+import { isLostRedo, nextLook, type WorkflowState } from "./lost";
 
 /**
  * Bump this when the gate's behaviour changes. `GET /api/gate` reports it, which is the only way
  * to tell that this object is running the new code after a deploy: a busy Durable Object can go
  * on running the previous version for minutes.
  */
-export const GATE_VERSION = 8;
+export const GATE_VERSION = 9;
 /** How many times the gate starts on an Intent, or tries to start its re-derive, before giving up on that attempt. */
 export const MAX_ATTEMPTS = 3;
 const RETRY_DELAY_MS = 2_000;
@@ -339,6 +340,7 @@ export class Landing extends DurableObject<Env> {
 				this.scheduler().noteStale({ intentId: orphan.intentId, priority: await this.priorityOf(orphan.intentId), since: orphan.started });
 			}
 			retry = await this.processBatch(deps);
+			await this.recoverLost();
 			await this.sweep();
 			await this.scheduler(deps).pump();
 			retry = this.requeueDeferred() || retry;
@@ -357,8 +359,9 @@ export class Landing extends DurableObject<Env> {
 			// If everything left is being held back, look again in a moment rather than at once.
 			await this.wake(retry ? RETRY_DELAY_MS : this.onlyHeldLeft ? HOLD_POLL_MS : 0);
 		} else if (running.length > 0) {
-			// Nothing to do until an agent comes back. Look again when the oldest one would be overdue.
-			await this.ctx.storage.setAlarm(Math.min(...running.map((entry) => entry.started)) + RACE_TIMEOUT_MS + 1);
+			// Nothing to do until an agent comes back. Look again in time to find a redo that was lost on its
+			// way here (lost.ts), and at the latest when the oldest one would be overdue.
+			await this.ctx.storage.setAlarm(nextLook(running, Date.now(), RACE_TIMEOUT_MS) as number);
 		}
 	}
 
@@ -613,9 +616,53 @@ export class Landing extends DurableObject<Env> {
 		}
 	}
 
+	/**
+	 * Queues the work of a redo whose agent finished and pushed but whose hand-off never reached this
+	 * queue (lost.ts). Without this, the gate waits for it until RACE_TIMEOUT_MS and then redoes it again.
+	 */
+	private async recoverLost(): Promise<void> {
+		const sql = this.ctx.storage.sql;
+		const queued = new Set(this.rows().map((row) => row.intentId));
+		for (const entry of this.rederives.running()) {
+			// The cheap checks first; the agent's Workflow is only asked about a redo that already looks lost.
+			const intent = await intentStub(this.env, entry.intentId).get().catch(() => null);
+			if (!isLostRedo(entry, intent, queued.has(entry.intentId), "complete", Date.now())) {
+				continue;
+			}
+			if (!isLostRedo(entry, intent, false, await this.workflowState(entry.intentId, entry.attempt), Date.now())) {
+				continue;
+			}
+			console.warn(`gate: the redo of ${entry.intentId} (attempt ${entry.attempt}) finished but its work never reached the queue; queueing it now`);
+			const { priority, kind } = await this.describe(entry.intentId);
+			sql.exec(
+				"INSERT INTO queue (intent_id, path, priority, enqueued_at, attempts, kind) VALUES (?, 'rederive', ?, ?, 0, ?) ON CONFLICT(intent_id) DO UPDATE SET path = 'rederive', attempts = 0",
+				entry.intentId,
+				priority,
+				Date.now(),
+				kind,
+			);
+		}
+	}
+
+	/** Where the agent's Workflow for a redo is. null if it cannot be read. */
+	private async workflowState(intentId: IntentId, attempt: number): Promise<WorkflowState | null> {
+		try {
+			const instance = await this.env.AGENT_WORKFLOW.get(workflowInstanceId(intentId, attempt));
+			try {
+				return (await instance.status()).status;
+			} finally {
+				release(instance);
+			}
+		} catch {
+			return null;
+		}
+	}
+
 	/** Counts a re-derive whose agent never came back as failed. */
 	private async sweep(): Promise<void> {
-		const overdue = this.rederives.running().filter((entry) => entry.attempt > 0 && Date.now() - entry.started > RACE_TIMEOUT_MS);
+		// A redo whose work is in the queue is not overdue: it is about to be gated (recoverLost may have just put it there).
+		const queued = new Set(this.rows().map((row) => row.intentId));
+		const overdue = this.rederives.running().filter((entry) => entry.attempt > 0 && Date.now() - entry.started > RACE_TIMEOUT_MS && !queued.has(entry.intentId));
 		for (const entry of overdue) {
 			await this.stopAgent(entry.intentId, entry.attempt);
 			await this.endRederive(entry.intentId, { landed: false, reason: "the re-derive did not finish in time" });

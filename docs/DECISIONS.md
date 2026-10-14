@@ -1207,3 +1207,8 @@ Asked for by the user: slides that match what is built, approachable, organised 
 
 - Clicking the Workload row on the board (Live tab, Demo tab, and a past run's side panel) opens the bottom details panel with one line per workload Intent: its tag (`w7_11`), what the edit does, where it got to, and, when it did not land, why ("Gave up waiting: w7_11 was changing planPrice."). A line opens that Intent's usual details, with "Back to the workload list". Pure logic in `src/ui/lib/workload.ts`, tested; the selection uses a sentinel, `WORKLOAD_LIST`, not an Intent id.
 - Workload Intents are now named by their tag everywhere (`callsign`), not by their id.
+
+### A redo whose work never reached the gate (Oct 13, night)
+
+- **Seen once on production:** Agent 11 (t11) was stopped, its rebase failed, and its redo ran, pushed and was checked; its Workflow completed. But the redo never reached the gate's queue, and the gate went on waiting for it until its 20-minute timeout. Agents 2 and 3 took the same path seconds earlier and landed. The cause is not found: nothing in the event log says where the hand-off was lost, and the Worker's error log was not readable from here.
+- **Safety net (`gate/lost.ts`, pure, tested):** while redos are running, the gate wakes every 30 seconds. A redo that has run at least a minute, whose Intent is still on that attempt with a push from that attempt's fork, whose agent Workflow has completed, and which is not queued, is put in the queue as a redo. The timeout skips a redo whose work is queued. `GATE_VERSION` is 9.
