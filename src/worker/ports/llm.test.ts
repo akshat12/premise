@@ -428,6 +428,8 @@ describe("resolveLlmConfig and getLlm", () => {
 		expect(resolveLlmConfig({ LLM: "openai", LLM_MODEL: "gpt-x", OPENAI_API_KEY: "o" })).toMatchObject({ wire: "openai-compatible", baseUrl: "https://api.openai.com/v1", model: "gpt-x", apiKey: "o" });
 		expect(resolveLlmConfig({ LLM: "google", GEMINI_API_KEY: "g" })).toMatchObject({ baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai", model: "gemini-3.5-flash-lite" });
 		expect(resolveLlmConfig({ LLM: "workers-ai", LLM_API_KEY: "cf", CLOUDFLARE_ACCOUNT_ID: "acct" })).toMatchObject({ baseUrl: "https://api.cloudflare.com/client/v4/accounts/acct/ai/v1", model: "@cf/openai/gpt-oss-120b" });
+		// The repo ships no account id: without one, Workers AI says what to set rather than calling a broken address.
+		expect(() => resolveLlmConfig({ LLM: "workers-ai", LLM_API_KEY: "cf", CLOUDFLARE_ACCOUNT_ID: "" })).toThrow(/CLOUDFLARE_ACCOUNT_ID/);
 		expect(resolveLlmConfig({ LLM: "openai-compatible", LLM_BASE_URL: "http://localhost:11434/v1/", LLM_API_KEY: "x", LLM_MODEL: "local" })).toMatchObject({ baseUrl: "http://localhost:11434/v1", model: "local" });
 		expect(getLlm({ LLM: "google", GEMINI_API_KEY: "g" })).toBeInstanceOf(OpenAiCompatibleLlm);
 		expect(Object.keys(PROVIDERS).sort()).toEqual(["anthropic", "google", "groq", "openai", "openai-compatible", "openrouter", "workers-ai"]);

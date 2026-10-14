@@ -141,6 +141,10 @@ export function resolveLlmConfig(env: LlmEnv): LlmConfig {
 		throw new Error(`LLM="${provider}" is not a known provider. Use one of: scripted, ${Object.keys(PROVIDERS).join(", ")}.`);
 	}
 
+	// Workers AI is reached through the account it runs on, and the repo ships no account id: it must be yours.
+	if (provider === "workers-ai" && !env.LLM_BASE_URL?.trim() && !env.CLOUDFLARE_ACCOUNT_ID?.trim()) {
+		throw new Error(`LLM="workers-ai" needs CLOUDFLARE_ACCOUNT_ID: your own Cloudflare account id (\`npx wrangler whoami\` prints it), in .dev.vars (local) or wrangler.jsonc's vars (deployed).`);
+	}
 	const baseUrl = (env.LLM_BASE_URL?.trim() || preset.baseUrl?.(env) || "").replace(/\/+$/, "");
 	if (baseUrl === "") {
 		throw new Error(`LLM="${provider}" needs LLM_BASE_URL (the provider's OpenAI-compatible base URL, ending before /chat/completions).`);

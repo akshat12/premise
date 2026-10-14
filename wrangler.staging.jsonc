@@ -40,7 +40,8 @@
 		"LLM": "scripted",
 		"LLM_MODEL": "claude-sonnet-5-5",
 		"MAX_CONCURRENT_REDERIVES": "3",
-		"CLOUDFLARE_ACCOUNT_ID": "53f519d000e2e5cbdae65ca50fe09a23",
+		// Only for LLM=workers-ai: your own Cloudflare account id (`npx wrangler whoami`). Empty otherwise.
+		"CLOUDFLARE_ACCOUNT_ID": "",
 		// The public copy of demo-repo/ that Artifacts imports as trunk (POST /api/admin/import-trunk).
 		"DEMO_REPO_URL": "https://github.com/akshat12/acme-accounts.git"
 	}

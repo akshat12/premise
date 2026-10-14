@@ -10,7 +10,7 @@ Needs the Workers Paid plan (Artifacts requires it) and Node 22.12 or later. A m
    npm install
    npx wrangler login
    ```
-2. In `wrangler.jsonc`, replace `CLOUDFLARE_ACCOUNT_ID` with your own account id (`npx wrangler whoami` prints it). The file ships with the author's, which will not work for you.
+2. Nothing to change for your account: `npm run deploy` deploys to whichever account `wrangler login` signed in to. (Only if you will use Workers AI as the model, put your own account id, from `npx wrangler whoami`, in `CLOUDFLARE_ACCOUNT_ID` in `wrangler.jsonc`.)
 3. Create the queue.
    ```bash
    npx wrangler queues create premise-events
