@@ -184,6 +184,12 @@ for (const embed of [...document.querySelectorAll("x-embed")]) {
 	embed.replaceWith(frame);
 }
 
+// A link on a slide opens in a tab of its own; clicking it does not also move to the next slide.
+for (const link of document.querySelectorAll("#stage a[href]")) {
+	link.target = "_blank";
+	link.rel = "noopener";
+	link.addEventListener("click", (event) => event.stopPropagation());
+}
 const stepOf = (element) => Number((element.getAttribute("data-build-in").match(/\\d+/) ?? ["0"])[0]);
 const builds = sections.map((section) => [...section.querySelectorAll("[data-build-in]")]);
 const last = builds.map((list) => Math.max(0, ...list.map(stepOf)));

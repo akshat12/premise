@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 
 /** How long the details panel takes to slide away (theme.css, `drawer-out`). */
 export const DRAWER_OUT_MS = 170;
+/** How long a past run's side panel takes to slide in (theme.css, `.past-run`). */
+export const PANEL_IN_MS = 280;
 /** How long a past run's side panel takes to slide away (theme.css, `past-run-out`). */
 export const PANEL_OUT_MS = 190;
 

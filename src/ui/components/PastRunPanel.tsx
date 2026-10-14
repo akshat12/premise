@@ -13,7 +13,7 @@ import { callsign, lanesOf, layoutFor, OUTSIDE } from "../lib/view";
 import { Drawer } from "./Drawer";
 import { WorkloadList } from "./WorkloadList";
 import { WORKLOAD_LIST, workloadLines } from "../lib/workload";
-import { DRAWER_OUT_MS, useEntered, usePresence } from "../lib/usePresence";
+import { DRAWER_OUT_MS, PANEL_IN_MS, useEntered, usePresence } from "../lib/usePresence";
 import { TapeView } from "./TapeView";
 
 interface PastRunPanelProps {
@@ -45,6 +45,15 @@ export function PastRunPanel({ run, onClose, onDelete, leaving = false }: PastRu
 	const keep = useRef<HTMLButtonElement | null>(null);
 	// It slides in from off-screen on its first frames (useEntered), and back out while `leaving`.
 	const entered = useEntered();
+	// The run's timeline is drawn once the panel has slid in: drawing a whole run mid-slide drops frames.
+	const [settled, setSettled] = useState(false);
+	useEffect(() => {
+		if (!entered) {
+			return;
+		}
+		const timer = setTimeout(() => setSettled(true), PANEL_IN_MS);
+		return () => clearTimeout(timer);
+	}, [entered]);
 	useEffect(() => {
 		if (confirming) {
 			keep.current?.focus();
@@ -117,7 +126,7 @@ export function PastRunPanel({ run, onClose, onDelete, leaving = false }: PastRu
 		}
 	};
 
-	const all = events ?? [];
+	const all = settled ? (events ?? []) : [];
 	const at = position ?? all.length;
 	const shown = useMemo(() => all.slice(0, at), [all, at]);
 	const state = useMemo(() => reduceAll(shown), [shown]);
@@ -152,7 +161,7 @@ export function PastRunPanel({ run, onClose, onDelete, leaving = false }: PastRu
 						<p className="label past-run-kicker">
 							A past live run · {run.when} · started by {run.by}
 						</p>
-						<h2>{events === null ? (failed ? (run.replay === null ? "Only this run's line was kept, not its events." : "This run is not in the Worker's record any more.") : "Reading the run…") : (ending?.title ?? "The run, as it ended.")}</h2>
+						<h2>{events === null || (!settled && !failed) ? (failed ? (run.replay === null ? "Only this run's line was kept, not its events." : "This run is not in the Worker's record any more.") : "Reading the run…") : (ending?.title ?? "The run, as it ended.")}</h2>
 					</div>
 					{run.replay !== null ? (
 						<a className="past-run-story" href={`/?run=${run.id}`}>
@@ -191,7 +200,7 @@ export function PastRunPanel({ run, onClose, onDelete, leaving = false }: PastRu
 					</div>
 				</dl>
 				<div className="past-run-body">
-					{events !== null ? (
+					{events !== null && settled ? (
 						<>
 							<p className="past-run-hint">{at === all.length ? "This is the run at its end. Click or drag along the time axis to see any earlier moment; click a row for what that agent changed." : "An earlier moment of the run."} {at === all.length ? null : <button type="button" className="plane-link past-run-end" onClick={() => setPosition(null)}>Back to the end</button>}</p>
 							<TapeView tape={tape} workload={lanes.workload} layout={layout} selected={selected} onSelect={(id) => setSelected((now) => (now === id ? null : id))} live={false} ended={at === all.length} total={total} onSeek={(ms) => setPosition(positionAt(all, ms))} notes={story?.notes ?? {}} />
