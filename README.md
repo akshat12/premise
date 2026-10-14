@@ -133,7 +133,7 @@ Little here is new on its own. The parts are borrowed, and the combination is th
 Needs Node 22.12 or later (22 or 24). No Cloudflare account and no model key:
 
 ```bash
-git clone <this repo> premise && cd premise
+git clone https://github.com/akshat12/premise.git && cd premise
 npm install
 cp local.vars.example .dev.vars    # in-memory repos, scripted agents, a local admin token
 npm run dev:local                  # http://localhost:5173

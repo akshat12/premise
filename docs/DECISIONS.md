@@ -1198,3 +1198,5 @@ Asked for by the user: slides that match what is built, approachable, organised 
 - The first-visit card no longer names a number of slides.
 
 - **Oct 13, late:** the read-aloud script was trimmed to the main points at the user's request, from about 1,305 spoken words to about 1,010 (about 7:40 at 150 words a minute with the presses and site visits). Every press and every bracketed action is kept; the disclosures (scripted agents, the planted break, Premise being slowest, the live-model result) are kept. The slide notes and the captions on `/slides/` follow it.
+
+- **Oct 14:** the repo is public at https://github.com/akshat12/premise (the name the checklist suggested), `main` only. A scan of the tracked files and the whole history before the push found no secrets: only the placeholder admin tokens. The address is in the README's clone line, the shot list and the closing slide.

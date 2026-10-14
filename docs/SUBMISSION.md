@@ -22,8 +22,8 @@ Four reviewer passes on Oct 11 led to changes in the gate, the comparison and th
 
 | | Item | Owner | When | Link or command |
 |---|---|---|---|---|
-| [ ] | **Publish this repo publicly on GitHub.** It has no remote yet. Decide the name (suggested: `premise`). Scans on Oct 10 and Oct 12 found no secrets in the tracked files or in the history (only the local test token, which is meant to be there; the Cloudflare account id in the `wrangler*.jsonc` files is an identifier, not a secret). | Akshat decides; Claude can do this | Mon Oct 12 | `gh repo create premise --public --source . --push` |
-| [ ] | Put the repo address in the README's clone line, in `docs/video/shot-list.md` (shot 11) and in the end-frame address. | Akshat; Claude can do this | Mon Oct 12 | `README.md`, `docs/video/end-frame.html?repo=…` |
+| [x] | **Publish this repo publicly on GitHub.** Done Oct 14: <https://github.com/akshat12/premise>. It has no remote yet. Decide the name (suggested: `premise`). Scans on Oct 10 and Oct 12 found no secrets in the tracked files or in the history (only the local test token, which is meant to be there; the Cloudflare account id in the `wrangler*.jsonc` files is an identifier, not a secret). | Akshat decides; Claude can do this | Mon Oct 12 | `gh repo create premise --public --source . --push` |
+| [x] | Put the repo address in the README's clone line, in `docs/video/shot-list.md` (shot 11) and in the end-frame address. | Akshat; Claude can do this | Mon Oct 12 | `README.md`, `docs/video/end-frame.html?repo=…` |
 | [ ] | Create the two event subscriptions on the deployed Worker's queue (the demo does not depend on them; the "pushes from outside the gate" path does). Optional. | Akshat | Tue Oct 13 | The two `wrangler queues subscription create` commands in `README.md`, step 7 |
 | [ ] | Dry run: every box in `docs/video/dry-run.md` down to "The read". | Akshat | Mon Oct 12 | [dry-run.md](video/dry-run.md) |
 | [ ] | Read the script aloud once against `/?demo=main`; it comes to about 6:20, and must not be under 5:00. | Akshat | Mon Oct 12 | [script.md](video/script.md), [shot-list.md](video/shot-list.md) |
