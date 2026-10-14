@@ -35,7 +35,7 @@ Premise is a Git platform, built on [Cloudflare Workers](https://developers.clou
 
 No install and no account needed.
 
-| | |
+| Tab | What you see |
 |---|---|
 | **[Demo](https://premise.akshatdivekar.workers.dev/)** | A real run of four agents on Cloudflare, told in seven steps. Press **Next**. |
 | **[Live](https://premise.akshatdivekar.workers.dev/?live)** | Press **Start a run** to watch twelve agents work on real Cloudflare Artifacts (three to four minutes). |
