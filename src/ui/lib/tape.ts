@@ -543,8 +543,9 @@ export function advanceTape(tape: Tape, now: number): Tape {
  */
 export function followClock(tape: Tape, now: number, shownSpan?: number): Tape {
 	const at = Math.max(now, tape.now);
-	// `shownSpan` is the axis on its way to a wider one (see `easeSpan`); it is never narrower than the tape's own.
-	const span = shownSpan === undefined ? Math.max(tape.span, spanFor(at)) : Math.max(tape.span, shownSpan);
+	// `shownSpan` is the axis on its way to a wider one (see `easeSpan`). It wins over the tape's own, which a new
+	// event may already have widened (that would cut the easing short), as long as it still has room for `now`.
+	const span = shownSpan !== undefined && shownSpan >= at ? shownSpan : Math.max(tape.span, spanFor(at));
 	return advanceTape(span === tape.span ? tape : { ...tape, span, ticks: ticksFor(span) }, at);
 }
 

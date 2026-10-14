@@ -461,9 +461,12 @@ describe("easeSpan", () => {
 		expect(easeSpan(60_000, 60_000, 16)).toBe(60_000);
 	});
 
-	it("never shows an axis narrower than the tape's own", () => {
-		const tape = { rows: [], landings: [], breaks: [], cuts: [], workload: null, now: 80_000, span: 90_000, ticks: ticksFor(90_000) } as Tape;
-		expect(followClock(tape, 85_000, 60_000).span).toBe(90_000);
-		expect(followClock(tape, 85_000, 100_000).span).toBe(100_000);
+	it("keeps the easing axis even when a new event has already widened the tape's own, but never one too narrow for now", () => {
+		// An event arrived mid-easing: the rebuilt tape has the wider axis already. The easing goes on from where it was.
+		const rebuilt = { rows: [], landings: [], breaks: [], cuts: [], workload: null, now: 86_000, span: 180_000, ticks: ticksFor(180_000) } as Tape;
+		expect(followClock(rebuilt, 87_000, 100_000).span).toBe(100_000);
+		// An axis that cannot hold "now" is never shown.
+		expect(followClock(rebuilt, 87_000, 60_000).span).toBe(180_000);
+		expect(followClock(rebuilt, 87_000).span).toBe(180_000);
 	});
 });
