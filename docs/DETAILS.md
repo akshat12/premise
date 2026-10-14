@@ -18,7 +18,7 @@ The case the demo is built around, with four agents (the page calls them Agent 1
 
 ## What the comparison shows, and what it does not
 
-The same 12 tasks and 100 scripted workload Intents, landed under three rules, on seeds 7, 11 and 23, on the deployed Worker and real Artifacts (2026-10-12, on the build that is deployed now). The first two rules are comparisons; the middle one is the fair one.
+The same 12 tasks and 100 scripted workload Intents, landed under three rules, on seeds 7, 11 and 23, on the deployed Worker and real Artifacts (2026-10-12, on the build that is deployed now). The first two rules are what Premise is compared against; of those, the queue that also runs tests is the fair comparison.
 
 | | Typecheck only | Queue that also runs tests | Premise |
 |---|---|---|---|

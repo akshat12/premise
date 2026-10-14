@@ -47,7 +47,7 @@ No install and no account needed.
 
 ## Run it on your computer
 
-You need [Node.js](https://nodejs.org/) 22.12 or later. You do **not** need a Cloudflare account or an AI key: locally, the code is held in memory and the agents replay scripted turns.
+You need [Node.js](https://nodejs.org/) 22 (22.12 or later) or 24. You do **not** need a Cloudflare account or an AI key: locally, the code is held in memory and the agents replay scripted turns.
 
 **1. Get the code and install**
 
@@ -72,7 +72,9 @@ It prints an address, usually <http://localhost:5173>. Open it to see the demo.
 npm run demo -- --no-open
 ```
 
-Then open <http://localhost:5173/?live> to watch it. Locally a run takes about fifteen seconds. You can also press **Start a run** on the Live tab instead.
+Then open <http://localhost:5173/?live> to watch it. Locally a run takes about fifteen seconds. (The script also prints a link ending in `&admin`: that shows the owner's tools, which are harmless on your own machine.)
+
+You can also press **Start a run** on the Live tab instead. After a run, that button waits about three minutes before it can start another; `npm run demo` can start one at any time.
 
 > **If it printed a different port** (for example `http://localhost:5174`), use that port in the addresses above, and run the demo with it: `npm run demo -- --no-open --url http://localhost:5174`.
 
@@ -83,7 +85,7 @@ npm test             # about 1,090 tests, two to three minutes
 npm run typecheck
 ```
 
-While the tests run you will see many lines saying "uncaught exception … canceled this request". That is expected: some tests start background work and then abandon it. The summary at the end is what counts.
+While the tests run you will see many error-looking lines, such as "uncaught exception … canceled this request", "Aborting engine: User called terminate" and "Workflow instance … terminated". That is expected: some tests start background work and then stop it on purpose. The summary at the end is what counts.
 
 ## Deploy your own
 
