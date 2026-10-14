@@ -34,7 +34,7 @@ import { useLiveStatus } from "./lib/useLiveStatus";
 import { stepAt, storyFor } from "./lib/story";
 import { replayOffsets, timeAtClock } from "./lib/stream";
 import { fetchPastRun } from "./lib/pastRun";
-import { advanceTape, followClock, buildTape, positionAt } from "./lib/tape";
+import { advanceTape, buildTape, easeSpan, followClock, positionAt, spanFor } from "./lib/tape";
 import { callsign, lanesOf, layoutFor, OUTSIDE } from "./lib/view";
 
 // Not /api/events/ws, which ad blockers refuse (see BOARD_HISTORY in worker/routes/events.ts).
@@ -283,7 +283,8 @@ export function App() {
 			learn(control.now - Date.now());
 		}
 	}, [mode, control.now, control.status]);
-	const [liveNow, setLiveNow] = useState(0);
+	const [liveClock, setLiveClock] = useState<{ start: number; now: number; span: number } | null>(null);
+	const builtSpan = builtTape.span;
 	// Only while something on the board is still moving. Once every Intent is at rest, "now" is the last event.
 	const liveGliding = mode === "live" && runStart !== undefined && !runOver(state.intents);
 	useEffect(() => {
@@ -291,16 +292,27 @@ export function App() {
 			return;
 		}
 		let frame = 0;
-		const step = () => {
+		let last = performance.now();
+		// When "now" needs a wider axis, it widens over a moment rather than in one frame (easeSpan).
+		let span = 0;
+		const step = (time: number) => {
 			if (lead.current !== null) {
-				setLiveNow(Date.now() + lead.current - runStart);
+				const now = Date.now() + lead.current - runStart;
+				span = span === 0 ? Math.max(builtSpanRef.current, spanFor(now)) : easeSpan(span, Math.max(builtSpanRef.current, spanFor(now)), time - last);
+				setLiveClock({ start: runStart, now, span });
 			}
+			last = time;
 			frame = requestAnimationFrame(step);
 		};
 		frame = requestAnimationFrame(step);
 		return () => cancelAnimationFrame(frame);
 	}, [liveGliding, runStart]);
-	const tape = useMemo(() => (gliding ? advanceTape(builtTape, glide) : liveGliding ? followClock(builtTape, liveNow) : builtTape), [builtTape, gliding, glide, liveGliding, liveNow]);
+	const builtSpanRef = useRef(builtSpan);
+	builtSpanRef.current = builtSpan;
+	const tape = useMemo(
+		() => (gliding ? advanceTape(builtTape, glide) : liveGliding && liveClock !== null && liveClock.start === runStart ? followClock(builtTape, liveClock.now, liveClock.span) : builtTape),
+		[builtTape, gliding, glide, liveGliding, liveClock, runStart],
+	);
 
 	// A new recording opens held on the story's first step. Coming back from the Live tab is the same
 	// recording started again by the stream (it shows nothing until told where to be), and it goes back

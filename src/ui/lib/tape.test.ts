@@ -4,7 +4,7 @@ import liveRun from "../../../demo/runs/live.json";
 import recording from "../fixtures/run-2026-10-09.json";
 import { readRecording } from "./recording";
 import { reduceAll } from "./reduce";
-import { buildTape, clock, positionAt, reliesOn, spanFor, ticksFor, advanceTape, followClock, type Tape, zoomTape } from "./tape";
+import { buildTape, clock, positionAt, reliesOn, spanFor, ticksFor, advanceTape, easeSpan, followClock, SPAN_EASE_MS, type Tape, zoomTape } from "./tape";
 
 const run = recording as PremiseEvent[];
 const tapeAt = (count: number) => {
@@ -439,5 +439,31 @@ describe("followClock", () => {
 		// A new event arrives: the tape is built at the event's time, which is behind the clock. The axis must not narrow.
 		const rebuilt = { ...open, now: 50_000, span: spanFor(50_000), ticks: ticksFor(spanFor(50_000)) };
 		expect(followClock(rebuilt, 100_000).span).toBe(spanFor(100_000));
+	});
+});
+
+describe("easeSpan", () => {
+	it("widens most of the way within the easing time, then lands exactly, and never overshoots", () => {
+		let span = 90_000;
+		const target = 120_000;
+		const seen: number[] = [];
+		for (let frame = 0; frame < 60; frame++) {
+			span = easeSpan(span, target, 1000 / 60);
+			seen.push(span);
+		}
+		expect(seen.every((value, index) => value <= target && (index === 0 || value >= (seen[index - 1] as number)))).toBe(true);
+		expect(seen[Math.round((SPAN_EASE_MS / 1000) * 60)]).toBeGreaterThan(90_000 + 0.9 * 30_000);
+		expect(seen.at(-1)).toBe(target);
+	});
+
+	it("takes a narrower axis at once (a new run), and stays put when already there", () => {
+		expect(easeSpan(180_000, 60_000, 16)).toBe(60_000);
+		expect(easeSpan(60_000, 60_000, 16)).toBe(60_000);
+	});
+
+	it("never shows an axis narrower than the tape's own", () => {
+		const tape = { rows: [], landings: [], breaks: [], cuts: [], workload: null, now: 80_000, span: 90_000, ticks: ticksFor(90_000) } as Tape;
+		expect(followClock(tape, 85_000, 60_000).span).toBe(90_000);
+		expect(followClock(tape, 85_000, 100_000).span).toBe(100_000);
 	});
 });

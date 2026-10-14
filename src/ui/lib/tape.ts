@@ -541,10 +541,27 @@ export function advanceTape(tape: Tape, now: number): Tape {
  * `now` itself would get, so a new event (which builds the tape again, at an earlier "now") never
  * narrows it back. Never moves time backwards. Pure.
  */
-export function followClock(tape: Tape, now: number): Tape {
+export function followClock(tape: Tape, now: number, shownSpan?: number): Tape {
 	const at = Math.max(now, tape.now);
-	const span = Math.max(tape.span, spanFor(at));
+	// `shownSpan` is the axis on its way to a wider one (see `easeSpan`); it is never narrower than the tape's own.
+	const span = shownSpan === undefined ? Math.max(tape.span, spanFor(at)) : Math.max(tape.span, shownSpan);
 	return advanceTape(span === tape.span ? tape : { ...tape, span, ticks: ticksFor(span) }, at);
+}
+
+/** How long the axis takes, roughly, to widen to a new span: quick, but not a jump. */
+export const SPAN_EASE_MS = 450;
+
+/**
+ * One frame of the axis widening from `shown` towards `target`, `dtMs` after the last: it closes
+ * most of the gap in SPAN_EASE_MS, then lands on it exactly. It only ever widens; a narrower target
+ * (a new run) is taken at once. Pure.
+ */
+export function easeSpan(shown: number, target: number, dtMs: number): number {
+	if (target <= shown) {
+		return target;
+	}
+	const next = shown + (target - shown) * (1 - Math.exp((-3 * Math.max(0, dtMs)) / SPAN_EASE_MS));
+	return target - next < 50 ? target : next;
 }
 
 /** A run longer than this is offered a closer view: on the whole-run axis its short bars are too thin to read. */
