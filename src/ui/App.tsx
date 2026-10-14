@@ -11,7 +11,7 @@ import { SlidesCard, SlidesOverlay } from "./components/Slides";
 import { WorkloadList } from "./components/WorkloadList";
 import { WORKLOAD_LIST, workloadLines } from "./lib/workload";
 import { DRAWER_OUT_MS, usePresence } from "./lib/usePresence";
-import { browserMemory, isFirstVisit, rememberVisit } from "./lib/firstVisit";
+import { browserMemory, dismissPhoneNote, isFirstVisit, phoneNoteDismissed, rememberVisit } from "./lib/firstVisit";
 import { DispatchPanel } from "./components/DispatchPanel";
 import { Drawer } from "./components/Drawer";
 import { HumanCards } from "./components/HumanCards";
@@ -129,6 +129,8 @@ export function App() {
 	const [tab, setTab] = useState<Tab>(startTab);
 	// The slides that explain Premise, opened over the page; and the card that offers them, once, on a first visit.
 	const [slidesOpen, setSlidesOpen] = useState(false);
+	// The phone note ("best viewed on a computer"), once dismissed, stays dismissed.
+	const [phoneNoteGone, setPhoneNoteGone] = useState(() => phoneNoteDismissed(browserMemory()));
 	const [slidesCard, setSlidesCard] = useState(() => isFirstVisit(browserMemory(), window.location.search));
 	useEffect(() => {
 		// Shown is shown: the next visit does not get the card, whether or not this one answered it.
@@ -604,6 +606,23 @@ export function App() {
 	return (
 		<div className="flex h-full flex-col" style={wide ? { minWidth: 1280 } : undefined}>
 			<SimpleBar layout={layout} views={tabs} onMore={() => setPaletteOpen(true)} onHow={openSlides} {...(runKind === undefined ? {} : { kind: runKind })} />
+			{/* On a phone the site works, but the timeline is made for a wide screen: say so once, and let it be dismissed. */}
+			{layout === "phone" && !phoneNoteGone ? (
+				<p className="phone-note" role="note">
+					<span>Best viewed on a computer: the timeline is made for a wide screen.</span>
+					<button
+						type="button"
+						className="phone-note-dismiss"
+						aria-label="Dismiss this note"
+						onClick={() => {
+							dismissPhoneNote(browserMemory());
+							setPhoneNoteGone(true);
+						}}
+					>
+						Dismiss
+					</button>
+				</p>
+			) : null}
 			{storied && story !== null ? (
 				<StoryBar steps={story.steps} index={stepIndex} playing={!paused && chase === null} moving={chase !== null} onStep={goToStep} onPlay={playThrough} onPause={() => setPaused(true)} onRestart={() => goToStep(0)} />
 			) : null}

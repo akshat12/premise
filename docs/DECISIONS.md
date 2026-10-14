@@ -1242,3 +1242,4 @@ Asked for by the user: slides that match what is built, approachable, organised 
 - **Oct 14:** the deck ends on "Demo" (16 slides; "Thank you" removed). The take ends in the browser with the closing lines, so there is no switch back to the slides; the Demo slide carries the name and the GitHub link.
 
 - **Oct 14:** a slide after "Agents", "Two kinds of Intent", says plainly what agent Intents and workload Intents are (the deck is 17 slides again, ending on Demo), with a matching paragraph in the script. The top bar has a "GitHub repo" link to the public repo (under More on a phone, where the bar has no room).
+- **Then:** on a phone only, a slim note under the top bar says "Best viewed on a computer: the timeline is made for a wide screen", with Dismiss; once dismissed it stays away (remembered in the browser). Desktop never shows it.

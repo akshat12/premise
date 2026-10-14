@@ -2785,3 +2785,37 @@ button.tape-label:focus-visible {
 		font-size: 13px;
 	}
 }
+
+/* ---- Phones: one line saying the site is made for a wide screen, until it is dismissed ---- */
+.phone-note {
+	display: flex;
+	flex: none;
+	align-items: center;
+	gap: 12px;
+	margin: 0;
+	padding: 8px 12px;
+	border-bottom: 1px solid var(--rule);
+	background: #fff4ec;
+	color: var(--ink);
+	font-size: 13px;
+	line-height: 1.4;
+}
+.phone-note span {
+	flex: 1;
+	min-width: 0;
+}
+.phone-note-dismiss {
+	flex: none;
+	padding: 4px 10px;
+	border: 1px solid var(--rule-strong);
+	border-radius: 6px;
+	background: var(--surface);
+	color: var(--ink);
+	font: inherit;
+	font-size: 12px;
+	cursor: pointer;
+}
+.phone-note-dismiss:focus-visible {
+	outline: 2px solid var(--bluestamp);
+	outline-offset: 2px;
+}

@@ -38,3 +38,24 @@ export function browserMemory(): Memory | null {
 		return null;
 	}
 }
+
+/** Where the browser remembers that the phone note ("best viewed on a computer") was dismissed. */
+export const PHONE_NOTE_KEY = "premise.phone-note-dismissed";
+
+/** Whether the phone note was dismissed before. Unreadable storage counts as not dismissed: the note is small. */
+export function phoneNoteDismissed(memory: Memory | null): boolean {
+	try {
+		return memory?.getItem(PHONE_NOTE_KEY) !== null && memory !== null;
+	} catch {
+		return false;
+	}
+}
+
+/** Remembers that the phone note was dismissed. */
+export function dismissPhoneNote(memory: Memory | null): void {
+	try {
+		memory?.setItem(PHONE_NOTE_KEY, "1");
+	} catch {
+		// Not remembered: it shows again on the next visit, which is harmless.
+	}
+}
