@@ -151,7 +151,7 @@ Under the hood, Premise is one Worker on Cloudflare. Code lives in Artifacts, an
 
 ### Slide 18 · Scaling up
 
-It is a prototype, but already shaped for many agents: a fork per Intent, a ledger split by module, and stops that reach only the agents affected. Next would be many gates instead of one, each checking only what a change can reach. That part is a design, not a measurement.
+It is a prototype, but already shaped for many agents: a fork per Intent, a ledger split by module, and stops that reach only the agents affected. Next would be many gates instead of one, each checking only what a change can reach, and a UI that stays readable when agents run for hours or days. That part is a design, not a measurement.
 
 **[NEXT SLIDE]**
 
