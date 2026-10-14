@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Builds the deck as one self-contained page the Premise site serves at /slides/: every slide,
-its builds stepped through one press at a time, and under each step the words the read-aloud
-script says there (taken from the slide's <aside>), so the deck reads without a narrator.
+its builds stepped through one press at a time. The speaker notes (each slide's <aside>) stay
+out of it: the read-aloud script is for the person recording, not for someone reading the deck.
 
     python3 -I build_player.py <root> <out.html>
 
@@ -9,7 +9,6 @@ script says there (taken from the slide's <aside>), so the deck reads without a 
 renderer of the slide format, not the Slides page: icons are stand-ins from another icon set.
 Run it again after any slide changes (npm run slides).
 """
-import html
 import json
 import re
 import sys
@@ -22,28 +21,8 @@ order = [slide for slide in deck["order"] if (root / f"project/slides/{slide}.ht
 sources = [(root / f"project/slides/{slide}.html").read_text() for slide in order]
 links = "\n".join(f'<link rel="stylesheet" href="{face["href"]}">' for face in deck.get("faces", {}).values() if "href" in face)
 
-
-def captions(source: str) -> list[str]:
-    """One caption for each step of a slide: the notes, cut at each [→], with the actions for the person recording taken out."""
-    found = re.search(r"<aside>(.*?)</aside>", source, flags=re.S)
-    notes = html.unescape(found.group(1)) if found else ""
-    # What is said while the browser is on screen describes the site, not this slide.
-    notes = re.sub(r"\[SWITCH TO THE BROWSER.*?\[BACK TO THE SLIDES[^\]]*\]", "", notes, flags=re.S)
-    parts = [re.sub(r"\[[^\]]*\]", "", part) for part in notes.split("[→]")]
-    return [" ".join(part.split()) for part in parts]
-
-
-def steps(source: str) -> int:
-    return max([int(n) for n in re.findall(r'data-build-in="[a-z]+ (\d+)"', source)] or [0])
-
-
-told = []
-for slide, source in zip(order, sources):
-    lines = captions(source)
-    if len(lines) != steps(source) + 1:
-        print(f"{slide}: {len(lines)} captions for {steps(source) + 1} steps; the whole of its notes is shown on every step")
-        lines = [" ".join(lines)]
-    told.append(lines)
+# The speaker notes are left out of the page altogether, not just hidden.
+sources = [re.sub(r"\s*<aside>.*?</aside>", "", source, flags=re.S) for source in sources]
 
 page = """<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
@@ -80,8 +59,7 @@ section svg { display: block; flex: none; }
 [data-build-in^="pop"].later { scale: 0.88; }
 @media (prefers-reduced-motion: reduce) { [data-build-in] { transition: none; } }
 #bar { position: absolute; left: 0; right: 0; bottom: 0; display: flex; align-items: center; gap: 16px; padding: 10px 16px; box-sizing: border-box; background: #14181d; border-top: 1px solid #2c333b; }
-#said { flex: 1; min-width: 0; margin: 0; font-size: 17px; line-height: 1.4; color: #e6e8e4; }
-#count { flex: none; display: flex; align-items: center; gap: 6px; font-family: 'Atkinson Hyperlegible Mono', 'Courier New', monospace; font-size: 13px; letter-spacing: 1px; color: #b6beb8; white-space: nowrap; }
+#count { flex: none; margin-right: auto; display: flex; align-items: center; gap: 6px; font-family: 'Atkinson Hyperlegible Mono', 'Courier New', monospace; font-size: 13px; letter-spacing: 1px; color: #b6beb8; white-space: nowrap; }
 /* The slide number can be typed over: Enter goes to that slide. */
 #jump { width: 3.2em; box-sizing: border-box; padding: 4px 6px; font: inherit; color: #f3f4f2; text-align: right; background: #232a31; border: 1px solid #3a424b; border-radius: 6px; }
 #jump:hover { border-color: #8d9690; }
@@ -98,7 +76,6 @@ section svg { display: block; flex: none; }
 }
 @media (max-width: 720px) {
 	#bar { flex-wrap: wrap; gap: 8px; padding: 8px 12px; }
-	#said { flex-basis: 100%; font-size: 15px; }
 	#count { flex: 1; }
 }
 </style></head><body>
@@ -106,7 +83,6 @@ section svg { display: block; flex: none; }
 __SLIDES__
 </div></div>
 <div id="bar">
-<p id="said" aria-live="polite"></p>
 <label id="count" title="Type a slide number and press Enter"><span class="sr" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">Slide</span><input id="jump" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="3" autocomplete="off" aria-label="Slide number. Type one and press Enter to go there."><span id="total"></span></label>
 <button id="back" type="button" aria-label="Back one step">Back</button>
 <button id="next" type="button" aria-label="Next step">Next</button>
@@ -114,7 +90,6 @@ __SLIDES__
 </div>
 <script>
 const ICONS = __ICONS__;
-const SAID = __SAID__;
 const px = (value) => (value == null || value === "" ? null : parseFloat(value));
 const sections = [...document.querySelectorAll("#stage > section")];
 
@@ -200,7 +175,7 @@ const builds = sections.map((section) => [...section.querySelectorAll("[data-bui
 const last = builds.map((list) => Math.max(0, ...list.map(stepOf)));
 const embedded = new URLSearchParams(location.search).has("embed");
 const room = document.getElementById("room"), stage = document.getElementById("stage"), bar = document.getElementById("bar");
-const said = document.getElementById("said"), jump = document.getElementById("jump"), total = document.getElementById("total");
+const jump = document.getElementById("jump"), total = document.getElementById("total");
 const back = document.getElementById("back"), next = document.getElementById("next"), leave = document.getElementById("leave");
 let slide = 0, step = 0;
 
@@ -210,8 +185,6 @@ const show = (fresh) => {
 	for (const element of builds[slide]) element.classList.toggle("later", stepOf(element) > step);
 	// A slide just opened shows its first picture at once: only a step taken on it animates.
 	if (fresh) { void stage.offsetWidth; }
-	const lines = SAID[slide];
-	said.textContent = lines.length === 1 ? lines[0] : lines[step] ?? "";
 	if (document.activeElement !== jump) jump.value = String(slide + 1);
 	total.textContent = `/ ${sections.length}`;
 	back.disabled = slide === 0 && step === 0;
@@ -277,5 +250,5 @@ addEventListener("resize", place);
 </script></body></html>
 """
 out.parent.mkdir(parents=True, exist_ok=True)
-out.write_text(page.replace("__LINKS__", links).replace("__SLIDES__", "\n".join(sources)).replace("__ICONS__", json.dumps(icons)).replace("__SAID__", json.dumps(told, ensure_ascii=False)))
+out.write_text(page.replace("__LINKS__", links).replace("__SLIDES__", "\n".join(sources)).replace("__ICONS__", json.dumps(icons)))
 print(f"{out}: {len(order)} slides, {out.stat().st_size // 1024} KB")
