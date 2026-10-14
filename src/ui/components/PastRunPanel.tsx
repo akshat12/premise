@@ -13,6 +13,7 @@ import { callsign, lanesOf, layoutFor, OUTSIDE } from "../lib/view";
 import { Drawer } from "./Drawer";
 import { WorkloadList } from "./WorkloadList";
 import { WORKLOAD_LIST, workloadLines } from "../lib/workload";
+import { DRAWER_OUT_MS, useEntered, usePresence } from "../lib/usePresence";
 import { TapeView } from "./TapeView";
 
 interface PastRunPanelProps {
@@ -21,6 +22,8 @@ interface PastRunPanelProps {
 	onClose: () => void;
 	/** The owner's: removes this run from the record for good. It rejects with what went wrong. Absent for a visitor. */
 	onDelete?: () => Promise<void>;
+	/** It has been closed and is sliding away (see usePresence). */
+	leaving?: boolean;
 }
 
 /**
@@ -29,7 +32,7 @@ interface PastRunPanelProps {
  * dragged back to any earlier moment. A row opens the same details panel as on the Demo tab, with
  * what that Intent changed as it landed on the run's trunk.
  */
-export function PastRunPanel({ run, onClose, onDelete }: PastRunPanelProps) {
+export function PastRunPanel({ run, onClose, onDelete, leaving = false }: PastRunPanelProps) {
 	const [events, setEvents] = useState<PremiseEvent[] | null>(null);
 	const [failed, setFailed] = useState(false);
 	// How many of the run's events are on screen. null is "all of them": where it opens.
@@ -40,6 +43,8 @@ export function PastRunPanel({ run, onClose, onDelete }: PastRunPanelProps) {
 	const [deleting, setDeleting] = useState(false);
 	const [refused, setRefused] = useState<string | null>(null);
 	const keep = useRef<HTMLButtonElement | null>(null);
+	// It slides in from off-screen on its first frames (useEntered), and back out while `leaving`.
+	const entered = useEntered();
 	useEffect(() => {
 		if (confirming) {
 			keep.current?.focus();
@@ -129,10 +134,17 @@ export function PastRunPanel({ run, onClose, onDelete }: PastRunPanelProps) {
 	};
 	const named = (text: string) => text.replace(/\bi[0-9a-z]{8}\b/g, (id) => (state.intents[id] ? callsignOf(id) : id)).replace(/\bintent ((?:T\d+|Agent \d+) )/g, "$1");
 	const ending = story?.steps.at(-1);
-	const workloadList = selected === WORKLOAD_LIST ? workloadLines(state.intents, callsignOf) : [];
+	// Its details panel slides away when closed, as on the board (usePresence).
+	const drawer = usePresence(selectedIntent !== undefined || selected === WORKLOAD_LIST ? selected : null, DRAWER_OUT_MS);
+	const drawnIntent = drawer.shown === null || drawer.shown === WORKLOAD_LIST ? undefined : state.intents[drawer.shown];
+	const drawnDiff = useRef(diff);
+	if (!drawer.leaving) {
+		drawnDiff.current = diff;
+	}
+	const workloadList = drawer.shown === WORKLOAD_LIST ? workloadLines(state.intents, callsignOf) : [];
 
 	return (
-		<div className="past-run-layer">
+		<div className="past-run-layer" data-shown={entered && !leaving} data-leaving={leaving} aria-hidden={leaving || undefined}>
 			<button type="button" className="past-run-scrim" aria-label="Close the run" onClick={onClose} />
 			<div ref={panel} className="past-run" role="dialog" aria-modal="true" aria-label={`The live run from ${run.when}`} tabIndex={-1} onKeyDown={onKeyDown}>
 				<header className="past-run-head">
@@ -209,7 +221,7 @@ export function PastRunPanel({ run, onClose, onDelete }: PastRunPanelProps) {
 						</div>
 					</div>
 				) : null}
-				{selectedIntent || selected === WORKLOAD_LIST ? <Drawer intent={selectedIntent} {...(selected === WORKLOAD_LIST ? { listing: { title: "Workload", sentence: `${workloadList.length} scripted Intents: small pre-written edits, with no agent and no model. Each goes through the ledger and the gate like an agent's work. Click one for its details.`, content: <WorkloadList lines={workloadList} onSelect={setSelected} /> } } : {})} {...(selectedIntent?.kind === "workload" ? { onBack: () => setSelected(WORKLOAD_LIST) } : {})} events={shown} callsignOf={callsignOf} named={named} diff={diff} changesFrom="past-run" layout={layout} onSelect={setSelected} onClose={() => setSelected(null)} /> : null}
+				{drawer.shown !== null && (drawnIntent !== undefined || drawer.shown === WORKLOAD_LIST) ? <Drawer intent={drawnIntent} leaving={drawer.leaving} {...(drawer.shown === WORKLOAD_LIST ? { listing: { title: "Workload", sentence: `${workloadList.length} scripted Intents: small pre-written edits, with no agent and no model. Each goes through the ledger and the gate like an agent's work. Click one for its details.`, content: <WorkloadList lines={workloadList} onSelect={setSelected} /> } } : {})} {...(drawnIntent?.kind === "workload" ? { onBack: () => setSelected(WORKLOAD_LIST) } : {})} events={shown} callsignOf={callsignOf} named={named} diff={drawnDiff.current} changesFrom="past-run" layout={layout} onSelect={setSelected} onClose={() => setSelected(null)} /> : null}
 			</div>
 		</div>
 	);

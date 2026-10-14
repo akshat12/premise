@@ -10,6 +10,7 @@ import { AbPanel, type AbResults } from "./components/AbPanel";
 import { SlidesCard, SlidesOverlay } from "./components/Slides";
 import { WorkloadList } from "./components/WorkloadList";
 import { WORKLOAD_LIST, workloadLines } from "./lib/workload";
+import { DRAWER_OUT_MS, usePresence } from "./lib/usePresence";
 import { browserMemory, isFirstVisit, rememberVisit } from "./lib/firstVisit";
 import { DispatchPanel } from "./components/DispatchPanel";
 import { Drawer } from "./components/Drawer";
@@ -574,7 +575,14 @@ export function App() {
 		seek(nudge === 1 ? Math.max(position + 1, target) : nudge === -1 ? Math.max(1, Math.min(position - 1, target)) : target);
 	};
 	// The workload's Intents, one line each, while its list is open in the details panel.
-	const workloadList = selected === WORKLOAD_LIST ? workloadLines(state.intents, callsignOf) : [];
+	// The details panel slides away when closed: it keeps showing what it showed until it has gone (usePresence).
+	const drawer = usePresence(!onResults && (selectedIntent !== undefined || selected === WORKLOAD_LIST) ? selected : null, DRAWER_OUT_MS);
+	const drawnIntent = drawer.shown === null || drawer.shown === WORKLOAD_LIST ? undefined : state.intents[drawer.shown];
+	const drawnDiff = useRef(diff);
+	if (!drawer.leaving) {
+		drawnDiff.current = diff;
+	}
+	const workloadList = drawer.shown === WORKLOAD_LIST ? workloadLines(state.intents, callsignOf) : [];
 	const toggleSelected = (id: IntentId) => setSelected((current) => (current === id ? null : id));
 	// A card that needs a person sits above the tape: floating over its corner, it would cover "now", the part being watched.
 	// Answering one takes the admin token. A visitor to the live board sees the question and not the buttons.
@@ -675,7 +683,7 @@ export function App() {
 			<Shortcuts open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
 			{slidesCard && tab === "demo" && !slidesOpen ? <SlidesCard onOpen={openSlides} onDismiss={() => setSlidesCard(false)} /> : null}
 			{slidesOpen ? <SlidesOverlay onClose={closeSlides} /> : null}
-			{(selectedIntent || selected === WORKLOAD_LIST) && !onResults ? <Drawer intent={selectedIntent} {...(selected === WORKLOAD_LIST ? { listing: { title: "Workload", sentence: `${workloadList.length} scripted Intents: small pre-written edits, with no agent and no model. Each goes through the ledger and the gate like an agent's work. Click one for its details.`, content: <WorkloadList lines={workloadList} onSelect={setSelected} /> } } : {})} {...(selectedIntent?.kind === "workload" ? { onBack: () => setSelected(WORKLOAD_LIST) } : {})} events={events} callsignOf={callsignOf} named={named} diff={diff} changesFrom={mode === "live" ? "live" : pastRun !== null ? "past-run" : "recording"} layout={layout} onSelect={setSelected} onClose={() => setSelected(null)} /> : null}
+			{drawer.shown !== null && (drawnIntent !== undefined || drawer.shown === WORKLOAD_LIST) ? <Drawer intent={drawnIntent} leaving={drawer.leaving} {...(drawer.shown === WORKLOAD_LIST ? { listing: { title: "Workload", sentence: `${workloadList.length} scripted Intents: small pre-written edits, with no agent and no model. Each goes through the ledger and the gate like an agent's work. Click one for its details.`, content: <WorkloadList lines={workloadList} onSelect={setSelected} /> } } : {})} {...(drawnIntent?.kind === "workload" ? { onBack: () => setSelected(WORKLOAD_LIST) } : {})} events={events} callsignOf={callsignOf} named={named} diff={drawnDiff.current} changesFrom={mode === "live" ? "live" : pastRun !== null ? "past-run" : "recording"} layout={layout} onSelect={setSelected} onClose={() => setSelected(null)} /> : null}
 		</div>
 	);
 }

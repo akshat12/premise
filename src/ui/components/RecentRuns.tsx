@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { RecentRuns as Runs } from "../../shared/runs";
 import { deleteRun } from "../lib/api";
+import { PANEL_OUT_MS, usePresence } from "../lib/usePresence";
 import { allScripted, type RunRow, runRows, runsHeadline } from "../lib/runs";
 import { PastRunPanel } from "./PastRunPanel";
 
@@ -88,6 +89,8 @@ export function RecentRuns({ onWatch, owner, token, onNeedToken }: RecentRunsPro
 		[token, onNeedToken],
 	);
 
+	// The side panel slides away when closed: it keeps showing its run until it has gone (usePresence).
+	const panel = usePresence(open, PANEL_OUT_MS);
 	const listed = runs === null ? null : { ...runs, past: runs.past.filter((run) => !removed.includes(run.id)) };
 	const rows = listed === null ? [] : runRows(listed, now);
 	const shown = all ? rows : rows.slice(0, SHOWN);
@@ -181,7 +184,7 @@ export function RecentRuns({ onWatch, owner, token, onNeedToken }: RecentRunsPro
 					{all ? "Show fewer" : `Show all ${rows.length}`}
 				</button>
 			) : null}
-			{open !== null ? <PastRunPanel run={open} onClose={() => setOpen(null)} {...(owner ? { onDelete: () => remove(open) } : {})} /> : null}
+			{panel.shown !== null ? <PastRunPanel run={panel.shown} leaving={panel.leaving} onClose={() => setOpen(null)} {...(owner && panel.shown !== null ? { onDelete: () => remove(panel.shown as RunRow) } : {})} /> : null}
 		</section>
 	);
 }

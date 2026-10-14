@@ -7,6 +7,7 @@ import type { ChangesFrom, DiffState } from "../lib/diff";
 import type { IntentView } from "../lib/reduce";
 import { OUTSIDE, symbolFile, symbolName, clampDrawerHeight, columnEdges, dragColumns, DRAWER_COLUMN_STEP, DRAWER_COLUMNS, DRAWER_MIN_HEIGHT, DRAWER_STEP, type Layout } from "../lib/view";
 import { Changes } from "./Changes";
+import { useEntered } from "../lib/usePresence";
 import { RaceIndicator, StatusMark } from "./Strip";
 
 // The timeline's colours are the lanes': green landed or passed, red stopped or failed, yellow being redone. Waiting is not a colour.
@@ -52,6 +53,8 @@ interface DrawerProps {
 	listing?: { title: string; sentence: string; content: React.ReactNode };
 	/** Shown for a workload Intent opened from the list: goes back to the list. */
 	onBack?: () => void;
+	/** It has been closed and is sliding away (see usePresence). */
+	leaving?: boolean;
 	events: readonly PremiseEvent[];
 	callsignOf: (id: IntentId) => string;
 	/** Rewrites Intent ids inside a message as callsigns. */
@@ -77,9 +80,11 @@ let rememberedColumns: number[] = [...DRAWER_COLUMNS];
 const COLUMN_NAMES = ["Why", "Relies on", "Timeline", "Changes"];
 
 /** The selected Intent in full: why it did what it did, what it relies on and where each premise came from, its story so far, and what it changed. */
-export function Drawer({ intent, listing, onBack, events, callsignOf, named, onSelect, onClose, diff, changesFrom = "live", layout = "wide" }: DrawerProps) {
+export function Drawer({ intent, listing, onBack, leaving = false, events, callsignOf, named, onSelect, onClose, diff, changesFrom = "live", layout = "wide" }: DrawerProps) {
 	// Reviewing: the Changes column has the whole drawer. It stays that way from one Intent to the next, until the drawer is closed.
 	const [reviewing, setReviewing] = useState(false);
+	// It slides in from off-screen on its first frames (useEntered), and back out while `leaving`.
+	const entered = useEntered();
 	const review = reviewing && diff !== undefined;
 	const premises = intent?.premises;
 	const groups = useMemo(() => groupPremises(premises ?? []), [premises]);
@@ -242,7 +247,7 @@ export function Drawer({ intent, listing, onBack, events, callsignOf, named, onS
 	});
 
 	return (
-		<section ref={section} className="drawer flex flex-col" data-review={review} data-dragging={dragging} style={height === null ? undefined : { height, maxHeight: "max(140px, calc(100dvh - 150px))" }} aria-label={intent ? `${callsignOf(intent.id)} details` : listing?.title}>
+		<section ref={section} className="drawer flex flex-col" data-shown={entered && !leaving} data-leaving={leaving} aria-hidden={leaving || undefined} data-review={review} data-dragging={dragging} style={height === null ? undefined : { height, maxHeight: "max(140px, calc(100dvh - 150px))" }} aria-label={intent ? `${callsignOf(intent.id)} details` : listing?.title}>
 			<div
 				className="drawer-handle"
 				role="separator"
