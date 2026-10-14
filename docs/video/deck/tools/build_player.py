@@ -81,7 +81,11 @@ section svg { display: block; flex: none; }
 @media (prefers-reduced-motion: reduce) { [data-build-in] { transition: none; } }
 #bar { position: absolute; left: 0; right: 0; bottom: 0; display: flex; align-items: center; gap: 16px; padding: 10px 16px; box-sizing: border-box; background: #14181d; border-top: 1px solid #2c333b; }
 #said { flex: 1; min-width: 0; margin: 0; font-size: 17px; line-height: 1.4; color: #e6e8e4; }
-#count { flex: none; font-family: 'Atkinson Hyperlegible Mono', 'Courier New', monospace; font-size: 13px; letter-spacing: 1px; color: #b6beb8; white-space: nowrap; }
+#count { flex: none; display: flex; align-items: center; gap: 6px; font-family: 'Atkinson Hyperlegible Mono', 'Courier New', monospace; font-size: 13px; letter-spacing: 1px; color: #b6beb8; white-space: nowrap; }
+/* The slide number can be typed over: Enter goes to that slide. */
+#jump { width: 3.2em; box-sizing: border-box; padding: 4px 6px; font: inherit; color: #f3f4f2; text-align: right; background: #232a31; border: 1px solid #3a424b; border-radius: 6px; }
+#jump:hover { border-color: #8d9690; }
+#jump:focus { outline: 2px solid #f08a4b; outline-offset: 1px; border-color: #f08a4b; }
 #bar button, #bar a { flex: none; font: inherit; font-size: 15px; color: #f3f4f2; background: #232a31; border: 1px solid #3a424b; border-radius: 6px; padding: 8px 14px; cursor: pointer; text-decoration: none; white-space: nowrap; }
 #bar button:hover:not(:disabled), #bar a:hover { border-color: #f08a4b; }
 #bar button:disabled { opacity: 0.4; cursor: default; }
@@ -98,7 +102,7 @@ __SLIDES__
 </div></div>
 <div id="bar">
 <p id="said" aria-live="polite"></p>
-<span id="count"></span>
+<label id="count" title="Type a slide number and press Enter"><span class="sr" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">Slide</span><input id="jump" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="3" autocomplete="off" aria-label="Slide number. Type one and press Enter to go there."><span id="total"></span></label>
 <button id="back" type="button" aria-label="Back one step">Back</button>
 <button id="next" type="button" aria-label="Next step">Next</button>
 <a id="leave" href="/">Open the demo</a>
@@ -185,7 +189,7 @@ const builds = sections.map((section) => [...section.querySelectorAll("[data-bui
 const last = builds.map((list) => Math.max(0, ...list.map(stepOf)));
 const embedded = new URLSearchParams(location.search).has("embed");
 const room = document.getElementById("room"), stage = document.getElementById("stage"), bar = document.getElementById("bar");
-const said = document.getElementById("said"), count = document.getElementById("count");
+const said = document.getElementById("said"), jump = document.getElementById("jump"), total = document.getElementById("total");
 const back = document.getElementById("back"), next = document.getElementById("next"), leave = document.getElementById("leave");
 let slide = 0, step = 0;
 
@@ -197,7 +201,8 @@ const show = (fresh) => {
 	if (fresh) { void stage.offsetWidth; }
 	const lines = SAID[slide];
 	said.textContent = lines.length === 1 ? lines[0] : lines[step] ?? "";
-	count.textContent = `${slide + 1} / ${sections.length}`;
+	if (document.activeElement !== jump) jump.value = String(slide + 1);
+	total.textContent = `/ ${sections.length}`;
 	back.disabled = slide === 0 && step === 0;
 	next.disabled = slide === sections.length - 1 && step === last[slide];
 	history.replaceState(null, "", `${location.pathname}${location.search}#${slide + 1}`);
@@ -224,8 +229,23 @@ const close = () => { if (embedded) parent.postMessage({ type: "premise-slides-c
 next.addEventListener("click", forward);
 back.addEventListener("click", backward);
 room.addEventListener("click", forward);
+// Going to a typed slide number: anything that is not a number of a slide puts the current one back.
+const goTo = (value) => {
+	const asked = Number(value);
+	if (Number.isInteger(asked) && asked >= 1 && asked <= sections.length && asked - 1 !== slide) { slide = asked - 1; step = 0; show(true); }
+	jump.value = String(slide + 1);
+};
+jump.addEventListener("click", (event) => event.stopPropagation());
+jump.addEventListener("focus", () => jump.select());
+jump.addEventListener("keydown", (event) => {
+	event.stopPropagation();
+	if (event.key === "Enter") { event.preventDefault(); goTo(jump.value.trim()); jump.blur(); }
+	else if (event.key === "Escape") { event.preventDefault(); jump.value = String(slide + 1); jump.blur(); }
+});
+jump.addEventListener("blur", () => { jump.value = String(slide + 1); });
 addEventListener("keydown", (event) => {
 	if (event.metaKey || event.ctrlKey || event.altKey) return;
+	if (event.target === jump) return;
 	const onControl = event.target instanceof HTMLElement && event.target.closest("button, a") !== null;
 	if (event.key === "ArrowRight" || event.key === "PageDown" || (event.key === " " && !onControl)) { event.preventDefault(); forward(); }
 	else if (event.key === "ArrowLeft" || event.key === "PageUp") { event.preventDefault(); backward(); }

@@ -27,7 +27,6 @@
 		"built",
 		"scaling",
 		"fits",
-		"honest",
 		"try"
 	],
 	"sections": {
@@ -44,7 +43,7 @@
 			"start": "agent4"
 		},
 		"s4": {
-			"description": "How it is built on Cloudflare, how it would scale up, where it would sit in a bigger system, the honest limits, and where to try it.",
+			"description": "How it is built on Cloudflare, how it would scale up, where it would sit in a bigger system, and where to try it.",
 			"start": "built"
 		}
 	},

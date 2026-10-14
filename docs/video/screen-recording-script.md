@@ -1,6 +1,6 @@
 # Script for the screen recording: slides, then the live site
 
-Read this one when you record with the slide deck. (`script.md` is the older cut that uses the site alone.) It is about 1,010 spoken words: about 7:40 at 150 words a minute and about 8:10 at 140, with the presses and the two visits to the site. The rules allow five to ten minutes, so rehearse once with a clock in view. If you are past 8:30 when you reach slide 18, press through it without speaking and go on to slide 19.
+Read this one when you record with the slide deck. (`script.md` is the older cut that uses the site alone.) It is about 920 spoken words: about 7:05 at 150 words a minute and about 7:35 at 140, with the presses and the two visits to the site. The rules allow five to ten minutes, so rehearse once with a clock in view. If you are past 8:30 when you reach slide 18, press through it without speaking and go on to slide 19.
 
 **How to read it**
 
@@ -15,10 +15,10 @@ Read this one when you record with the slide deck. (`script.md` is the older cut
 - Window 1: the deck, in Present mode, on slide 1.
 - Window 2: Chrome at `https://premise.akshatdivekar.workers.dev/`, page area 1440×900, on the **Demo** tab at "Step 01 / 07". (`shot-list.md` has the browser set-up, with one change: capture the whole screen, not the page area, because this take shows two windows. Put Chrome in full screen instead of using the DevTools device toolbar.) Switch between the two windows with `⌘Tab`.
 - Open `https://premise.akshatdivekar.workers.dev/?results` once beforehand. Check that the headline still says the last live runs each landed every agent, with nothing broken on trunk (slide 16 says "the recent live runs", so the number does not matter), and that a row under the top one that says "12 of 12" opens a panel when it is clicked (the top row, the run on the board now, goes to the Live tab instead; some rows are runs of 5 or 7 agents).
-- In Present mode, check that slide 15 is "At scale" and slide 19 is "In a bigger system" and slide 20 is "The honest part".
+- In Present mode, check that slide 15 is "At scale" and slide 19 is "In a bigger system" and slide 20 is "Try it".
 - Do not press **Start a run** during the take: a run takes three to four minutes.
 
-**Words to keep to.** Intent, changes, relies on, premise, re-derive, gate, trunk; Wait, Split, Depend. Say "Agent 1" to "Agent 4". "Premises are the early warning. The gate is the guarantee." is said once, on slide 20. Never say "race".
+**Words to keep to.** Intent, changes, relies on, premise, re-derive, gate, trunk; Wait, Split, Depend. Say "Agent 1" to "Agent 4". Never say "race".
 
 ---
 
@@ -252,7 +252,7 @@ You can run it yourself. On the Live tab, anyone can start a run of twelve scrip
 
 **[BACK TO THE SLIDES, THEN NEXT SLIDE]**
 
-## Part four: how it is built, and its limits (slides 17 to 21)
+## Part four: how it is built, and where it would sit (slides 17 to 20)
 
 ### Slide 17 · How it is built
 
@@ -300,17 +300,7 @@ Where would Premise sit in a bigger system? Tasks come in, and agents of any kin
 
 **[NEXT SLIDE]**
 
-### Slide 20 · The honest part
-
-One honest thing. Every agent so far was scripted. We also ran four tasks with a live model. The premise stopped Agent 4's first attempt, as before. But the model redid the work the same way, and it passed every test and landed.
-
-Premises are the early warning. The gate is the guarantee.
-
-Since then, the gate turns back a redo identical to the stopped work. A second run with the model still let one through. What we changed after that narrows the hole. It does not close it.
-
-**[NEXT SLIDE]**
-
-### Slide 21 · Try it
+### Slide 20 · Try it
 
 Git tracks what agents wrote. Premise tracks what they assumed. It is open source, built on Cloudflare Workers and Artifacts. Open it and press Next, or start a run on the Live tab.
 
