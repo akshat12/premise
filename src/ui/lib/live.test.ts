@@ -205,6 +205,9 @@ describe("startOffer", () => {
 	it("offers a start only when the Worker says one is allowed", () => {
 		expect(startOffer(status(), NOW, quiet)).toMatchObject({ ready: true, label: "Start a run" });
 		expect(startOffer(status({ lastStartAt: NOW - 600_000 }), NOW, quiet)).toMatchObject({ ready: true, label: "Start a new run" });
+		// How long a run takes depends on where the repos are: minutes on Artifacts, seconds in memory on a laptop.
+		expect(startOffer(status(), NOW, { ...quiet, store: "artifacts" }).note).toMatch(/three to four minutes/);
+		expect(startOffer(status(), NOW, { ...quiet, store: "memory" }).note).toMatch(/about fifteen seconds/);
 		for (const reason of ["off", "model", "running", "cooldown", "cap"] as const) {
 			expect(startOffer(status({ canStart: false, reason, nextAt: NOW + 60_000 }), NOW, quiet).ready, reason).toBe(false);
 		}

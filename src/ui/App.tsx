@@ -414,7 +414,7 @@ export function App() {
 		[liveStory, events, unreachable, loading, liveStarting, liveOver, control.store, control.status?.workload],
 	);
 	const liveStatus = useMemo(() => (control.status === null ? null : { ...control.status, starting: control.status.starting && liveStarting }), [control.status, liveStarting]);
-	const offer = startOffer(liveStatus, control.now, { asking: control.asking || (pressed && liveStarting), unreachable: control.unreachable });
+	const offer = startOffer(liveStatus, control.now, { asking: control.asking || (pressed && liveStarting), unreachable: control.unreachable, store: control.store });
 	// The board coming to rest, or being cleared, is news the last answer does not have.
 	const boardEmpty = events.length === 0;
 	useEffect(() => {

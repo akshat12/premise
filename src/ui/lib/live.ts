@@ -168,9 +168,10 @@ export interface StartOffer {
 /**
  * What the Start button says. `status` is null until the Worker has answered, and `unreachable`
  * when it could not be asked at all (a build served as plain files has no Worker behind it).
- * `now` is on the Worker's clock.
+ * `now` is on the Worker's clock. `store` is where the Worker keeps its repos: "memory" when it runs on
+ * someone's own machine, where a run takes seconds rather than minutes.
  */
-export function startOffer(status: LiveStatus | null, now: number, state: { asking: boolean; unreachable: boolean }): StartOffer {
+export function startOffer(status: LiveStatus | null, now: number, state: { asking: boolean; unreachable: boolean; store?: string | null }): StartOffer {
 	if (state.asking) {
 		return { ready: false, label: "Starting…", note: "" };
 	}
@@ -181,7 +182,7 @@ export function startOffer(status: LiveStatus | null, now: number, state: { aski
 	const failed = status.failed ? "The last run could not start. " : "";
 	// Readiness is the Worker's word and nothing else. The reason only chooses what to say when it is no.
 	if (status.canStart) {
-		return { ready: true, label: status.lastStartAt === null ? "Start a run" : "Start a new run", note: failed ? `${failed}Try again.` : "Anyone can start one. It takes three to four minutes." };
+		return { ready: true, label: status.lastStartAt === null ? "Start a run" : "Start a new run", note: failed ? `${failed}Try again.` : state.store === "memory" ? "Anyone can start one. Here, with repos in memory, it takes about fifteen seconds." : "Anyone can start one. It takes three to four minutes." };
 	}
 	switch (status.reason) {
 		case "off":
