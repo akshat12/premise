@@ -34,7 +34,7 @@ import { useLiveStatus } from "./lib/useLiveStatus";
 import { stepAt, storyFor } from "./lib/story";
 import { replayOffsets, timeAtClock } from "./lib/stream";
 import { fetchPastRun } from "./lib/pastRun";
-import { advanceTape, buildTape, positionAt } from "./lib/tape";
+import { advanceTape, followClock, buildTape, positionAt } from "./lib/tape";
 import { callsign, lanesOf, layoutFor, OUTSIDE } from "./lib/view";
 
 // Not /api/events/ws, which ad blockers refuse (see BOARD_HISTORY in worker/routes/events.ts).
@@ -261,7 +261,46 @@ export function App() {
 		frame = requestAnimationFrame(step);
 		return () => cancelAnimationFrame(frame);
 	}, [gliding, replayTimes, stream.position, stream.clock]);
-	const tape = useMemo(() => (gliding ? advanceTape(builtTape, glide) : builtTape), [builtTape, gliding, glide]);
+	// The Live tab: whether a run may be started. With no Worker to ask, there is no board to wait for either.
+	const control = useLiveStatus(mode === "live");
+	// The live board does the same against the Worker's clock: between events its "now" keeps moving
+	// instead of jumping to each event as it arrives (they come in bursts). How far the Worker's clock is
+	// ahead of this one is learnt from the live status and from the events themselves (an event cannot be
+	// newer than the Worker's clock when it arrives), keeping the largest lead seen, so the clock never steps back.
+	const lead = useRef<number | null>(null);
+	const learn = (sample: number) => {
+		lead.current = lead.current === null ? sample : Math.max(lead.current, sample);
+	};
+	const newestTs = events.at(-1)?.ts;
+	const runStart = events[0]?.ts;
+	useEffect(() => {
+		if (mode === "live" && newestTs !== undefined) {
+			learn(newestTs - Date.now());
+		}
+	}, [mode, newestTs]);
+	useEffect(() => {
+		if (mode === "live" && control.status !== null) {
+			learn(control.now - Date.now());
+		}
+	}, [mode, control.now, control.status]);
+	const [liveNow, setLiveNow] = useState(0);
+	// Only while something on the board is still moving. Once every Intent is at rest, "now" is the last event.
+	const liveGliding = mode === "live" && runStart !== undefined && !runOver(state.intents);
+	useEffect(() => {
+		if (!liveGliding || runStart === undefined) {
+			return;
+		}
+		let frame = 0;
+		const step = () => {
+			if (lead.current !== null) {
+				setLiveNow(Date.now() + lead.current - runStart);
+			}
+			frame = requestAnimationFrame(step);
+		};
+		frame = requestAnimationFrame(step);
+		return () => cancelAnimationFrame(frame);
+	}, [liveGliding, runStart]);
+	const tape = useMemo(() => (gliding ? advanceTape(builtTape, glide) : liveGliding ? followClock(builtTape, liveNow) : builtTape), [builtTape, gliding, glide, liveGliding, liveNow]);
 
 	// A new recording opens held on the story's first step. Coming back from the Live tab is the same
 	// recording started again by the stream (it shows nothing until told where to be), and it goes back
@@ -335,8 +374,6 @@ export function App() {
 		[state.intents, callsignOf],
 	);
 
-	// The Live tab: whether a run may be started. With no Worker to ask, there is no board to wait for either.
-	const control = useLiveStatus(mode === "live");
 	const unreachable = control.unreachable && !connected;
 	const replayDone = mode === "replay" && recording !== null && events.length >= (FRAME ?? recording.length) && recording.length > 0;
 	const loading = mode === "live" ? !connected && events.length === 0 && !unreachable : recording === null;

@@ -535,6 +535,18 @@ export function advanceTape(tape: Tape, now: number): Tape {
 	};
 }
 
+/**
+ * The live board's tape at `now` by the Worker's clock, which runs on between events: "now" and every
+ * open bar move with it, and the axis widens when "now" needs more room. The axis is always the one
+ * `now` itself would get, so a new event (which builds the tape again, at an earlier "now") never
+ * narrows it back. Never moves time backwards. Pure.
+ */
+export function followClock(tape: Tape, now: number): Tape {
+	const at = Math.max(now, tape.now);
+	const span = Math.max(tape.span, spanFor(at));
+	return advanceTape(span === tape.span ? tape : { ...tape, span, ticks: ticksFor(span) }, at);
+}
+
 /** A run longer than this is offered a closer view: on the whole-run axis its short bars are too thin to read. */
 export const ZOOM_FROM_MS = 600_000;
 /** The closer views: the last ten minutes, the last two. */

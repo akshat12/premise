@@ -4,7 +4,7 @@ import liveRun from "../../../demo/runs/live.json";
 import recording from "../fixtures/run-2026-10-09.json";
 import { readRecording } from "./recording";
 import { reduceAll } from "./reduce";
-import { buildTape, clock, positionAt, reliesOn, spanFor, ticksFor, advanceTape, type Tape, zoomTape } from "./tape";
+import { buildTape, clock, positionAt, reliesOn, spanFor, ticksFor, advanceTape, followClock, type Tape, zoomTape } from "./tape";
 
 const run = recording as PremiseEvent[];
 const tapeAt = (count: number) => {
@@ -412,3 +412,32 @@ describe("a long run, looked at closer", () => {
 	});
 });
 
+
+describe("followClock", () => {
+	const at = (ms: number) => ({ seq: ms, ts: 1_000_000 + ms });
+	const open = buildTape([{ ...at(0), t: "intent.created", intent: { id: "ia0000001", kind: "agent", taskId: "t01-x", status: "working", goal: "g", claims: [], premises: [], why: [] } } as never], {
+		ia0000001: { id: "ia0000001", kind: "agent", taskId: "t01-x", status: "working", goal: "g", claims: [], premises: [], why: [] } as never,
+	});
+
+	it("moves now and every open bar on with the clock, and never back", () => {
+		const later = followClock(open, 20_000);
+		expect(later.now).toBe(20_000);
+		const bars = later.rows.flatMap((row) => row.segments).filter((segment) => segment.open);
+		expect(bars.every((segment) => segment.to === 20_000)).toBe(true);
+		expect(followClock(later, 5_000).now).toBe(20_000);
+	});
+
+	it("widens the axis when now needs the room, the same axis the clock alone would get", () => {
+		expect(open.span).toBe(spanFor(0));
+		const late = followClock(open, 100_000);
+		expect(late.span).toBe(spanFor(100_000));
+		expect(late.ticks).toEqual(ticksFor(late.span));
+		expect(late.now / late.span).toBeLessThanOrEqual(0.95);
+	});
+
+	it("keeps a wider axis when the tape is built again at an earlier now", () => {
+		// A new event arrives: the tape is built at the event's time, which is behind the clock. The axis must not narrow.
+		const rebuilt = { ...open, now: 50_000, span: spanFor(50_000), ticks: ticksFor(spanFor(50_000)) };
+		expect(followClock(rebuilt, 100_000).span).toBe(spanFor(100_000));
+	});
+});
